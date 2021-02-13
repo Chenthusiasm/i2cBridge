@@ -1,0 +1,83 @@
+# General files to ignore; these must be manually added
+*.a
+*.bat
+*.dll
+*.log
+*.o
+*.orig
+*.py
+*.sh
+*.txt
+
+# Document files to ignore
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.pdf
+*.ppt
+*.pptx
+
+# PSoC Creator files to ignore
+*.cyacd
+*.cycdx
+*.cyfit
+*.cyprj.*
+*.cywrk.*
+*.old
+
+*.rpt
+*.svd
+*ComponentUpdateLog.txt
+*timing.html
+Cypress/
+*/Cypress/
+Backup/
+CortexM0/
+CortexM0p/
+Export/
+Generated_Source/
+codegentemp/
+
+# Ignore thumbnails created by windows
+Thumbs.db
+
+# Sublime Text workspace files to ignore
+*.sublime-workspace
+
+# Visual Studio files to ignore
+*.obj
+*.exe
+*.pdb
+*.user
+*.aps
+*.pch
+*.vspscc
+*_i.c
+*_p.c
+*.ncb
+*.suo
+*.tlb
+*.tlh
+*.bak
+*.cache
+*.ilk
+*.log
+[Bb]in
+[Dd]ebug*/
+*.lib
+*.sbr
+obj/
+[Rr]elease*/
+_ReSharper*/
+
+# SVN files to ignore
+.svn/
+
+# Generated files to ignore
+*.bin
+*.dld
+*.dlx
+*.elf
+*.hex
+*.rgn
