@@ -25,15 +25,21 @@
     #include <stdint.h>
     
     
+    // === TYPE DEFINES ========================================================
+    
+    typedef uint16_t (*I2CGen2_RxCallback)(uint8_t const*, uint16_t);
+    
     // === FUNCTIONS ===========================================================
     
     void i2cGen2_init(void);
     
-    void i2cGen2_processRx(void);
+    void i2cGen2_registerRxCallback(I2CGen2_RxCallback pCallback);
     
-    void i2cGen2_read(uint8_t address, uint8_t* target, uint16_t length);
+    bool i2cGen2_processRx(void);
     
-    void i2cGen2_write(uint8_t address, uint8_t* source, uint16_t length);
+    bool i2cGen2_read(uint8_t address, uint8_t* target, uint16_t length);
+    
+    bool i2cGen2_write(uint8_t address, uint8_t* source, uint16_t length);
     
     #ifdef __cplusplus
         }
