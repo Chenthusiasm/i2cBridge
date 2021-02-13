@@ -21,7 +21,9 @@
 
 void debug_init(void)
 {
-    debugUART_Start();
+    #if ACTIVE_DEBUG_UART
+        debugUART_Start();
+    #endif
     
     debug_setPin0(true);
     debug_setPin1(true);
