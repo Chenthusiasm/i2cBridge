@@ -17,56 +17,55 @@
 #include "hwSystemTime.h"
 
 
+// === DEFINES =================================================================
 
-
-// === PRIVATE_FUNCTIONS =======================================================
-
-
+/// Alias to get the current system time. Redefine to match what works for the
+/// system.
+#define GET_TIME_MS()                   (hwSystemTime_getCurrentMS())
 
 
 // === PUBLIC FUNCTIONS ========================================================
 
-void __attribute__((nonnull)) alarm_arm(Alarm volatile* pAlarm, uint32_t durationMS, AlarmType type)
+void __attribute__((nonnull)) alarm_arm(Alarm volatile* alarm, uint32_t durationMS, AlarmType type)
 {
-    pAlarm->durationMS = durationMS;
-    pAlarm->startTimeMS = hwSystemTime_getCurrentMS();
-    pAlarm->type = type;
-    pAlarm->armed = true;
+    alarm->durationMS = durationMS;
+    alarm->startTimeMS = GET_TIME_MS();
+    alarm->type = type;
+    alarm->armed = true;
 }
 
 
-void __attribute__((nonnull)) alarm_disarm(Alarm volatile* pAlarm)
+void __attribute__((nonnull)) alarm_disarm(Alarm volatile* alarm)
 {
-    pAlarm->armed = false;
-    pAlarm->durationMS = 0;
+    alarm->armed = false;
+    alarm->durationMS = 0;
 }
 
 
-bool __attribute__((nonnull)) alarm_hasElapsed(Alarm volatile* pAlarm)
+bool __attribute__((nonnull)) alarm_hasElapsed(Alarm volatile* alarm)
 {
     // Flag indicating if the alarm has elapsed; initialized to false (has not
     // fired yet) and the subsequent code will determine if it has fired (true).
     bool elapsed = false;
-    
-    if ((pAlarm->durationMS == 0 ) || (hwSystemTime_getCurrentMS() - pAlarm->startTimeMS >= pAlarm->durationMS))
+    if ((alarm->durationMS == 0 ) || (GET_TIME_MS() - alarm->startTimeMS >= alarm->durationMS))
     {
-        if (pAlarm->type == AlarmType_SingleNotification)
+        if (alarm->type == AlarmType_SingleNotification)
         {
-            if (pAlarm->armed)
+            if (alarm->armed)
             {
                 elapsed = true;
-                pAlarm->armed = false;
-                pAlarm->durationMS = 0;
+                alarm->armed = false;
+                alarm->durationMS = 0;
             }
         }
         else
         {
             elapsed = true;
-            pAlarm->durationMS = 0;
+            alarm->durationMS = 0;
         }
     }
-    
     return elapsed;
 }
+
 
 /* [] END OF FILE */

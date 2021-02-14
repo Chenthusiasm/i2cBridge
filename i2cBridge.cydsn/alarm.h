@@ -38,6 +38,7 @@
         /// queries checking if it has fired will indicate it hasn't until the
         /// user rearms the alarm.
         AlarmType_SingleNotification,
+        
     } AlarmType;
     
     
@@ -56,27 +57,28 @@
         
         // A oneShot timer reports expired only once.
         AlarmType   type;
+        
     } Alarm;
     
     
     // === FUNCTIONS ===========================================================
     
     /// Set and arm an alarm.
-    /// @param  pAlarm      Pointer to alarm to set.
+    /// @param  alarm       The alarm to set.
     /// @param  durationMS  Number of milliseconds after which this alarm should
     ///                     "fire".
     /// @param  type        The type of alarm.
-    void alarm_arm(Alarm volatile* pAlarm, uint32_t durationMS, AlarmType type);
+    void alarm_arm(Alarm volatile* alarm, uint32_t durationMS, AlarmType type);
     
-    /// Disarm an alarm.
-    /// @param pAlarm   Pointer to alarm to disarm.
-    void alarm_disarm(Alarm volatile* pAlarm);
+    /// Disarm an alarm. Also serves to initialize the alarm
+    /// @param alarm   The alarm to disarm.
+    void alarm_disarm(Alarm volatile* alarm);
     
     /// Check if an alarm has elapsed.
-    /// @param  pAlarm  Pointer to the alarm to check if it has elapsed.
+    /// @param  alarm  The alarm to check if it has elapsed.
     /// @return Whether the alarm has elapsed (true) or not (false).
     /// @note This function call will disarm the alarm if it has triggered.
-    bool alarm_hasElapsed(Alarm volatile* pAlarm);
+    bool alarm_hasElapsed(Alarm volatile* alarm);
     
     
     #ifdef __cplusplus
