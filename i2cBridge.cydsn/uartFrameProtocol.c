@@ -20,7 +20,7 @@
 #include "project.h"
 
 #include "hwSystemTime.h"
-//#include "hwUart.h"
+#include "queue.h"
 
 
 
@@ -35,13 +35,10 @@ typedef enum RxState_
     /// Inside a valid data frame, the data needs to be processed.
     RxState_InFrame,
     
-    /// Inside of a valid data frame but the Rx buffer has overflowed, so data
-    /// will be dropped.
-    RxState_InFrameOverflow,
-    
     /// An escape character occurred, interpret the next byte as data instead of
     /// a control byte.
-    RxState_EscapeCharacter,    
+    RxState_EscapeCharacter,
+    
 } RxState;
 
 
@@ -58,6 +55,7 @@ typedef enum ControlByte_
     /// Escape character. Interpret the next byte as data instead of a control
     /// byte.
     ControlByte_Escape                  = 0x55,
+    
 } ControlByte;
 
 
@@ -66,35 +64,36 @@ typedef enum BridgeCommand_
     /// Host to bridge ACK over UART.
     BridgeCommand_ACK                   = 'A',
     
-    /// Bridge to I2C slave ACK over I2C.
-    BridgeCommand_SlaveACK              = 'a',
-    
-    /// Bridge to I2C slave NACK over I2C.
-    BridgeAddress_SlaveNACK             = 'N',
-    
-    /// I2C communication timeout between bridge and I2C slave.
-    BridgeCommand_SlaveTimeout          = 'T',
-    
-    /// Bridge I2C write to I2C slave.
-    BridgeCommand_SlaveWrite            = 'W',
-    
-    /// Bridge I2C read from I2C slave.
-    BridgeCommand_SlaveRead             = 'R',
-    
-    /// Bridge reset.
-    BridgeCommand_Reset                 = 'r',
-    
-    /// Bridge version information.
-    BridgeCommand_Version               = 'V',
+    /// I2C slave error.
+    BridgeCommand_SlaveError            = 'E',
     
     /// Access the I2C slave address.
     BridgeCommand_SlaveAddress          = 'I',
     
-    /// I2C slave error.
-    BridgeCommand_SlaveError            = 'E',
+    /// Bridge to I2C slave NACK over I2C.
+    BridgeAddress_SlaveNACK             = 'N',
+    
+    /// Bridge I2C read from I2C slave.
+    BridgeCommand_SlaveRead             = 'R',
+    
+    /// I2C communication timeout between bridge and I2C slave.
+    BridgeCommand_SlaveTimeout          = 'T',
     
     /// Configures bridge to slave update mode.
     BridgeCommand_SlaveUpdate           = 'U',
+    
+    /// Bridge version information.
+    BridgeCommand_Version               = 'V',
+    
+    /// Bridge I2C write to I2C slave.
+    BridgeCommand_SlaveWrite            = 'W',
+    
+    /// Bridge to I2C slave ACK over I2C.
+    BridgeCommand_SlaveACK              = 'a',
+    
+    /// Bridge reset.
+    BridgeCommand_Reset                 = 'r',
+    
 } BridgeCommand;
 
 
@@ -154,7 +153,11 @@ static volatile uint32_t g_lastRxTimeMS = 0;
 
 /// Callback function that is invoked when data is received out of the frame
 /// state machine.
-static UartOutOfFrameRxCallback g_outOfFrameRxCallback = NULL;
+static UartFrameProtocol_RxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
+
+/// Callback function that is invoked when data is received but the receive
+/// buffer is not large enough to store it so the data overflowed.
+static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NULL;
 
 
 // === EXTERNS =================================================================
@@ -210,35 +213,89 @@ static bool requiresEscapeCharacter(uint8_t data)
 }
 
 
+/// Handle any byte in the processed via the receive state machine that would
+/// overflow because it doesn't fit in the receive buffer.
+/// @param[in]  data    The data byte that overflowed (didn't fit in the receive
+///                     buffer).
+static void handleRxFrameOverflow(uint8_t data)
+{
+    if (g_rxFrameOverflowCallback != NULL)
+        g_rxFrameOverflowCallback(data);
+}
+
+
 /// Processes the processed UART data (where the frame and escape characters are
 /// removed).
 /// @return If the UART command was successfully processed or not.
-static bool __attribute__((unused)) processCompletePacket(void)
+static bool processCompleteRxPacket(void)
 {
     bool status = false;
-    
-    // Make sure there's processed data in the receive buffer and there's at
-    // least a command.
-    if ((g_processedRxBufferValid) &&
-        (g_processedRxIndex > PacketOffset_BridgeCommand))
+    if ((g_processedRxBufferValid) && (g_processedRxIndex > PacketOffset_BridgeCommand))
     {
         uint8_t command = g_processedRxBuffer[PacketOffset_BridgeCommand];
-        
         switch (command)
         {
+            case BridgeCommand_ACK:
+            {
+                break;
+            }
+            
+            case BridgeCommand_SlaveError:
+            {
+                break;
+            }
+            
+            case BridgeCommand_SlaveAddress:
+            {
+                break;
+            }
+            
+            case BridgeAddress_SlaveNACK:
+            {
+                break;
+            }
+            
+            case BridgeCommand_SlaveRead:
+            {
+                break;
+            }
+            
+            case BridgeCommand_SlaveTimeout:
+            {
+                break;
+            }
+            
+            case BridgeCommand_SlaveUpdate:
+            {
+                break;
+            }
+            
+            case BridgeCommand_Version:
+            {
+                break;
+            }
+            
+            case BridgeCommand_SlaveWrite:
+            {
+                break;
+            }
+            
+            case BridgeCommand_SlaveACK:
+            {
+                break;
+            }
+            
+            case BridgeCommand_Reset:
+            {
+                break;
+            }
             
             default:
             {
-                // Send it along to the duraTOUCH library to process.
-                //int result = duraTOUCH_receive((char*)g_processedRxBuffer, g_processedRxIndex);
-                
-                //status = (result == 0);
-                
                 break;
             }
         }
     }
-    
     return status;
 }
 
@@ -250,23 +307,19 @@ static bool __attribute__((unused)) processCompletePacket(void)
 /// @param[in]  sourceSize      The size of the source buffer in bytes.
 /// @param[in]  sourceOffset    The offset to start parsing.
 /// @return The number of bytes that were processed.
-static uint16_t __attribute__((unused)) processReceivedData(uint8_t const* const pSource, uint16_t sourceSize, uint16_t sourceOffset)
+static uint16_t __attribute__((unused)) processReceivedData(uint8_t const source[], uint16_t sourceSize, uint16_t sourceOffset)
 {
     // Track the number of bytes that was processed.
     uint32_t size = 0;
     
     // Iterate through all the received bytes via UART.
-    uint32_t sourceIndex = 0;
     bool exit = false;
-    for (sourceIndex = sourceOffset; sourceIndex < sourceSize; ++sourceIndex)
+    for (uint32_t i = sourceOffset; i < sourceSize; ++i)
     {
-        // Check if we need to exit early.
         if (exit)
-        {
             break;
-        }
         
-        uint8_t data = pSource[sourceIndex];
+        uint8_t data = source[i];
         ++size;
         
         switch (g_rxState)
@@ -275,81 +328,46 @@ static uint16_t __attribute__((unused)) processReceivedData(uint8_t const* const
             {
                 if (data == ControlByte_StartFrame)
                 {                        
-                    // Reset the processed receive buffer parameters.
                     resetProcessedRxBufferParameters();
-                    
-                    // Transition to the next state.
                     g_rxState = RxState_InFrame;
                 }
-                else if (g_outOfFrameRxCallback != NULL)
-                {
-                    // Process the out of frame data.
-                    g_outOfFrameRxCallback((char)data);
-                }
+                else if (g_rxOutOfFrameCallback != NULL)
+                    g_rxOutOfFrameCallback(data);
                 break;
             }
             
             case RxState_InFrame:
-                // Fall through.
-            
-            case RxState_InFrameOverflow:
             {
                 if (isEscapeCharacter(data))
-                {
-                    // Transition to the next state.
                     g_rxState = RxState_EscapeCharacter;
-                }
                 else if (isEndFrameCharacter(data))
                 {
-                    
                     if (g_rxState == RxState_InFrame)
-                    {
                         g_processedRxBufferValid = true;
-                    }
-                    
-                    // Transition to the next state.
                     g_rxState = RxState_OutOfFrame;
-                    
                     exit = true;
                 }
                 else
                 {
-                    // Make sure the data will fit in the buffer.
+                    // Make sure the data will fit in the buffer before adding.
                     if (g_processedRxIndex < RX_BUFFER_SIZE)
-                    {
-                        // Place the data into the processed received buffer and
-                        // increment the processed receive buffer index.
                         g_processedRxBuffer[g_processedRxIndex++] = data;
-                    }
                     else
-                    {
-                        // For now, drop the data and put us in an overflow
-                        // state.
-                        g_rxState = RxState_InFrameOverflow;
-                    }
+                        handleRxFrameOverflow(data);
                 }
                 break;
             }
             
             case RxState_EscapeCharacter:
             {
-                // Make sure the data will fit in the buffer.
+                // Make sure the data will fit in the buffer before adding.
                 if (g_processedRxIndex < RX_BUFFER_SIZE)
                 {
-                    // Place the data into the processed received buffer and
-                    // increment the processed receive buffer index.
                     g_processedRxBuffer[g_processedRxIndex++] = data;
+                    g_rxState = RxState_InFrame;
                 }
                 else
-                {
-                    // For now, drop the data and put us in an overflow
-                    // state.
-                    g_rxState = RxState_InFrameOverflow;
-                }
-                
-                // Always transition back to the in frame state after processing
-                // the first byte after the escape character.
-                g_rxState = RxState_InFrame;
+                    handleRxFrameOverflow(data);
                 break;
             }
             
@@ -364,7 +382,6 @@ static uint16_t __attribute__((unused)) processReceivedData(uint8_t const* const
             }
         }
     }
-    
     return size;
 }
 
@@ -379,16 +396,21 @@ void uartFrameProtocol_init(void)
 }
 
 
-void uartFrameProtocol_registerOutOfFrameRxCallback(UartOutOfFrameRxCallback pCallback)
+void uartFrameProtocol_registerRxOutOfFrameCallback(UartFrameProtocol_RxOutOfFrameCallback callback)
 {
-    if (pCallback != NULL)
-    {
-        g_outOfFrameRxCallback = pCallback;
-    }
+    if (callback != NULL)
+        g_rxOutOfFrameCallback = callback;
 }
 
 
-uint16_t uartFrameProtocol_processRxData(uint8_t const* pBuffer, uint16_t bufferSize)
+void uartFrameProtocol_registerRxFrameOverflowCallback(UartFrameProtocol_RxFrameOverflowCallback callback)
+{
+    if (callback != NULL)
+        g_rxFrameOverflowCallback = callback;
+}
+
+
+uint16_t uartFrameProtocol_processRxData(uint8_t const data[], uint16_t size)
 {
     uint32_t receiveTimeMS = (uint32_t)hwSystemTime_getCurrentMS();
     
@@ -400,18 +422,18 @@ uint16_t uartFrameProtocol_processRxData(uint8_t const* pBuffer, uint16_t buffer
     }
     
     uint16_t processSize = 0;
-    if ((pBuffer != NULL) && (bufferSize > 0))
+    if ((data != NULL) && (size > 0))
     {
         uint16_t offset = 0;
-        while (offset < bufferSize)
+        while (offset < size)
         {
-            offset += processReceivedData(pBuffer, bufferSize, offset);
+            offset += processReceivedData(data, size, offset);
             
             // Check if there's a valid packet to process.
             if (g_processedRxBufferValid && (g_processedRxIndex > 0))
             {
-                // Process the packet.
-                processCompletePacket();
+                processCompleteRxPacket();
+                resetProcessedRxBufferParameters();
             }
         }
     }
@@ -423,52 +445,44 @@ uint16_t uartFrameProtocol_processRxData(uint8_t const* pBuffer, uint16_t buffer
 }
 
 
-uint16_t uartFrameProtocol_makeFormattedTxData(uint8_t const* pSource, uint16_t sourceLength, uint8_t* pTarget, uint16_t targetLength)
+uint16_t uartFrameProtocol_makeFormattedTxData(uint8_t const source[], uint16_t sourceSize, uint8_t target[], uint16_t targetSize)
 {
-    uint16_t targetIndex = 0;
+    uint16_t t = 0;
     
     // Check if the input parameters are valid.
-    if ((sourceLength > 0) && (pSource != NULL) && (targetLength > 0) && (pTarget != NULL))
+    if ((sourceSize > 0) && (source != NULL) && (targetSize > 0) && (target != NULL))
     {
         // Always put the start frame control byte in the beginning.
-        pTarget[targetIndex++] = ControlByte_StartFrame;
+        target[t++] = ControlByte_StartFrame;
         
         // Iterate through the source buffer and copy it into transmit buffer.
-        uint16_t sourceIndex;
-        for (sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex)
+        for (uint32_t s = 0; s < sourceSize; ++s)
         {
-            if (targetIndex > targetLength)
+            if (t > targetSize)
             {
-                targetIndex = 0;
+                t = 0;
                 break;
             }
-            uint8_t data = pSource[sourceIndex];
+            uint8_t data = source[s];
             
             // Check to see if an escape character is needed.
             if (requiresEscapeCharacter(data))
             {
-                pTarget[targetIndex++] = ControlByte_Escape;
-                if (targetIndex > targetLength)
+                target[t++] = ControlByte_Escape;
+                if (t > targetSize)
                 {
-                    targetIndex = 0;
+                    t = 0;
                     break;
                 }
             }
-            pTarget[targetIndex++] = data;
+            target[t++] = data;
         }
         
-        if ((targetIndex > 0) && (targetIndex < targetLength))
-        {
-            // Always put in the end frame control byte at the end.
-            pTarget[targetIndex++] = ControlByte_EndFrame;
-        }
+        if ((t > 0) && (t < targetSize))
+            target[t++] = ControlByte_EndFrame;
     }
-    
-    return targetIndex;
+    return t;
 }
-
-
-
 
 
 /* [] END OF FILE */

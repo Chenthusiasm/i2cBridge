@@ -33,13 +33,15 @@
     
     void i2cGen2_init(void);
     
-    void i2cGen2_registerRxCallback(I2CGen2_RxCallback pCallback);
+    void i2cGen2_registerRxCallback(I2CGen2_RxCallback callback);
     
     bool i2cGen2_processRx(void);
     
-    bool i2cGen2_read(uint8_t address, uint8_t* target, uint16_t length);
+    bool i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size);
     
-    bool i2cGen2_write(uint8_t address, uint8_t* source, uint16_t length);
+    bool i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size);
+    
+    bool i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size);
     
     #ifdef __cplusplus
         }

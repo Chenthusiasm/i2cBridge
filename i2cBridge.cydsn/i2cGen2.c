@@ -16,6 +16,8 @@
 
 #include "project.h"
 
+#include "queue.h"
+
 
 // === TYPE DEFINES ============================================================
 
@@ -150,15 +152,29 @@ bool i2cGen2_processRx(void)
 }
 
 
-bool i2cGen2_read(uint8_t address, uint8_t* target, uint16_t length)
+bool i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 {
-    return (slaveI2C_I2CMasterReadBuf(address, target, length, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
+    return (slaveI2C_I2CMasterReadBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
 }
 
 
-bool i2cGen2_write(uint8_t address, uint8_t* source, uint16_t length)
+bool i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 {
-    return (slaveI2C_I2CMasterWriteBuf(address, source, length, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
+    return (slaveI2C_I2CMasterWriteBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
+}
+
+
+bool i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
+{
+    bool status = false;
+    if ((data != NULL) && (size > 2))
+    {
+        uint8_t address = data[0];
+        uint8_t* payload = &data[1];
+        size--;
+        status = i2cGen2_write(address, payload, size);
+    }
+    return status;
 }
 
 
