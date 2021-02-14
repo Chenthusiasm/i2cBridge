@@ -14,8 +14,6 @@
 
 #include "bridgeStateMachine.h"
 
-#include "project.h"
-
 
 // === TYPE DEFINES ============================================================
 

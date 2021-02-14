@@ -14,8 +14,9 @@
 
 #include "i2cGen2.h"
 
-#include "project.h"
+#include <stdio.h>
 
+#include "project.h"
 #include "queue.h"
 
 
@@ -46,17 +47,17 @@ typedef enum AppBufferOffset_
 // === CONSTANTS ===============================================================
 
 // Address of the slave I2C device.
-uint8_t const G_Address = 0x48;
+static uint8_t const G_Address = 0x48;
 
-uint8_t const G_AppPacketLength = AppPacketOffset_Length + 1;
+static uint8_t const G_AppPacketLength = AppPacketOffset_Length + 1;
 
-uint8_t const G_InvalidAppPacketLength = 0xff;
+static uint8_t const G_InvalidAppPacketLength = 0xff;
 
 /// The default amount of time to allow for a I2C stop condition to be sent
 /// before timing out. If a time out occurs, the I2C module is reset.
-uint32_t const G_DefaultSendStopTimeout = 5u;
+static uint32_t const G_DefaultSendStopTimeout = 5u;
 
-uint8_t const G_ClearIRQPacket[CLEAR_IRQ_PACKET_SIZE] = { AppBufferOffset_Response, 0 };
+static uint8_t const G_ClearIRQPacket[CLEAR_IRQ_PACKET_SIZE] = { AppBufferOffset_Response, 0 };
 
 
 // === GLOBALS =================================================================
@@ -154,25 +155,33 @@ bool i2cGen2_processRx(void)
 
 bool i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 {
-    return (slaveI2C_I2CMasterReadBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
+    bool status = false;
+    if ((data != NULL) && (size > 0))
+        status = (slaveI2C_I2CMasterReadBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
+    return status;
 }
 
 
 bool i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 {
-    return (slaveI2C_I2CMasterWriteBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
+    bool status = false;
+    if ((data != NULL) && (size > 0))
+        status = (slaveI2C_I2CMasterWriteBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
+    return status;
 }
 
 
 bool i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
 {
+    static uint8_t const MinSize = 2u;
+    static uint8_t const AddressOffset = 0u;
+    static uint8_t const DataOffset = 1u;
+    
     bool status = false;
-    if ((data != NULL) && (size > 2))
+    if ((data != NULL) && (size > MinSize))
     {
-        uint8_t address = data[0];
-        uint8_t* payload = &data[1];
         size--;
-        status = i2cGen2_write(address, payload, size);
+        status = i2cGen2_write(data[AddressOffset], &data[DataOffset], size);
     }
     return status;
 }

@@ -14,6 +14,8 @@
 
 #include "alarm.h"
 
+#include <stdio.h>
+
 #include "hwSystemTime.h"
 
 
@@ -26,23 +28,26 @@
 
 // === PUBLIC FUNCTIONS ========================================================
 
-void __attribute__((nonnull)) alarm_arm(Alarm volatile* alarm, uint32_t durationMS, AlarmType type)
+void alarm_arm(Alarm volatile* alarm, uint32_t durationMS, AlarmType type)
 {
-    alarm->durationMS = durationMS;
-    alarm->startTimeMS = GET_TIME_MS();
-    alarm->type = type;
-    alarm->armed = true;
+    if (alarm != NULL)
+    {
+        alarm->durationMS = durationMS;
+        alarm->startTimeMS = GET_TIME_MS();
+        alarm->type = type;
+        alarm->armed = true;
+    }
 }
 
 
-void __attribute__((nonnull)) alarm_disarm(Alarm volatile* alarm)
+void alarm_disarm(Alarm volatile* alarm)
 {
     alarm->armed = false;
     alarm->durationMS = 0;
 }
 
 
-bool __attribute__((nonnull)) alarm_hasElapsed(Alarm volatile* alarm)
+bool alarm_hasElapsed(Alarm volatile* alarm)
 {
     // Flag indicating if the alarm has elapsed; initialized to false (has not
     // fired yet) and the subsequent code will determine if it has fired (true).

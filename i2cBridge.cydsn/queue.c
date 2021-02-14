@@ -14,7 +14,8 @@
 
 #include "queue.h"
 
-#include "project.h"
+#include <stdio.h>
+#include <string.h>
 
 
 // === PRIVATE FUNCTIONS =======================================================
@@ -53,7 +54,7 @@ bool queue_isEmpty(Queue const volatile* queue)
 }
 
 
-bool queue_enqueue(Queue volatile* queue, uint8_t* pData, uint16_t length)
+bool queue_enqueue(Queue volatile* queue, uint8_t* data, uint16_t length)
 {
     bool status = false;
     if (!queue_isFull(queue))
@@ -61,10 +62,10 @@ bool queue_enqueue(Queue volatile* queue, uint8_t* pData, uint16_t length)
         uint16_t offset = getEnqueueDataOffset(queue);
         if ((offset + length) <= queue->dataSize)
         {
-            QueueEntry* pTail = &queue->queue[queue->tail];
-            pTail->dataOffset = offset;
-            pTail->dataSize = length;
-            memcpy( pTail, pData, length);
+            QueueEntry* tail = &queue->queue[queue->tail];
+            tail->dataOffset = offset;
+            tail->dataSize = length;
+            memcpy(tail, data, length);
             queue->size++;
             queue->tail++;
             if (queue->tail >= queue->queueSize)
@@ -76,9 +77,9 @@ bool queue_enqueue(Queue volatile* queue, uint8_t* pData, uint16_t length)
 }
 
 
-uint16_t queue_dequeue(Queue volatile* queue, uint8_t** ppData)
+uint16_t queue_dequeue(Queue volatile* queue, uint8_t** data)
 {
-    uint16_t length = queue_peak(queue, ppData);
+    uint16_t length = queue_peak(queue, data);
     if (length > 0)
     {
         queue->size--;
@@ -90,13 +91,13 @@ uint16_t queue_dequeue(Queue volatile* queue, uint8_t** ppData)
 }
 
 
-uint16_t queue_peak(Queue const volatile* queue, uint8_t** ppData)
+uint16_t queue_peak(Queue const volatile* queue, uint8_t** data)
 {
     uint16_t length = 0;
-    *ppData = NULL;
+    *data = NULL;
     if (!queue_isEmpty(queue))
     {
-        *ppData = &queue->pData[queue->queue[queue->head].dataOffset];
+        *data = &queue->pData[queue->queue[queue->head].dataOffset];
         length = queue->queue[queue->head].dataSize;
     }
     

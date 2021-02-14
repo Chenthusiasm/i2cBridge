@@ -17,8 +17,6 @@
 #include "project.h"
 
 
-
-
 // === DEFINES =================================================================
 
 /// The default initial current time in milliseconds.

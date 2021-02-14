@@ -16,13 +16,14 @@
     #include <stdbool.h>
 #endif
 #include <stdint.h>
-
-#include "project.h"
+#include <stdio.h>
+#include <string.h>
 
 #include "bridgeStateMachine.h"
 #include "debug.h"
 #include "hwSystemTime.h"
 #include "i2cGen2.h"
+#include "project.h"
 #include "uartFrameProtocol.h"
 
 

@@ -17,8 +17,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "project.h"
-
 #include "hwSystemTime.h"
 #include "queue.h"
 

@@ -72,11 +72,11 @@
     
     bool queue_isEmpty(Queue const volatile* queue);
     
-    bool queue_enqueue(Queue volatile* queue, uint8_t* pData, uint16_t length);
+    bool queue_enqueue(Queue volatile* queue, uint8_t* data, uint16_t size);
     
-    uint16_t queue_dequeue(Queue volatile* queue, uint8_t** ppData);
+    uint16_t queue_dequeue(Queue volatile* queue, uint8_t** data);
     
-    uint16_t queue_peak(Queue const volatile* queue, uint8_t** ppData);
+    uint16_t queue_peak(Queue const volatile* queue, uint8_t** data);
     
     
     #ifdef __cplusplus
