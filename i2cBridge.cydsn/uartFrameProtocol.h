@@ -76,6 +76,8 @@
     ///         data.
     uint16_t uartFrameProtocol_makeFormattedTxData(uint8_t const source[], uint16_t sourceSize, uint8_t target[], uint16_t targetSize);
     
+    uint16_t uartFrameProtocol_processTx(void);
+    
     
     #ifdef __cplusplus
         } // extern "C"

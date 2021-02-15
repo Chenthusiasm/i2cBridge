@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "hwSystemTime.h"
+#include "project.h"
 #include "queue.h"
 
 
@@ -127,6 +128,12 @@ typedef struct TxQueueElement_
 /// The size of the processed and pending receive buffer for UART transactions.
 #define RX_BUFFER_SIZE                      (512u)
 
+#define TX_QUEUE_ENTRIES_SIZE               (16u)
+
+#define TX_QUEUE_DATA_SIZE                  (1024u)
+
+
+
 
 // === GLOBALS =================================================================
 
@@ -156,6 +163,21 @@ static UartFrameProtocol_RxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
 /// Callback function that is invoked when data is received but the receive
 /// buffer is not large enough to store it so the data overflowed.
 static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NULL;
+
+static QueueEntry g_txQueueEntries[TX_QUEUE_ENTRIES_SIZE];
+
+static uint8_t g_txQueueData[TX_QUEUE_DATA_SIZE];
+
+static Queue g_txQueue =
+{
+    g_txQueueData,
+    g_txQueueEntries,
+    TX_QUEUE_DATA_SIZE,
+    TX_QUEUE_ENTRIES_SIZE,
+    0,
+    0,
+    0
+};
 
 
 // === EXTERNS =================================================================
@@ -305,7 +327,7 @@ static bool processCompleteRxPacket(void)
 /// @param[in]  sourceSize      The size of the source buffer in bytes.
 /// @param[in]  sourceOffset    The offset to start parsing.
 /// @return The number of bytes that were processed.
-static uint16_t __attribute__((unused)) processReceivedData(uint8_t const source[], uint16_t sourceSize, uint16_t sourceOffset)
+static uint16_t processReceivedData(uint8_t const source[], uint16_t sourceSize, uint16_t sourceOffset)
 {
     // Track the number of bytes that was processed.
     uint32_t size = 0;
@@ -384,13 +406,19 @@ static uint16_t __attribute__((unused)) processReceivedData(uint8_t const source
 }
 
 
+void resetTxQueue(void)
+{
+    queue_empty(&g_txQueue);
+}
+
+
 // === PUBLIC FUNCTIONS ========================================================
 
 void uartFrameProtocol_init(void)
 {
-    // Initialize global variables.
     g_rxState = RxState_OutOfFrame;
     resetProcessedRxBufferParameters();
+    resetTxQueue();
 }
 
 
@@ -414,10 +442,7 @@ uint16_t uartFrameProtocol_processRxData(uint8_t const data[], uint16_t size)
     
     // Check if we haven't received data in a while.
     if ((uint32_t)(receiveTimeMS - g_lastRxTimeMS) > RX_RESET_TIMEOUT_MS)
-    {
-        // Reset the receive state machine.
         uartFrameProtocol_init();
-    }
     
     uint16_t processSize = 0;
     if ((data != NULL) && (size > 0))
@@ -480,6 +505,20 @@ uint16_t uartFrameProtocol_makeFormattedTxData(uint8_t const source[], uint16_t 
             target[t++] = ControlByte_EndFrame;
     }
     return t;
+}
+
+
+uint16_t uartFrameProtocol_processTx(void)
+{
+    uint16_t size = 0;
+    if (!queue_isEmpty(&g_txQueue))
+    {
+        uint8_t* data;
+        size = queue_dequeue(&g_txQueue, &data);
+        for (uint32_t i = 0; i < size; ++i)
+            hostUART_UartPutChar(data[i]);
+    }
+    return size;
 }
 
 

@@ -43,11 +43,11 @@
         /// Data array that holds the raw data of each member of the queue.
         uint8_t* pData;
         
-        /// The size of the data array.
-        uint16_t dataSize;
-        
         /// Array of entries in the queue.
         QueueEntry* queue;
+        
+        /// The size of the data array.
+        uint16_t dataSize;
         
         /// The size of the array of entries (the max number of entries
         /// possible).
