@@ -54,7 +54,7 @@ bool queue_isEmpty(Queue const volatile* queue)
 }
 
 
-bool queue_enqueue(Queue volatile* queue, uint8_t* data, uint16_t length)
+bool queue_enqueue(Queue volatile* queue, uint8_t const* data, uint16_t length)
 {
     bool status = false;
     if (!queue_isFull(queue))

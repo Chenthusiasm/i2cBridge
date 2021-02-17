@@ -72,7 +72,7 @@
     
     bool queue_isEmpty(Queue const volatile* queue);
     
-    bool queue_enqueue(Queue volatile* queue, uint8_t* data, uint16_t size);
+    bool queue_enqueue(Queue volatile* queue, uint8_t const* data, uint16_t size);
     
     uint16_t queue_dequeue(Queue volatile* queue, uint8_t** data);
     

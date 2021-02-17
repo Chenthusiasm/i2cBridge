@@ -58,6 +58,20 @@ typedef enum ControlByte_
 } ControlByte;
 
 
+/// Defines the type of the bridge packet.
+typedef enum Type_
+{
+    /// Command.
+    Type_Command                        = 0x01,
+    
+    /// Data. Not used.
+    Type_Data                           = 0x02,
+    
+    /// Command data. Not used.
+    Type_DataCommand                    = 0x04,
+} Type;
+
+
 typedef enum BridgeCommand_
 {
     /// Host to bridge ACK over UART.
@@ -244,6 +258,13 @@ static void handleRxFrameOverflow(uint8_t data)
 }
 
 
+static void txEnqueueCommand(uint8_t command)
+{
+    uint8_t data[] = { ControlByte_Escape, command };
+    queue_enqueue(&g_txQueue, data, sizeof(data));
+}
+
+
 /// Processes the processed UART data (where the frame and escape characters are
 /// removed).
 /// @return If the UART command was successfully processed or not.
@@ -257,16 +278,19 @@ static bool processCompleteRxPacket(void)
         {
             case BridgeCommand_ACK:
             {
+                txEnqueueCommand(BridgeCommand_ACK);
                 break;
             }
             
             case BridgeCommand_SlaveError:
             {
+                // [TODO]: send last slave device error.
                 break;
             }
             
             case BridgeCommand_SlaveAddress:
             {
+                // [TODO]: modify the slave address.
                 break;
             }
             
@@ -307,6 +331,7 @@ static bool processCompleteRxPacket(void)
             
             case BridgeCommand_Reset:
             {
+                CySoftwareReset();
                 break;
             }
             
