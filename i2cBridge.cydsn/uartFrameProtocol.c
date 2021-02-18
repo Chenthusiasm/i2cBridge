@@ -58,17 +58,17 @@ typedef enum ControlByte_
 } ControlByte;
 
 
-/// Defines the type of the bridge packet.
-typedef enum Type_
+/// Defines the type flag of the bridge packet.
+typedef enum TypeFlag_
 {
     /// Command.
-    Type_Command                        = 0x01,
+    TypeFlag_Command                    = 0x01,
     
-    /// Data. Not used.
-    Type_Data                           = 0x02,
+    /// Data.
+    TypeFlag_Data                       = 0x02,
     
-    /// Command data. Not used.
-    Type_DataCommand                    = 0x04,
+    /// Command data.
+    TypeFlag_DataCommand                = 0x04,
 } Type;
 
 
@@ -194,9 +194,6 @@ static Queue g_txQueue =
 };
 
 
-// === EXTERNS =================================================================
-
-
 // === PRIVATE FUNCTIONS =======================================================
 
 /// Sets all the global variables pertaining to the processed receive buffer to
@@ -258,9 +255,8 @@ static void handleRxFrameOverflow(uint8_t data)
 }
 
 
-static void txEnqueueCommand(uint8_t command)
+static void txEnqueueCommand(uint8_t command, uint8_t typeFlag, uint8_t const data[], uint16_t dataSize)
 {
-    uint8_t data[] = { ControlByte_Escape, command };
     queue_enqueue(&g_txQueue, data, sizeof(data));
 }
 
@@ -278,7 +274,7 @@ static bool processCompleteRxPacket(void)
         {
             case BridgeCommand_ACK:
             {
-                txEnqueueCommand(BridgeCommand_ACK);
+                //txEnqueueCommand(BridgeCommand_ACK);
                 break;
             }
             
@@ -493,6 +489,20 @@ uint16_t uartFrameProtocol_processRxData(uint8_t const data[], uint16_t size)
 }
 
 
+uint16_t uartFrameProtocol_processTx(void)
+{
+    uint16_t size = 0;
+    if (!queue_isEmpty(&g_txQueue))
+    {
+        uint8_t* data;
+        size = queue_dequeue(&g_txQueue, &data);
+        for (uint32_t i = 0; i < size; ++i)
+            hostUART_UartPutChar(data[i]);
+    }
+    return size;
+}
+
+
 uint16_t uartFrameProtocol_makeFormattedTxData(uint8_t const source[], uint16_t sourceSize, uint8_t target[], uint16_t targetSize)
 {
     uint16_t t = 0;
@@ -530,20 +540,6 @@ uint16_t uartFrameProtocol_makeFormattedTxData(uint8_t const source[], uint16_t 
             target[t++] = ControlByte_EndFrame;
     }
     return t;
-}
-
-
-uint16_t uartFrameProtocol_processTx(void)
-{
-    uint16_t size = 0;
-    if (!queue_isEmpty(&g_txQueue))
-    {
-        uint8_t* data;
-        size = queue_dequeue(&g_txQueue, &data);
-        for (uint32_t i = 0; i < size; ++i)
-            hostUART_UartPutChar(data[i]);
-    }
-    return size;
 }
 
 
