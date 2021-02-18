@@ -27,15 +27,15 @@
     
     // === TYPEDEFINES =========================================================
     
-    /// Type define for the receive callback function that should be invoked
-    /// when data is received out of frame (therefore, don't process it in the
+    /// Definition of the receive callback function that should be invoked when
+    /// data is received out of frame (therefore, don't process it in the
     /// context of the framing).  Note that the callback function should copy
     /// the received data into its own buffer.
     typedef bool (*UartFrameProtocol_RxOutOfFrameCallback)(uint8_t);
     
-    /// Type define for the receive callback function that should be invoked
-    /// when data is received but the receive buffer has overflowed. Perform
-    /// some error handling/messaging in the callback function.
+    /// Definition of the receive callback function that should be invoked when
+    /// data is received but the receive buffer has overflowed. Perform some
+    /// error handling/messaging in the callback function.
     typedef bool (*UartFrameProtocol_RxFrameOverflowCallback)(uint8_t);
     
     
@@ -74,7 +74,7 @@
     ///         to transmit.  If 0, then the source buffer was either invalid or
     ///         there's not enough bytes in target buffer to store the formatted
     ///         data.
-    uint16_t uartFrameProtocol_makeFormattedTxData(uint8_t const source[], uint16_t sourceSize, uint8_t target[], uint16_t targetSize);
+    uint16_t uartFrameProtocol_makeFormattedTxData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize);
     
     uint16_t uartFrameProtocol_processTx(void);
     

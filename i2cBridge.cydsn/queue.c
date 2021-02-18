@@ -25,8 +25,8 @@ uint16_t getEnqueueDataOffset(Queue const volatile* queue)
     uint16_t offset = 0;
     if (!queue_isEmpty(queue))
     {
-        uint16_t index = (queue->tail + queue->queueSize) % queue->queueSize;
-        offset = queue->queue[index].dataOffset + queue->queue[index].dataSize;
+        uint16_t index = (queue->tail + queue->maxSize) % queue->maxSize;
+        offset = queue->elements[index].dataOffset + queue->elements[index].dataSize;
     }
     return offset;
 }
@@ -42,35 +42,66 @@ void queue_empty(Queue volatile* queue)
 }
 
 
+void queue_registerEnqueueCallback(Queue volatile* queue, Queue_EnqueueCallback callback)
+{
+    if ((queue != NULL) && (callback != NULL))
+        queue->enqueueCallback = callback;
+}
+    
+
+void queue_deregisterEnqueueCallback(Queue volatile* queue)
+{
+    if (queue != NULL)
+        queue->enqueueCallback = NULL;
+}
+
+    
 bool queue_isFull(Queue const volatile* queue)
 {
-    return (queue->size == queue->queueSize);
+    bool status = false;
+    if (queue != NULL)
+        status = (queue->size == queue->maxSize);
+    return status;
 }
 
 
 bool queue_isEmpty(Queue const volatile* queue)
 {
-    return (queue->size == 0);
+    bool status = false;
+    if (queue != NULL)
+        status = (queue->size == 0);
+    return status;
 }
 
 
-bool queue_enqueue(Queue volatile* queue, uint8_t const* data, uint16_t length)
+bool queue_enqueue(Queue volatile* queue, uint8_t const* data, uint16_t size)
 {
     bool status = false;
-    if (!queue_isFull(queue))
+    if ((queue != NULL) && (data != NULL) && (size > 0) && !queue_isFull(queue))
     {
         uint16_t offset = getEnqueueDataOffset(queue);
-        if ((offset + length) <= queue->dataSize)
+        if ((offset + size) <= queue->maxDataSize)
         {
-            QueueEntry* tail = &queue->queue[queue->tail];
-            tail->dataOffset = offset;
-            tail->dataSize = length;
-            memcpy(tail, data, length);
-            queue->size++;
-            queue->tail++;
-            if (queue->tail >= queue->queueSize)
-                queue->tail = 0;
-            status = true;
+            QueueElement* tail = &queue->elements[queue->tail];
+            
+            uint16_t enqueueSize = size;
+            if (queue->enqueueCallback != NULL)
+                enqueueSize = queue->enqueueCallback(&queue->data[offset], queue->maxDataSize - offset, data, size);
+            else
+                memcpy(&queue->data[offset], data, size);
+            
+            // The enqueue is successful if enqueueSize > 0; if this is the
+            // case, update the queue to incdicate a successful enqueue.
+            if (enqueueSize > 0)
+            {
+                tail->dataOffset = offset;
+                tail->dataSize = size;
+                queue->size++;
+                queue->tail++;
+                if (queue->tail >= queue->maxSize)
+                    queue->tail = 0;
+                status = true;
+            }
         }
     }
     return status;
@@ -84,7 +115,7 @@ uint16_t queue_dequeue(Queue volatile* queue, uint8_t** data)
     {
         queue->size--;
         queue->head++;
-        if (queue->head >= queue->queueSize)
+        if (queue->head >= queue->maxSize)
             queue->head = 0;
     }
     return length;
@@ -94,13 +125,12 @@ uint16_t queue_dequeue(Queue volatile* queue, uint8_t** data)
 uint16_t queue_peak(Queue const volatile* queue, uint8_t** data)
 {
     uint16_t length = 0;
-    *data = NULL;
-    if (!queue_isEmpty(queue))
+    if ((queue != NULL) && (data != NULL) && !queue_isEmpty(queue))
     {
-        *data = &queue->pData[queue->queue[queue->head].dataOffset];
-        length = queue->queue[queue->head].dataSize;
+        *data = NULL;
+        *data = &queue->data[queue->elements[queue->head].dataOffset];
+        length = queue->elements[queue->head].dataSize;
     }
-    
     return length;
 }
 

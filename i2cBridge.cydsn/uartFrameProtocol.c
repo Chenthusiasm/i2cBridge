@@ -178,14 +178,15 @@ static UartFrameProtocol_RxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
 /// buffer is not large enough to store it so the data overflowed.
 static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NULL;
 
-static QueueEntry g_txQueueEntries[TX_QUEUE_ENTRIES_SIZE];
+static QueueElement g_txQueueElements[TX_QUEUE_ENTRIES_SIZE];
 
 static uint8_t g_txQueueData[TX_QUEUE_DATA_SIZE];
 
 static Queue g_txQueue =
 {
     g_txQueueData,
-    g_txQueueEntries,
+    g_txQueueElements,
+    NULL,
     TX_QUEUE_DATA_SIZE,
     TX_QUEUE_ENTRIES_SIZE,
     0,
@@ -257,7 +258,7 @@ static void handleRxFrameOverflow(uint8_t data)
 
 static void txEnqueueCommand(uint8_t command, uint8_t typeFlag, uint8_t const data[], uint16_t dataSize)
 {
-    queue_enqueue(&g_txQueue, data, sizeof(data));
+    queue_enqueue(&g_txQueue, data, dataSize);
 }
 
 
@@ -503,7 +504,7 @@ uint16_t uartFrameProtocol_processTx(void)
 }
 
 
-uint16_t uartFrameProtocol_makeFormattedTxData(uint8_t const source[], uint16_t sourceSize, uint8_t target[], uint16_t targetSize)
+uint16_t uartFrameProtocol_makeFormattedTxData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
 {
     uint16_t t = 0;
     
