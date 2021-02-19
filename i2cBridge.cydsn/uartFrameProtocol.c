@@ -434,6 +434,58 @@ void resetTxQueue(void)
 }
 
 
+/// Generates the formatted data to transmit out.  The formatted data to
+/// transmit will have the 0xaa frame characters and escape characters as
+/// necessary.
+/// @param[in]  source      The source buffer.
+/// @param[in]  sourceSize  The number of bytes in the source.
+/// @param[out] target      The target buffer (where the formatted data is
+///                         stored).
+/// @param[in]  targetSize  The number of bytes available in the target.
+/// @return The number of bytes in the target buffer or the number of bytes
+///         to transmit.  If 0, then the source buffer was either invalid or
+///         there's not enough bytes in target buffer to store the formatted
+///         data.
+uint16_t formatTxData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
+{
+    uint16_t t = 0;
+    
+    // Check if the input parameters are valid.
+    if ((sourceSize > 0) && (source != NULL) && (targetSize > 0) && (target != NULL))
+    {
+        // Always put the start frame control byte in the beginning.
+        target[t++] = ControlByte_StartFrame;
+        
+        // Iterate through the source buffer and copy it into transmit buffer.
+        for (uint32_t s = 0; s < sourceSize; ++s)
+        {
+            if (t > targetSize)
+            {
+                t = 0;
+                break;
+            }
+            uint8_t data = source[s];
+            
+            // Check to see if an escape character is needed.
+            if (requiresEscapeCharacter(data))
+            {
+                target[t++] = ControlByte_Escape;
+                if (t > targetSize)
+                {
+                    t = 0;
+                    break;
+                }
+            }
+            target[t++] = data;
+        }
+        
+        if ((t > 0) && (t < targetSize))
+            target[t++] = ControlByte_EndFrame;
+    }
+    return t;
+}
+
+
 // === PUBLIC FUNCTIONS ========================================================
 
 void uartFrameProtocol_init(void)
@@ -504,44 +556,7 @@ uint16_t uartFrameProtocol_processTx(void)
 }
 
 
-uint16_t uartFrameProtocol_makeFormattedTxData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
-{
-    uint16_t t = 0;
-    
-    // Check if the input parameters are valid.
-    if ((sourceSize > 0) && (source != NULL) && (targetSize > 0) && (target != NULL))
-    {
-        // Always put the start frame control byte in the beginning.
-        target[t++] = ControlByte_StartFrame;
-        
-        // Iterate through the source buffer and copy it into transmit buffer.
-        for (uint32_t s = 0; s < sourceSize; ++s)
-        {
-            if (t > targetSize)
-            {
-                t = 0;
-                break;
-            }
-            uint8_t data = source[s];
-            
-            // Check to see if an escape character is needed.
-            if (requiresEscapeCharacter(data))
-            {
-                target[t++] = ControlByte_Escape;
-                if (t > targetSize)
-                {
-                    t = 0;
-                    break;
-                }
-            }
-            target[t++] = data;
-        }
-        
-        if ((t > 0) && (t < targetSize))
-            target[t++] = ControlByte_EndFrame;
-    }
-    return t;
-}
+
 
 
 /* [] END OF FILE */

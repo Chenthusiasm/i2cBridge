@@ -62,19 +62,7 @@
     /// @return The number of bytes that were processed.
     uint16_t uartFrameProtocol_processRxData(uint8_t const data[], uint16_t size);
     
-    /// Generates the formatted data to transmit out.  The formatted data to
-    /// transmit will have the 0xaa frame characters and escape characters as
-    /// necessary.
-    /// @param[in]  source      The source buffer.
-    /// @param[in]  sourceSize  The number of bytes in the source.
-    /// @param[out] target      The target buffer (where the formatted data is
-    ///                         stored).
-    /// @param[in]  targetSize  The number of bytes available in the target.
-    /// @return The number of bytes in the target buffer or the number of bytes
-    ///         to transmit.  If 0, then the source buffer was either invalid or
-    ///         there's not enough bytes in target buffer to store the formatted
-    ///         data.
-    uint16_t uartFrameProtocol_makeFormattedTxData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize);
+    
     
     uint16_t uartFrameProtocol_processTx(void);
     

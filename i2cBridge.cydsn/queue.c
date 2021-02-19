@@ -36,9 +36,12 @@ uint16_t getEnqueueDataOffset(Queue const volatile* queue)
 
 void queue_empty(Queue volatile* queue)
 {
-    queue->head = 0;
-    queue->tail = 0;
-    queue->size = 0;
+    if (queue != NULL)
+    {
+        queue->head = 0;
+        queue->tail = 0;
+        queue->size = 0;
+    }
 }
 
 
@@ -82,8 +85,6 @@ bool queue_enqueue(Queue volatile* queue, uint8_t const* data, uint16_t size)
         uint16_t offset = getEnqueueDataOffset(queue);
         if ((offset + size) <= queue->maxDataSize)
         {
-            QueueElement* tail = &queue->elements[queue->tail];
-            
             uint16_t enqueueSize = size;
             if (queue->enqueueCallback != NULL)
                 enqueueSize = queue->enqueueCallback(&queue->data[offset], queue->maxDataSize - offset, data, size);
@@ -94,6 +95,7 @@ bool queue_enqueue(Queue volatile* queue, uint8_t const* data, uint16_t size)
             // case, update the queue to incdicate a successful enqueue.
             if (enqueueSize > 0)
             {
+                QueueElement* tail = &queue->elements[queue->tail];
                 tail->dataOffset = offset;
                 tail->dataSize = size;
                 queue->size++;
