@@ -55,6 +55,11 @@
     /// @param[in]  callback    Pointer to the callback function.
     void uartFrameProtocol_registerRxFrameOverflowCallback(UartFrameProtocol_RxFrameOverflowCallback callback);
     
+    /// Checks to see if the transmit queue is empty. If the transmit queue is
+    /// empty, there is nothing to send.
+    /// @return If the transmit queue is empty.
+    bool uartFrameProtocol_isTxQueueEmpty(void);
+    
     /// Process the received data (parse using the UART protocol) and execute
     /// any necessary functions.
     /// @param[in]  data    The received data/buffer to process.
@@ -62,9 +67,12 @@
     /// @return The number of bytes that were processed.
     uint16_t uartFrameProtocol_processRxData(uint8_t const data[], uint16_t size);
     
+    /// Processes the pending queue elements in the transmit queue and starts
+    /// sending them.
+    /// @return The number of bytes that were sent. If 0, then there was nothing
+    ///         in the transmit queue to send or nothing could be sent.
+    uint16_t uartFrameProtocol_processTxQueue(void);
     
-    
-    uint16_t uartFrameProtocol_processTx(void);
     
     
     #ifdef __cplusplus

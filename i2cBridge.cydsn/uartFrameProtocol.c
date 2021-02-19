@@ -178,10 +178,13 @@ static UartFrameProtocol_RxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
 /// buffer is not large enough to store it so the data overflowed.
 static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NULL;
 
+/// Array of transmit queue elements for the transmit queue.
 static QueueElement g_txQueueElements[TX_QUEUE_ENTRIES_SIZE];
 
+/// Array to hold the data of the elements in the transmit queue.
 static uint8_t g_txQueueData[TX_QUEUE_DATA_SIZE];
 
+/// Transmit queue.
 static Queue g_txQueue =
 {
     g_txQueueData,
@@ -256,7 +259,7 @@ static void handleRxFrameOverflow(uint8_t data)
 }
 
 
-static void txEnqueueCommand(uint8_t command, uint8_t typeFlag, uint8_t const data[], uint16_t dataSize)
+static void txEnqueueCommand(uint8_t command, uint8_t const data[], uint16_t dataSize)
 {
     queue_enqueue(&g_txQueue, data, dataSize);
 }
@@ -428,12 +431,6 @@ static uint16_t processReceivedData(uint8_t const source[], uint16_t sourceSize,
 }
 
 
-void resetTxQueue(void)
-{
-    queue_empty(&g_txQueue);
-}
-
-
 /// Generates the formatted data to transmit out.  The formatted data to
 /// transmit will have the 0xaa frame characters and escape characters as
 /// necessary.
@@ -490,9 +487,13 @@ uint16_t formatTxData(uint8_t target[], uint16_t targetSize, uint8_t const sourc
 
 void uartFrameProtocol_init(void)
 {
+    // Configure the receive variables.
     g_rxState = RxState_OutOfFrame;
     resetProcessedRxBufferParameters();
-    resetTxQueue();
+    
+    // Configures the transmit variables.
+    queue_registerEnqueueCallback(&g_txQueue, formatTxData);
+    queue_empty(&g_txQueue);
 }
 
 
@@ -507,6 +508,12 @@ void uartFrameProtocol_registerRxFrameOverflowCallback(UartFrameProtocol_RxFrame
 {
     if (callback != NULL)
         g_rxFrameOverflowCallback = callback;
+}
+
+
+bool uartFrameProtocol_isTxQueueEmpty(void)
+{
+    return (queue_isEmpty(&g_txQueue));
 }
 
 
@@ -542,7 +549,7 @@ uint16_t uartFrameProtocol_processRxData(uint8_t const data[], uint16_t size)
 }
 
 
-uint16_t uartFrameProtocol_processTx(void)
+uint16_t uartFrameProtocol_processTxQueue(void)
 {
     uint16_t size = 0;
     if (!queue_isEmpty(&g_txQueue))
@@ -554,9 +561,6 @@ uint16_t uartFrameProtocol_processTx(void)
     }
     return size;
 }
-
-
-
 
 
 /* [] END OF FILE */
