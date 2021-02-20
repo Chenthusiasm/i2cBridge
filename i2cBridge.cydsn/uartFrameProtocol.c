@@ -112,15 +112,15 @@ typedef enum PacketOffset_
 
 
 /// Type flags that describe the type of packet.
-typedef struct TypeFlags_
+typedef struct Flags_
 {
-    // Packet contains data.
-    bool data : 1;
-    
     // Packet contains a command.
     bool command : 1;
     
-} TypeFlags;
+    // Packet contains data.
+    bool data : 1;
+    
+} Flags;
 
 
 // === DEFINES =================================================================
@@ -138,8 +138,6 @@ typedef struct TypeFlags_
 /// The size of the data array that holds the queue element data in the transmit
 /// queue.
 #define TX_QUEUE_DATA_SIZE                  (1024u)
-
-
 
 
 // === GLOBALS =================================================================
@@ -192,7 +190,7 @@ static Queue g_txQueue =
 
 /// The type flags of the data that is waiting to be enqueued into the transmit
 /// queue. This must be set prior to enqueueing data into the transmit queue.
-static TypeFlags g_pendingTxEnqueueTypeFlags = { false, false, false };
+static Flags g_pendingTxEnqueueFlags = { false, false };
 
 /// The command associated with the data that is watiting to be enqueued into
 /// the transmit queue. This must be set prior to enqueueing data into the
@@ -265,8 +263,8 @@ static void handleRxFrameOverflow(uint8_t data)
 void resetPendingTxEnqueue(void)
 {
     g_pendingTxEnqueueCommand = BridgeCommand_None;
-    static TypeFlags const DefaultFlags = { false, false };
-    g_pendingTxEnqueueTypeFlags = DefaultFlags;
+    static Flags const DefaultFlags = { false, false };
+    g_pendingTxEnqueueFlags = DefaultFlags;
 }
 
 
@@ -294,7 +292,7 @@ uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const source[
         target[t++] = ControlByte_StartFrame;
         
         bool processPendingData = true;
-        if (g_pendingTxEnqueueTypeFlags.command && (g_pendingTxEnqueueCommand != BridgeCommand_None))
+        if (g_pendingTxEnqueueFlags.command && (g_pendingTxEnqueueCommand != BridgeCommand_None))
         {
             static uint8_t const CommandSize = 3u;
             if ((t + CommandSize) > targetSize)
@@ -306,11 +304,11 @@ uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const source[
             {
                 target[t++] = ControlByte_Escape;
                 target[t++] = ControlByte_Escape;
-                target[t++] = g_pendingTxEnqueueTypeFlags.command;
+                target[t++] = g_pendingTxEnqueueCommand;
             }
         }
         
-        if (g_pendingTxEnqueueTypeFlags.data && processPendingData && (sourceSize > 0) && (source != NULL))
+        if (g_pendingTxEnqueueFlags.data && processPendingData && (sourceSize > 0) && (source != NULL))
         {
             // Iterate through the source buffer and copy it into transmit buffer.
             for (uint32_t s = 0; s < sourceSize; ++s)
@@ -361,11 +359,32 @@ uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const source[
 ///         to transmit.  If 0, then the source buffer was either invalid or
 ///         there's not enough bytes in target buffer to store the formatted
 ///         data.
-uint16_t encodeTxData(uint8_t target[], uint16_t targetSize, BridgeCommand command, TypeFlags flags, uint8_t const source[], uint16_t sourceSize)
+uint16_t __attribute__((unused)) encodeTxData(uint8_t target[], uint16_t targetSize, BridgeCommand command, Flags flags, uint8_t const source[], uint16_t sourceSize)
 {
     g_pendingTxEnqueueCommand = command;
-    g_pendingTxEnqueueTypeFlags = flags;
+    g_pendingTxEnqueueFlags = flags;
     return encodeData(target, targetSize, source, sourceSize);
+}
+
+
+/// Enqueue command and any associated data into the transmit queue.
+/// @param[in]  command The command associated with the transmit packet.
+/// @param[in]  data    The data to enqueue. If this is NULL, then the data flag
+///                     will not be set.
+/// @param[in]  size    The size of the data. If the value is 0, then the data
+///                     flag will not be set.
+/// @return If the command and associated data was successfully enqueued.
+bool txEnqueueCommand(BridgeCommand command, uint8_t const data[], uint16_t size)
+{
+    bool status = false;
+    if (!queue_isFull(&g_txQueue) && (command != BridgeCommand_None))
+    {
+        g_pendingTxEnqueueCommand = command;
+        g_pendingTxEnqueueFlags.command = false;
+        g_pendingTxEnqueueFlags.data = ((data != NULL) && (size > 0));
+        queue_enqueue(&g_txQueue, data, size); 
+    }
+    return status;
 }
 
 
@@ -382,7 +401,7 @@ static bool processCompleteRxPacket(void)
         {
             case BridgeCommand_ACK:
             {
-                //txEnqueueCommand(BridgeCommand_ACK);
+                txEnqueueCommand(BridgeCommand_ACK, NULL, 0);
                 break;
             }
             
@@ -621,7 +640,9 @@ bool uartFrameProtocol_txEnqueueData(uint8_t const data[], uint16_t size)
     bool status = false;
     if (!queue_isFull(&g_txQueue))
     {
-        resetPendingTxEnqueue();
+        g_pendingTxEnqueueCommand = BridgeCommand_None;
+        g_pendingTxEnqueueFlags.command = false;
+        g_pendingTxEnqueueFlags.data = true;
         queue_enqueue(&g_txQueue, data, size); 
     }
     return status;

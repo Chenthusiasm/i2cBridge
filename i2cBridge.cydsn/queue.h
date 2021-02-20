@@ -81,6 +81,9 @@
     
     /// Empty the queue; no queue elements will be in the queue. Note that the
     /// data array holding each queue element's data will not be cleared.
+    /// Because the empty operation modifies the queue data structure, DO NOT
+    /// empty the queue in an ISR unless the queue is protected by a mutex,
+    /// semaphore, or lock.
     /// @param[in]  queue   The queue to perform the function's action on.
     void queue_empty(Queue volatile* queue);
     
@@ -109,7 +112,9 @@
     /// @return If the queue is empty.
     bool queue_isEmpty(Queue const volatile* queue);
     
-    /// Enqueue (add) a new queue element into the queue tail (end).
+    /// Enqueue (add) a new queue element into the queue tail (end). Because an
+    /// enqueue modifies the queue data structure, DO NOT enqueue in an ISR
+    /// unless the queue is protected by a mutex, semaphore, or lock.
     /// @param[in]  queue   The queue to perform the function's action on.
     /// @param[in]  data    The data to enqueue.
     /// @param[in]  size    The size of the data (in bytes) to enqueue.
@@ -117,7 +122,9 @@
     bool queue_enqueue(Queue volatile* queue, uint8_t const* data, uint16_t size);
     
     /// Dequeue (remove) the oldest queue element from the queue head (front).
-    /// Also provides access to the data from this queue element.
+    /// Also provides access to the data from this queue element.  Because a
+    /// dequeue modifies the queue data structure, DO NOT dequeue in an ISR
+    /// unless the queue is protected by a mutex, semaphore, or lock.
     /// @param[in]  queue   The queue to perform the function's action on.
     /// @param[out] data    Pointer to the dequeued data from the queue.
     /// @return The size of the queue element that was dequeued.
