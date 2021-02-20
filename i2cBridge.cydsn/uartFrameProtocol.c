@@ -616,4 +616,16 @@ uint16_t uartFrameProtocol_processTxQueue(void)
 }
 
 
+bool uartFrameProtocol_txEnqueueData(uint8_t const data[], uint16_t size)
+{
+    bool status = false;
+    if (!queue_isFull(&g_txQueue))
+    {
+        resetPendingTxEnqueue();
+        queue_enqueue(&g_txQueue, data, size); 
+    }
+    return status;
+}
+
+
 /* [] END OF FILE */

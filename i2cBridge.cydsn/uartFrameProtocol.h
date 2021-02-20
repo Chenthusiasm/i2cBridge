@@ -73,6 +73,11 @@
     ///         in the transmit queue to send or nothing could be sent.
     uint16_t uartFrameProtocol_processTxQueue(void);
     
+    /// Enqueue data into the transmit queue.
+    /// @param[in]  data    The data to enqueue.
+    /// @param[in]  size    The size of the data.
+    /// @return If the data was successfully enqueued.
+    bool uartFrameProtocol_txEnqueueData(uint8_t const data[], uint16_t size);
     
     
     #ifdef __cplusplus
