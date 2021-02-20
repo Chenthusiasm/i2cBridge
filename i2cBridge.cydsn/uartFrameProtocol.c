@@ -58,22 +58,11 @@ typedef enum ControlByte_
 } ControlByte;
 
 
-/// Defines the type flag of the bridge packet.
-typedef enum TypeFlag_
-{
-    /// Command.
-    TypeFlag_Command                    = 0x01,
-    
-    /// Data.
-    TypeFlag_Data                       = 0x02,
-    
-    /// Command data.
-    TypeFlag_DataCommand                = 0x04,
-} Type;
-
-
 typedef enum BridgeCommand_
 {
+    /// No command.
+    BridgeCommand_None                  = 0x00,
+    
     /// Host to bridge ACK over UART.
     BridgeCommand_ACK                   = 'A',
     
@@ -122,15 +111,16 @@ typedef enum PacketOffset_
 } PacketOffset;
 
 
-/// Structure that defines a transmit queue element/member.
-typedef struct TxQueueElement_
+/// Type flags that describe the type of packet.
+typedef struct TypeFlags_
 {
-    /// Pointer to the buffer that contains the data to transmit.
-    uint8_t* pBuffer;
+    // Packet contains data.
+    bool data : 1;
     
-    /// The number of bytes to transmit in pBuffer.
-    uint16_t length;
-} TxQueueElement;
+    // Packet contains a command.
+    bool command : 1;
+    
+} TypeFlags;
 
 
 // === DEFINES =================================================================
@@ -142,8 +132,11 @@ typedef struct TxQueueElement_
 /// The size of the processed and pending receive buffer for UART transactions.
 #define RX_BUFFER_SIZE                      (512u)
 
-#define TX_QUEUE_ENTRIES_SIZE               (16u)
+/// The max size of the transmit queue (the max number of queue elements).
+#define TX_QUEUE_MAX_SIZE                   (16u)
 
+/// The size of the data array that holds the queue element data in the transmit
+/// queue.
 #define TX_QUEUE_DATA_SIZE                  (1024u)
 
 
@@ -179,7 +172,7 @@ static UartFrameProtocol_RxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
 static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NULL;
 
 /// Array of transmit queue elements for the transmit queue.
-static QueueElement g_txQueueElements[TX_QUEUE_ENTRIES_SIZE];
+static QueueElement g_txQueueElements[TX_QUEUE_MAX_SIZE];
 
 /// Array to hold the data of the elements in the transmit queue.
 static uint8_t g_txQueueData[TX_QUEUE_DATA_SIZE];
@@ -191,11 +184,20 @@ static Queue g_txQueue =
     g_txQueueElements,
     NULL,
     TX_QUEUE_DATA_SIZE,
-    TX_QUEUE_ENTRIES_SIZE,
+    TX_QUEUE_MAX_SIZE,
     0,
     0,
-    0
+    0,
 };
+
+/// The type flags of the data that is waiting to be enqueued into the transmit
+/// queue. This must be set prior to enqueueing data into the transmit queue.
+static TypeFlags g_pendingTxEnqueueTypeFlags = { false, false, false };
+
+/// The command associated with the data that is watiting to be enqueued into
+/// the transmit queue. This must be set prior to enqueueing data into the
+/// transmit queue.
+static BridgeCommand g_pendingTxEnqueueCommand = BridgeCommand_None;
 
 
 // === PRIVATE FUNCTIONS =======================================================
@@ -259,9 +261,111 @@ static void handleRxFrameOverflow(uint8_t data)
 }
 
 
-static void txEnqueueCommand(uint8_t command, uint8_t const data[], uint16_t dataSize)
+/// Resets the variables associated with the pending transmit enqueue.
+void resetPendingTxEnqueue(void)
 {
-    queue_enqueue(&g_txQueue, data, dataSize);
+    g_pendingTxEnqueueCommand = BridgeCommand_None;
+    static TypeFlags const DefaultFlags = { false, false };
+    g_pendingTxEnqueueTypeFlags = DefaultFlags;
+}
+
+
+/// Generates the formatted packet that defines the UART frame protocol. The
+/// formatted packet will have the 0xaa frame characters and 0x55 escape
+/// characters as necessary along with command byte if the packet pertains to
+/// a bridge command. Note that the packet's type flags and command bytes must
+/// be primed before invoking this function.
+/// @param[in]  source      The source buffer.
+/// @param[in]  sourceSize  The number of bytes in the source.
+/// @param[out] target      The target buffer (where the formatted data is
+///                         stored).
+/// @param[in]  targetSize  The number of bytes available in the target.
+/// @return The number of bytes in the target buffer or the number of bytes
+///         to transmit.  If 0, then the source buffer was either invalid or
+///         there's not enough bytes in target buffer to store the formatted
+///         data.
+uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
+{
+    uint16_t t = 0;
+    
+    if ((targetSize > 0) && (target != NULL))
+    {
+        // Always put the start frame control byte in the beginning.
+        target[t++] = ControlByte_StartFrame;
+        
+        bool processPendingData = true;
+        if (g_pendingTxEnqueueTypeFlags.command && (g_pendingTxEnqueueCommand != BridgeCommand_None))
+        {
+            static uint8_t const CommandSize = 3u;
+            if ((t + CommandSize) > targetSize)
+            {
+                processPendingData = false;
+                t = 0;
+            }
+            else
+            {
+                target[t++] = ControlByte_Escape;
+                target[t++] = ControlByte_Escape;
+                target[t++] = g_pendingTxEnqueueTypeFlags.command;
+            }
+        }
+        
+        if (g_pendingTxEnqueueTypeFlags.data && processPendingData && (sourceSize > 0) && (source != NULL))
+        {
+            // Iterate through the source buffer and copy it into transmit buffer.
+            for (uint32_t s = 0; s < sourceSize; ++s)
+            {
+                if (t > targetSize)
+                {
+                    t = 0;
+                    break;
+                }
+                uint8_t data = source[s];
+                
+                // Check to see if an escape character is needed.
+                if (requiresEscapeCharacter(data))
+                {
+                    target[t++] = ControlByte_Escape;
+                    if (t > targetSize)
+                    {
+                        t = 0;
+                        break;
+                    }
+                }
+                target[t++] = data;
+            }
+        }
+        
+        // Always put the end frame control byte in the end.
+        if ((t > 0) && (t < targetSize))
+            target[t++] = ControlByte_EndFrame;
+        else
+            t = 0;
+    }
+    resetPendingTxEnqueue();
+    return t;
+}
+
+
+/// Generates the formatted packet that defines the UART frame protocol. The
+/// formatted packet will have the 0xaa frame characters and 0x55 escape
+/// characters as necessary along with command byte if the packet pertains to
+/// a bridge command. Note that the packet's type flags and command bytes must
+/// be primed before invoking this function.
+/// @param[in]  source      The source buffer.
+/// @param[in]  sourceSize  The number of bytes in the source.
+/// @param[out] target      The target buffer (where the formatted data is
+///                         stored).
+/// @param[in]  targetSize  The number of bytes available in the target.
+/// @return The number of bytes in the target buffer or the number of bytes
+///         to transmit.  If 0, then the source buffer was either invalid or
+///         there's not enough bytes in target buffer to store the formatted
+///         data.
+uint16_t encodeTxData(uint8_t target[], uint16_t targetSize, BridgeCommand command, TypeFlags flags, uint8_t const source[], uint16_t sourceSize)
+{
+    g_pendingTxEnqueueCommand = command;
+    g_pendingTxEnqueueTypeFlags = flags;
+    return encodeData(target, targetSize, source, sourceSize);
 }
 
 
@@ -431,58 +535,6 @@ static uint16_t processReceivedData(uint8_t const source[], uint16_t sourceSize,
 }
 
 
-/// Generates the formatted data to transmit out.  The formatted data to
-/// transmit will have the 0xaa frame characters and escape characters as
-/// necessary.
-/// @param[in]  source      The source buffer.
-/// @param[in]  sourceSize  The number of bytes in the source.
-/// @param[out] target      The target buffer (where the formatted data is
-///                         stored).
-/// @param[in]  targetSize  The number of bytes available in the target.
-/// @return The number of bytes in the target buffer or the number of bytes
-///         to transmit.  If 0, then the source buffer was either invalid or
-///         there's not enough bytes in target buffer to store the formatted
-///         data.
-uint16_t formatTxData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
-{
-    uint16_t t = 0;
-    
-    // Check if the input parameters are valid.
-    if ((sourceSize > 0) && (source != NULL) && (targetSize > 0) && (target != NULL))
-    {
-        // Always put the start frame control byte in the beginning.
-        target[t++] = ControlByte_StartFrame;
-        
-        // Iterate through the source buffer and copy it into transmit buffer.
-        for (uint32_t s = 0; s < sourceSize; ++s)
-        {
-            if (t > targetSize)
-            {
-                t = 0;
-                break;
-            }
-            uint8_t data = source[s];
-            
-            // Check to see if an escape character is needed.
-            if (requiresEscapeCharacter(data))
-            {
-                target[t++] = ControlByte_Escape;
-                if (t > targetSize)
-                {
-                    t = 0;
-                    break;
-                }
-            }
-            target[t++] = data;
-        }
-        
-        if ((t > 0) && (t < targetSize))
-            target[t++] = ControlByte_EndFrame;
-    }
-    return t;
-}
-
-
 // === PUBLIC FUNCTIONS ========================================================
 
 void uartFrameProtocol_init(void)
@@ -492,8 +544,9 @@ void uartFrameProtocol_init(void)
     resetProcessedRxBufferParameters();
     
     // Configures the transmit variables.
-    queue_registerEnqueueCallback(&g_txQueue, formatTxData);
+    queue_registerEnqueueCallback(&g_txQueue, encodeData);
     queue_empty(&g_txQueue);
+    resetPendingTxEnqueue();
 }
 
 
