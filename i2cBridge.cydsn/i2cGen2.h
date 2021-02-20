@@ -27,15 +27,31 @@
     
     // === TYPE DEFINES ========================================================
     
+    /// Definition of the receive callback function that should be invoked when
+    /// data is received. Note that if the callback function needs to copy the
+    /// received data into its own buffer if the callback needs to perform any
+    /// action to the data (like modify the data).
     typedef uint16_t (*I2CGen2_RxCallback)(uint8_t const*, uint16_t);
+    
     
     // === FUNCTIONS ===========================================================
     
+    /// Initialize the slave I2C hardware.
     void i2cGen2_init(void);
     
+    /// Registers the receive callback function that should be invoked when
+    /// data is received.
+    /// @param[in]  callback    Pointer to the callback function.
     void i2cGen2_registerRxCallback(I2CGen2_RxCallback callback);
     
-    bool i2cGen2_processRx(void);
+    /// Process any pending data to be receved.
+    /// @return The number of bytes that were processed. If -1, an error
+    /// occurred: there was data pending but it could not be read.
+    int i2cGen2_processRx(void);
+    
+    /// Process any pending transmits in the transmit queue.
+    /// @return The 
+    int i2cGen2_processTxQueue(void);
     
     bool i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size);
     
