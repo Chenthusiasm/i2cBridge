@@ -130,14 +130,14 @@ typedef struct Flags_
 #define RX_RESET_TIMEOUT_MS                 (2000u)
 
 /// The size of the processed and pending receive buffer for UART transactions.
-#define RX_BUFFER_SIZE                      (512u)
+#define RX_BUFFER_SIZE                      (300u)
 
 /// The max size of the transmit queue (the max number of queue elements).
-#define TX_QUEUE_MAX_SIZE                   (8u)
+#define TX_QUEUE_MAX_SIZE                   (16u)
 
 /// The size of the data array that holds the queue element data in the transmit
 /// queue.
-#define TX_QUEUE_DATA_SIZE                  (512u)
+#define TX_QUEUE_DATA_SIZE                  (500u)
 
 
 // === GLOBALS =================================================================
@@ -146,17 +146,24 @@ typedef struct Flags_
 /// frame.
 static volatile RxState g_rxState = RxState_OutOfFrame;
 
-/// The post-processed receive buffer.  All post-processed received data is
-/// stored in this buffer until a full data frame is processed.
-static uint8_t g_processedRxBuffer[RX_BUFFER_SIZE];
+/// Storage for the received UART bytes to be decoded.
+static volatile uint8_t g_rxBuffer[RX_BUFFER_SIZE];
 
-/// Flag indicating if there's a valid packet in the processed receive buffer.
-static volatile bool g_processedRxBufferValid = false;
+/// The post-processed decoded receive buffer.  All decoded received data is
+/// stored in this buffer until a full data frame is processed.
+static uint8_t g_decodedRxBuffer[RX_BUFFER_SIZE];
+
+/// Flag indicating if there's a valid packet in the decoded receive buffer
+/// pending to be processed.
+static volatile bool g_decodedRxPacketPending = false;
+
+/// The current index of the data in the receive UART buffer.
+static volatile uint16_t g_rxIndex = 0;
 
 /// The current index of data in the processed received data buffer.  We need
 /// this index to persist because we may receive only partial packets; this
 /// allows for continuous processing of received data.
-static volatile uint16_t g_processedRxIndex = 0;
+static volatile uint16_t g_decodedRxIndex = 0;
 
 /// The last time data was received in milliseconds.
 static volatile uint32_t g_lastRxTimeMS = 0;
@@ -200,12 +207,12 @@ static BridgeCommand g_pendingTxEnqueueCommand = BridgeCommand_None;
 
 // === PRIVATE FUNCTIONS =======================================================
 
-/// Sets all the global variables pertaining to the processed receive buffer to
+/// Sets all the global variables pertaining to the decoded receive buffer to
 /// an initial state.
-static void resetProcessedRxBufferParameters(void)
+static void resetDecodedRxBufferParameters(void)
 {
-    g_processedRxBufferValid = false;
-    g_processedRxIndex = 0;
+    g_decodedRxPacketPending = false;
+    g_decodedRxIndex = 0;
     g_lastRxTimeMS = hwSystemTime_getCurrentMS();
 }
 
@@ -394,9 +401,9 @@ bool txEnqueueCommand(BridgeCommand command, uint8_t const data[], uint16_t size
 static bool processCompleteRxPacket(void)
 {
     bool status = false;
-    if ((g_processedRxBufferValid) && (g_processedRxIndex > PacketOffset_BridgeCommand))
+    if ((g_decodedRxPacketPending) && (g_decodedRxIndex > PacketOffset_BridgeCommand))
     {
-        uint8_t command = g_processedRxBuffer[PacketOffset_BridgeCommand];
+        uint8_t command = g_decodedRxBuffer[PacketOffset_BridgeCommand];
         switch (command)
         {
             case BridgeCommand_ACK:
@@ -407,13 +414,13 @@ static bool processCompleteRxPacket(void)
             
             case BridgeCommand_SlaveError:
             {
-                // [TODO]: send last slave device error.
+                // @TODO Send last slave device error.
                 break;
             }
             
             case BridgeCommand_SlaveAddress:
             {
-                // [TODO]: modify the slave address.
+                // @TODO Modify the slave address.
                 break;
             }
             
@@ -463,6 +470,7 @@ static bool processCompleteRxPacket(void)
                 break;
             }
         }
+        g_decodedRxPacketPending = false;
     }
     return status;
 }
@@ -496,7 +504,7 @@ static uint16_t processReceivedData(uint8_t const source[], uint16_t sourceSize,
             {
                 if (data == ControlByte_StartFrame)
                 {                        
-                    resetProcessedRxBufferParameters();
+                    resetDecodedRxBufferParameters();
                     g_rxState = RxState_InFrame;
                 }
                 else if (g_rxOutOfFrameCallback != NULL)
@@ -511,15 +519,15 @@ static uint16_t processReceivedData(uint8_t const source[], uint16_t sourceSize,
                 else if (isEndFrameCharacter(data))
                 {
                     if (g_rxState == RxState_InFrame)
-                        g_processedRxBufferValid = true;
+                        g_decodedRxPacketPending = true;
                     g_rxState = RxState_OutOfFrame;
                     exit = true;
                 }
                 else
                 {
                     // Make sure the data will fit in the buffer before adding.
-                    if (g_processedRxIndex < RX_BUFFER_SIZE)
-                        g_processedRxBuffer[g_processedRxIndex++] = data;
+                    if (g_decodedRxIndex < RX_BUFFER_SIZE)
+                        g_decodedRxBuffer[g_decodedRxIndex++] = data;
                     else
                         handleRxFrameOverflow(data);
                 }
@@ -529,9 +537,9 @@ static uint16_t processReceivedData(uint8_t const source[], uint16_t sourceSize,
             case RxState_EscapeCharacter:
             {
                 // Make sure the data will fit in the buffer before adding.
-                if (g_processedRxIndex < RX_BUFFER_SIZE)
+                if (g_decodedRxIndex < RX_BUFFER_SIZE)
                 {
-                    g_processedRxBuffer[g_processedRxIndex++] = data;
+                    g_decodedRxBuffer[g_decodedRxIndex++] = data;
                     g_rxState = RxState_InFrame;
                 }
                 else
@@ -564,8 +572,10 @@ static void isr(void)
         uint32_t data = hostUART_UartGetByte();
         if (data > 0xff)
         {
-            // Error occurred.
+            // @TODO Error handling.
         }
+        else
+            g_rxBuffer[g_rxIndex++] = data;
         hostUART_ClearRxInterruptSource(hostUART_INTR_RX_NOT_EMPTY);
     }
     else if ((source & hostUART_INTR_RX_FRAME_ERROR) != 0)
@@ -584,7 +594,7 @@ void uartFrameProtocol_init(void)
 {
     // Configure the receive variables.
     g_rxState = RxState_OutOfFrame;
-    resetProcessedRxBufferParameters();
+    resetDecodedRxBufferParameters();
     
     // Configures the transmit variables.
     queue_registerEnqueueCallback(&g_txQueue, encodeData);
@@ -634,10 +644,10 @@ uint16_t uartFrameProtocol_processRxData(uint8_t const data[], uint16_t size)
             offset += processReceivedData(data, size, offset);
             
             // Check if there's a valid packet to process.
-            if (g_processedRxBufferValid && (g_processedRxIndex > 0))
+            if (g_decodedRxPacketPending && (g_decodedRxIndex > 0))
             {
                 processCompleteRxPacket();
-                resetProcessedRxBufferParameters();
+                resetDecodedRxBufferParameters();
             }
         }
     }
