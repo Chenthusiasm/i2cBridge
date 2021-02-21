@@ -133,11 +133,11 @@ typedef struct Flags_
 #define RX_BUFFER_SIZE                      (512u)
 
 /// The max size of the transmit queue (the max number of queue elements).
-#define TX_QUEUE_MAX_SIZE                   (16u)
+#define TX_QUEUE_MAX_SIZE                   (8u)
 
 /// The size of the data array that holds the queue element data in the transmit
 /// queue.
-#define TX_QUEUE_DATA_SIZE                  (1024u)
+#define TX_QUEUE_DATA_SIZE                  (512u)
 
 
 // === GLOBALS =================================================================
@@ -554,6 +554,30 @@ static uint16_t processReceivedData(uint8_t const source[], uint16_t sourceSize,
 }
 
 
+// === ISR =====================================================================
+
+static void isr(void)
+{
+    uint32_t source = hostUART_GetRxInterruptSource();
+    if ((source & hostUART_INTR_RX_NOT_EMPTY) != 0)
+    {
+        uint32_t data = hostUART_UartGetByte();
+        if (data > 0xff)
+        {
+            // Error occurred.
+        }
+        hostUART_ClearRxInterruptSource(hostUART_INTR_RX_NOT_EMPTY);
+    }
+    else if ((source & hostUART_INTR_RX_FRAME_ERROR) != 0)
+    {
+        // Do some special handling for a frame error; possibly determine baud
+        // rate.
+        hostUART_ClearRxInterruptSource(hostUART_INTR_RX_FRAME_ERROR);
+    }
+    hostUART_ClearPendingInt();
+}
+
+
 // === PUBLIC FUNCTIONS ========================================================
 
 void uartFrameProtocol_init(void)
@@ -566,6 +590,10 @@ void uartFrameProtocol_init(void)
     queue_registerEnqueueCallback(&g_txQueue, encodeData);
     queue_empty(&g_txQueue);
     resetPendingTxEnqueue();
+    
+    // Setup the UART hardware.
+    hostUART_SetCustomInterruptHandler(isr);
+    hostUART_Start();
 }
 
 
