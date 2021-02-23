@@ -146,9 +146,6 @@ typedef struct Flags_
 /// frame.
 static volatile RxState g_rxState = RxState_OutOfFrame;
 
-/// Storage for the received UART bytes to be decoded.
-static volatile uint8_t g_rxBuffer[RX_BUFFER_SIZE];
-
 /// The post-processed decoded receive buffer.  All decoded received data is
 /// stored in this buffer until a full data frame is processed.
 static uint8_t g_decodedRxBuffer[RX_BUFFER_SIZE];
@@ -156,9 +153,6 @@ static uint8_t g_decodedRxBuffer[RX_BUFFER_SIZE];
 /// Flag indicating if there's a valid packet in the decoded receive buffer
 /// pending to be processed.
 static volatile bool g_decodedRxPacketPending = false;
-
-/// The current index of the data in the receive UART buffer.
-static volatile uint16_t g_rxIndex = 0;
 
 /// The current index of data in the processed received data buffer.  We need
 /// this index to persist because we may receive only partial packets; this
@@ -475,6 +469,80 @@ static bool processCompleteRxPacket(void)
     return status;
 }
 
+static bool processReceivedByte(uint8_t data)
+{
+    bool status = true;
+    switch (g_rxState)
+    {
+        case RxState_OutOfFrame:
+        {
+            if (data == ControlByte_StartFrame)
+            {                        
+                resetDecodedRxBufferParameters();
+                g_rxState = RxState_InFrame;
+            }
+            else
+            {
+                if (g_rxOutOfFrameCallback != NULL)
+                    g_rxOutOfFrameCallback(data);
+                status = false;
+            }
+            break;
+        }
+        
+        case RxState_InFrame:
+        {
+            if (isEscapeCharacter(data))
+                g_rxState = RxState_EscapeCharacter;
+            else if (isEndFrameCharacter(data))
+            {
+                g_decodedRxPacketPending = true;
+                g_rxState = RxState_OutOfFrame;
+            }
+            else
+            {
+                // Make sure the data will fit in the buffer before adding.
+                if (g_decodedRxIndex < RX_BUFFER_SIZE)
+                    g_decodedRxBuffer[g_decodedRxIndex++] = data;
+                else
+                {
+                    handleRxFrameOverflow(data);
+                    status = false;
+                }
+            }
+            break;
+        }
+        
+        case RxState_EscapeCharacter:
+        {
+            // Make sure the data will fit in the buffer before adding.
+            if (g_decodedRxIndex < RX_BUFFER_SIZE)
+            {
+                g_decodedRxBuffer[g_decodedRxIndex++] = data;
+                g_rxState = RxState_InFrame;
+            }
+            else
+            {
+                handleRxFrameOverflow(data);
+                status = false;
+            }
+            break;
+        }
+        
+        default:
+        {
+            // We should never get into this state, if we do, something
+            // wrong happened.  Potentially do some error handling.
+            
+            // Reset to the default state: out of frame.
+            g_rxState = RxState_OutOfFrame;
+            status = false;
+            break;
+        }
+    }
+    return status;
+}
+
 
 /// Processes the receive buffer with the intent of parsing out valid frames of
 /// data.
@@ -492,71 +560,12 @@ static uint16_t processReceivedData(uint8_t const source[], uint16_t sourceSize,
     bool exit = false;
     for (uint32_t i = sourceOffset; i < sourceSize; ++i)
     {
-        if (exit)
-            break;
-        
         uint8_t data = source[i];
         ++size;
         
-        switch (g_rxState)
-        {
-            case RxState_OutOfFrame:
-            {
-                if (data == ControlByte_StartFrame)
-                {                        
-                    resetDecodedRxBufferParameters();
-                    g_rxState = RxState_InFrame;
-                }
-                else if (g_rxOutOfFrameCallback != NULL)
-                    g_rxOutOfFrameCallback(data);
-                break;
-            }
-            
-            case RxState_InFrame:
-            {
-                if (isEscapeCharacter(data))
-                    g_rxState = RxState_EscapeCharacter;
-                else if (isEndFrameCharacter(data))
-                {
-                    if (g_rxState == RxState_InFrame)
-                        g_decodedRxPacketPending = true;
-                    g_rxState = RxState_OutOfFrame;
-                    exit = true;
-                }
-                else
-                {
-                    // Make sure the data will fit in the buffer before adding.
-                    if (g_decodedRxIndex < RX_BUFFER_SIZE)
-                        g_decodedRxBuffer[g_decodedRxIndex++] = data;
-                    else
-                        handleRxFrameOverflow(data);
-                }
-                break;
-            }
-            
-            case RxState_EscapeCharacter:
-            {
-                // Make sure the data will fit in the buffer before adding.
-                if (g_decodedRxIndex < RX_BUFFER_SIZE)
-                {
-                    g_decodedRxBuffer[g_decodedRxIndex++] = data;
-                    g_rxState = RxState_InFrame;
-                }
-                else
-                    handleRxFrameOverflow(data);
-                break;
-            }
-            
-            default:
-            {
-                // We should never get into this state, if we do, something
-                // wrong happened.  Potentially do some error handling.
-                
-                // Transition to the default state: out of frame.
-                g_rxState = RxState_OutOfFrame;
-                break;
-            }
-        }
+        processReceivedByte(data);
+        if (g_decodedRxPacketPending)
+            break;
     }
     return size;
 }
@@ -575,7 +584,7 @@ static void isr(void)
             // @TODO Error handling.
         }
         else
-            g_rxBuffer[g_rxIndex++] = data;
+            processReceivedByte(data);
         hostUART_ClearRxInterruptSource(hostUART_INTR_RX_NOT_EMPTY);
     }
     else if ((source & hostUART_INTR_RX_FRAME_ERROR) != 0)
