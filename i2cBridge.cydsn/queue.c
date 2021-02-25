@@ -118,7 +118,7 @@ bool queue_enqueue(Queue volatile* queue, uint8_t const* data, uint16_t size)
 bool queue_enqueueByte(Queue volatile* queue, uint8_t data, bool lastByte)
 {
     bool status = false;
-    if (queue != NULL)
+    if ((queue != NULL) && !queue_isFull(queue))
     {
         uint16_t enqueueSize = 1;
         uint16_t elementOffset = getEnqueueDataOffset(queue);
