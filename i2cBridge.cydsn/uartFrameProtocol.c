@@ -469,6 +469,7 @@ static bool processCompleteRxPacket(void)
     return status;
 }
 
+
 static bool processReceivedByte(uint8_t data)
 {
     bool status = true;
@@ -557,7 +558,6 @@ static uint16_t processReceivedData(uint8_t const source[], uint16_t sourceSize,
     uint32_t size = 0;
     
     // Iterate through all the received bytes via UART.
-    bool exit = false;
     for (uint32_t i = sourceOffset; i < sourceSize; ++i)
     {
         uint8_t data = source[i];
