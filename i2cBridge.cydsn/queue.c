@@ -132,17 +132,19 @@ bool queue_enqueueByte(Queue volatile* queue, uint8_t data, bool lastByte)
         // update the queue to indicate a successful enqueue.
         if (enqueueSize > 0)
         {
+            queue->pendingEnqueueSize += enqueueSize;
+            status = true;
             if (lastByte)
             {
                 QueueElement* tail = &queue->elements[queue->tail];
                 tail->dataOffset = elementOffset;
-                tail->dataSize = queue->pendingEnqueueSize + enqueueSize;
+                tail->dataSize = queue->pendingEnqueueSize;
                 queue->size++;
                 queue->tail++;
                 if (queue->tail >= queue->maxSize)
                     queue->tail = 0;
+                queue->pendingEnqueueSize = 0;
             }
-            status = true;
         }
     }
     return status;
