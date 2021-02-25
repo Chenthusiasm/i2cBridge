@@ -129,15 +129,19 @@ typedef struct Flags_
 /// the receive state machine.
 #define RX_RESET_TIMEOUT_MS                 (2000u)
 
-/// The size of the processed and pending receive buffer for UART transactions.
-#define RX_BUFFER_SIZE                      (300u)
+/// The max size of the receive queue (the max number of queue elements).
+#define RX_QUEUE_MAX_SIZE                   (8u);
+
+/// The size of the data array that holds the queue element data in the receive
+/// queue.
+#define RX_QUEUE_DATA_SIZE                  (600u)
 
 /// The max size of the transmit queue (the max number of queue elements).
 #define TX_QUEUE_MAX_SIZE                   (16u)
 
 /// The size of the data array that holds the queue element data in the transmit
 /// queue.
-#define TX_QUEUE_DATA_SIZE                  (500u)
+#define TX_QUEUE_DATA_SIZE                  (800u)
 
 
 // === GLOBALS =================================================================
@@ -145,14 +149,6 @@ typedef struct Flags_
 /// The current state in the protocol state machine for receive processing.
 /// frame.
 static volatile RxState g_rxState = RxState_OutOfFrame;
-
-/// The post-processed decoded receive buffer.  All decoded received data is
-/// stored in this buffer until a full data frame is processed.
-static uint8_t g_decodedRxBuffer[RX_BUFFER_SIZE];
-
-/// Flag indicating if there's a valid packet in the decoded receive buffer
-/// pending to be processed.
-static volatile bool g_decodedRxPacketPending = false;
 
 /// The current index of data in the processed received data buffer.  We need
 /// this index to persist because we may receive only partial packets; this
@@ -169,6 +165,12 @@ static UartFrameProtocol_RxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
 /// Callback function that is invoked when data is received but the receive
 /// buffer is not large enough to store it so the data overflowed.
 static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NULL;
+
+/// The decoded receive data buffer.
+static volatile uint8_t g_decodedRxBuffer[RX_QUEUE_DATA_SIZE];
+
+/// The index in the decoded receive data buffer where insertion occurs next.
+static volatile uint16_t g_decodedRxInsertIndex = 0;
 
 /// Array of transmit queue elements for the transmit queue.
 static QueueElement g_txQueueElements[TX_QUEUE_MAX_SIZE];

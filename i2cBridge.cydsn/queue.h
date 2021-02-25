@@ -62,6 +62,11 @@
         /// number of bytes exceeds this value, the enqueue will fail.
         uint16_t maxDataSize;
         
+        /// The size of the pending enqueue element. This is mainly used when
+        /// the byte-by-byte enqueue is used (queue_enqueueByte). Otherwise,
+        /// this value will remain 0.
+        uint16_t pendingEnqueueSize;
+        
         /// The maximum number of elements that can be queued.
         uint8_t maxSize;
         
@@ -120,6 +125,18 @@
     /// @param[in]  size    The size of the data (in bytes) to enqueue.
     /// @return If the enqueue operation was successful.
     bool queue_enqueue(Queue volatile* queue, uint8_t const* data, uint16_t size);
+    
+    /// Enqueue (add) a new queue element into the queue tail (end) in a
+    /// byte-by-byte fashion. Because enqueue modifies the queue data structure,
+    /// NO NOT enqueue in an ISR unless the queue is protected by a mutex,
+    /// semaphore, or lock.
+    /// @param[in]  queue       The queue to perform the function's action on.
+    /// @param[in]  data        The data to enqueue.
+    /// @param[in]  lastByte    Flag indicating if the byte being enqueued is
+    ///                         the last byte in the element (so the a full
+    ///                         element should be queuened).
+    /// @return If the enqueue operation was successful.
+    bool queue_enqueueByte(Queue volatile* queue, uint8_t data, bool finalize);
     
     /// Dequeue (remove) the oldest queue element from the queue head (front).
     /// Also provides access to the data from this queue element.  Because a

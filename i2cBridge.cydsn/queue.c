@@ -104,6 +104,45 @@ bool queue_enqueue(Queue volatile* queue, uint8_t const* data, uint16_t size)
                     queue->tail = 0;
                 status = true;
             }
+            
+            // No matter if the enqueue succeeds or fails, always reset the
+            // pending enqueue size to 0 to indicate that the previous
+            // byte-by-byte data has been stomped on.
+            queue->pendingEnqueueSize = 0;
+        }
+    }
+    return status;
+}
+
+
+bool queue_enqueueByte(Queue volatile* queue, uint8_t data, bool lastByte)
+{
+    bool status = false;
+    if (queue != NULL)
+    {
+        uint16_t enqueueSize = 1;
+        uint16_t elementOffset = getEnqueueDataOffset(queue);
+        uint16_t dataOffset = elementOffset + queue->pendingEnqueueSize;
+        if (queue->enqueueCallback != NULL)
+            enqueueSize = queue->enqueueCallback(&queue->data[dataOffset], queue->maxDataSize - dataOffset, &data, enqueueSize);
+        else
+            queue->data[dataOffset] = data;
+            
+        // The enqueue is successful if enqueueSize > 0; if this is the case,
+        // update the queue to indicate a successful enqueue.
+        if (enqueueSize > 0)
+        {
+            if (lastByte)
+            {
+                QueueElement* tail = &queue->elements[queue->tail];
+                tail->dataOffset = elementOffset;
+                tail->dataSize = queue->pendingEnqueueSize + enqueueSize;
+                queue->size++;
+                queue->tail++;
+                if (queue->tail >= queue->maxSize)
+                    queue->tail = 0;
+            }
+            status = true;
         }
     }
     return status;
