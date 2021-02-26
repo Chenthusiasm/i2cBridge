@@ -130,14 +130,14 @@ typedef struct Flags_
 #define RX_RESET_TIMEOUT_MS                 (2000u)
 
 /// The max size of the receive queue (the max number of queue elements).
-#define RX_QUEUE_MAX_SIZE                   (8u);
+#define RX_QUEUE_MAX_SIZE                   (8u)
 
 /// The size of the data array that holds the queue element data in the receive
 /// queue.
 #define RX_QUEUE_DATA_SIZE                  (600u)
 
 /// The max size of the transmit queue (the max number of queue elements).
-#define TX_QUEUE_MAX_SIZE                   (16u)
+#define TX_QUEUE_MAX_SIZE                   (8u)
 
 /// The size of the data array that holds the queue element data in the transmit
 /// queue.
@@ -150,11 +150,6 @@ typedef struct Flags_
 /// frame.
 static volatile RxState g_rxState = RxState_OutOfFrame;
 
-/// The current index of data in the processed received data buffer.  We need
-/// this index to persist because we may receive only partial packets; this
-/// allows for continuous processing of received data.
-static volatile uint16_t g_decodedRxIndex = 0;
-
 /// The last time data was received in milliseconds.
 static volatile uint32_t g_lastRxTimeMS = 0;
 
@@ -166,8 +161,26 @@ static UartFrameProtocol_RxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
 /// buffer is not large enough to store it so the data overflowed.
 static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NULL;
 
-/// The decoded receive data buffer.
-static volatile uint8_t g_decodedRxBuffer[RX_QUEUE_DATA_SIZE];
+/// Array of decoded receive queue elements for the receive queue; these
+/// elements have been received but are pending processing.
+static QueueElement g_decodedRxQueueElements[RX_QUEUE_MAX_SIZE];
+
+/// Array to hold the decoded data of elements in the receive queue.
+static uint8_t g_decodedRxQueueData[RX_QUEUE_DATA_SIZE];
+
+/// Decoded receive queue.
+static volatile Queue g_decodedRxQueue =
+{
+    g_decodedRxQueueData,
+    g_decodedRxQueueElements,
+    NULL,
+    RX_QUEUE_DATA_SIZE,
+    RX_QUEUE_MAX_SIZE,
+    0,
+    0,
+    0,
+    0,
+};
 
 /// The index in the decoded receive data buffer where insertion occurs next.
 static volatile uint16_t g_decodedRxInsertIndex = 0;
@@ -189,6 +202,7 @@ static Queue g_txQueue =
     0,
     0,
     0,
+    0,
 };
 
 /// The type flags of the data that is waiting to be enqueued into the transmit
@@ -205,10 +219,8 @@ static BridgeCommand g_pendingTxEnqueueCommand = BridgeCommand_None;
 
 /// Sets all the global variables pertaining to the decoded receive buffer to
 /// an initial state.
-static void resetDecodedRxBufferParameters(void)
+static void resetDecodedRxQueue(void)
 {
-    g_decodedRxPacketPending = false;
-    g_decodedRxIndex = 0;
     g_lastRxTimeMS = hwSystemTime_getCurrentMS();
 }
 
@@ -481,7 +493,7 @@ static bool processReceivedByte(uint8_t data)
         {
             if (data == ControlByte_StartFrame)
             {                        
-                resetDecodedRxBufferParameters();
+                resetDecodedRxQueue();
                 g_rxState = RxState_InFrame;
             }
             else
@@ -605,7 +617,7 @@ void uartFrameProtocol_init(void)
 {
     // Configure the receive variables.
     g_rxState = RxState_OutOfFrame;
-    resetDecodedRxBufferParameters();
+    resetDecodedRxQueue();
     
     // Configures the transmit variables.
     queue_registerEnqueueCallback(&g_txQueue, encodeData);
@@ -638,7 +650,7 @@ bool uartFrameProtocol_isTxQueueEmpty(void)
 }
 
 
-uint16_t uartFrameProtocol_processRxData(uint8_t const data[], uint16_t size)
+uint16_t uartFrameProtocol_processRx(void)
 {
     uint32_t receiveTimeMS = (uint32_t)hwSystemTime_getCurrentMS();
     
@@ -658,7 +670,7 @@ uint16_t uartFrameProtocol_processRxData(uint8_t const data[], uint16_t size)
             if (g_decodedRxPacketPending && (g_decodedRxIndex > 0))
             {
                 processCompleteRxPacket();
-                resetDecodedRxBufferParameters();
+                resetDecodedRxQueue();
             }
         }
     }
@@ -670,7 +682,7 @@ uint16_t uartFrameProtocol_processRxData(uint8_t const data[], uint16_t size)
 }
 
 
-uint16_t uartFrameProtocol_processTxQueue(void)
+uint16_t uartFrameProtocol_processTx(void)
 {
     uint16_t size = 0;
     if (!queue_isEmpty(&g_txQueue))

@@ -65,18 +65,24 @@
     /// @return The number of bytes that were processed.
     uint16_t uartFrameProtocol_processRx(void);
     
-    /// Process the received data (parse using the UART protocol) and execute
-    /// any necessary functions.
-    /// @param[in]  data    The received data/buffer to process.
-    /// @param[in]  size    The size of the buffer to process.
+    /// Processes any pending receives and executes any functions associated
+    /// with received UART packets.
+    /// @param[in]  timeoutMS   The amount of time the process can occur before
+    ///                         it times out and must finish. If 0, then there's
+    ///                         no timeout and the function blocks until all
+    ///                         pending actions are completed.
     /// @return The number of bytes that were processed.
-    uint16_t uartFrameProtocol_processRxData(uint8_t const data[], uint16_t size);
+    uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS);
     
-    /// Processes the pending queue elements in the transmit queue and starts
-    /// sending them.
+    /// Processes any pending transmits and attempts to transmit any UART
+    /// packets waiting to be sent.
+    /// @param[in]  timeoutMS   The amount of time the process can occur before
+    ///                         it times out and must finish. If 0, then there's
+    ///                         no timeout and the function blocks until all
+    ///                         pending actions are completed.
     /// @return The number of bytes that were sent. If 0, then there was nothing
     ///         in the transmit queue to send or nothing could be sent.
-    uint16_t uartFrameProtocol_processTxQueue(void);
+    uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS);
     
     /// Enqueue data into the transmit queue.
     /// @param[in]  data    The data to enqueue.
