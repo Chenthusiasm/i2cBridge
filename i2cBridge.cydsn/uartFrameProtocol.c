@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "alarm.h"
 #include "hwSystemTime.h"
 #include "project.h"
 #include "queue.h"
@@ -106,7 +107,7 @@ typedef enum PacketOffset_
     /// Offset in the data frame for the bridge command.
     PacketOffset_BridgeCommand          = 0u,
     
-    /// Offset in the data frome for the data payload.
+    /// Offset in the data frame for the data payload.
     PacketOffset_BridgeData             = 1u,
 } PacketOffset;
 
@@ -403,15 +404,17 @@ bool txEnqueueCommand(BridgeCommand command, uint8_t const data[], uint16_t size
 }
 
 
-/// Processes the processed UART data (where the frame and escape characters are
-/// removed).
+/// Processes the decoded UART receive packet (where the frame and escape
+/// characters are removed).
+/// @param[in]  data    The decoded received packet.
+/// @param[in]  size    The number of bytes in the decoded received packet.
 /// @return If the UART command was successfully processed or not.
-static bool processCompleteRxPacket(void)
+static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
 {
     bool status = false;
-    if ((g_decodedRxPacketPending) && (g_decodedRxIndex > PacketOffset_BridgeCommand))
+    if ((data != NULL) && (size > PacketOffset_BridgeCommand))
     {
-        uint8_t command = g_decodedRxBuffer[PacketOffset_BridgeCommand];
+        uint8_t command = data[PacketOffset_BridgeCommand];
         switch (command)
         {
             case BridgeCommand_ACK:
@@ -478,7 +481,6 @@ static bool processCompleteRxPacket(void)
                 break;
             }
         }
-        g_decodedRxPacketPending = false;
     }
     return status;
 }
@@ -578,8 +580,6 @@ static uint16_t processReceivedData(uint8_t const source[], uint16_t sourceSize,
         ++size;
         
         processReceivedByte(data);
-        if (g_decodedRxPacketPending)
-            break;
     }
     return size;
 }
@@ -650,13 +650,23 @@ bool uartFrameProtocol_isTxQueueEmpty(void)
 }
 
 
-uint16_t uartFrameProtocol_processRx(void)
-{
-    uint32_t receiveTimeMS = (uint32_t)hwSystemTime_getCurrentMS();
+uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS)
+{        
+    Alarm alarm;
+    if (timeoutMS > 0)
+        alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+    else
+        alarm_disarm(&alarm);
+        
+    while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_decodedRxQueue))
+    {
+        uint8_t* data;
+        uint16_t size = queue_dequeue(&g_decodedRxQueue, &data);
+        if (size > 0)
+            process
+    }
     
-    // Check if we haven't received data in a while.
-    if ((uint32_t)(receiveTimeMS - g_lastRxTimeMS) > RX_RESET_TIMEOUT_MS)
-        uartFrameProtocol_init();
+    
     
     uint16_t processSize = 0;
     if ((data != NULL) && (size > 0))
@@ -682,7 +692,7 @@ uint16_t uartFrameProtocol_processRx(void)
 }
 
 
-uint16_t uartFrameProtocol_processTx(void)
+uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
 {
     uint16_t size = 0;
     if (!queue_isEmpty(&g_txQueue))

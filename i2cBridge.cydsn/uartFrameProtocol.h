@@ -60,11 +60,6 @@
     /// @return If the transmit queue is empty.
     bool uartFrameProtocol_isTxQueueEmpty(void);
     
-    /// Process the received data (parse using the UART frame protocol) and
-    /// executes any associated functions.
-    /// @return The number of bytes that were processed.
-    uint16_t uartFrameProtocol_processRx(void);
-    
     /// Processes any pending receives and executes any functions associated
     /// with received UART packets.
     /// @param[in]  timeoutMS   The amount of time the process can occur before
