@@ -66,7 +66,7 @@
     ///                         it times out and must finish. If 0, then there's
     ///                         no timeout and the function blocks until all
     ///                         pending actions are completed.
-    /// @return The number of bytes that were processed.
+    /// @return The number of packets that were processed.
     uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS);
     
     /// Processes any pending transmits and attempts to transmit any UART
@@ -75,8 +75,7 @@
     ///                         it times out and must finish. If 0, then there's
     ///                         no timeout and the function blocks until all
     ///                         pending actions are completed.
-    /// @return The number of bytes that were sent. If 0, then there was nothing
-    ///         in the transmit queue to send or nothing could be sent.
+    /// @return The number of packets that were processed.
     uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS);
     
     /// Enqueue data into the transmit queue.

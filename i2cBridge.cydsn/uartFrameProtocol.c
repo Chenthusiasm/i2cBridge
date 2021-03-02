@@ -645,51 +645,40 @@ uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS)
     else
         alarm_disarm(&alarm);
         
+    uint16_t count = 0;
     while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_decodedRxQueue))
     {
         uint8_t* data;
         uint16_t size = queue_dequeue(&g_decodedRxQueue, &data);
         if (size > 0)
-            process
+            if (processDecodedRxPacket(data, size))
+                ++count;
     }
-    
-    
-    
-    uint16_t processSize = 0;
-    if ((data != NULL) && (size > 0))
-    {
-        uint16_t offset = 0;
-        while (offset < size)
-        {
-            offset += processReceivedData(data, size, offset);
-            
-            // Check if there's a valid packet to process.
-            if (g_decodedRxPacketPending && (g_decodedRxIndex > 0))
-            {
-                processCompleteRxPacket();
-                resetDecodedRxQueue();
-            }
-        }
-    }
-    
-    // Update the last receive time.
-    g_lastRxTimeMS = receiveTimeMS;
-    
-    return processSize;
+    return count;
 }
 
 
 uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
 {
-    uint16_t size = 0;
-    if (!queue_isEmpty(&g_txQueue))
+    Alarm alarm;
+    if (timeoutMS > 0)
+        alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+    else
+        alarm_disarm(&alarm);
+        
+    uint16_t count = 0;
+    while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_txQueue))
     {
         uint8_t* data;
-        size = queue_dequeue(&g_txQueue, &data);
-        for (uint32_t i = 0; i < size; ++i)
-            hostUART_UartPutChar(data[i]);
+        uint16_t size = queue_dequeue(&g_txQueue, &data);
+        if (size > 0)
+        {
+            for (uint32_t i = 0; i < size; ++i)
+                hostUART_UartPutChar(data[i]);
+            ++count;
+        }
     }
-    return size;
+    return count;
 }
 
 
