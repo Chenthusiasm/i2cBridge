@@ -513,36 +513,23 @@ static bool processReceivedByte(uint8_t data)
                 g_rxState = RxState_EscapeCharacter;
             else if (isEndFrameCharacter(data))
             {
-                g_decodedRxPacketPending = true;
+                status = queue_enqueueFinalize(&g_decodedRxQueue);
                 g_rxState = RxState_OutOfFrame;
             }
             else
             {
-                // Make sure the data will fit in the buffer before adding.
-                if (g_decodedRxIndex < RX_BUFFER_SIZE)
-                    g_decodedRxBuffer[g_decodedRxIndex++] = data;
-                else
-                {
+                status = queue_enqueueByte(&g_decodedRxQueue, data, false);
+                if (!status)
                     handleRxFrameOverflow(data);
-                    status = false;
-                }
             }
             break;
         }
         
         case RxState_EscapeCharacter:
         {
-            // Make sure the data will fit in the buffer before adding.
-            if (g_decodedRxIndex < RX_BUFFER_SIZE)
-            {
-                g_decodedRxBuffer[g_decodedRxIndex++] = data;
-                g_rxState = RxState_InFrame;
-            }
-            else
-            {
-                handleRxFrameOverflow(data);
-                status = false;
-            }
+            status = queue_enqueueByte(&g_decodedRxQueue, data, false);
+                if (!status)
+                    handleRxFrameOverflow(data);
             break;
         }
         
