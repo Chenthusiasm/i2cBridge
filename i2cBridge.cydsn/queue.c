@@ -121,8 +121,7 @@ bool queue_enqueueByte(Queue volatile* queue, uint8_t data, bool lastByte)
     if ((queue != NULL) && !queue_isFull(queue))
     {
         uint16_t enqueueSize = 1;
-        uint16_t elementOffset = getEnqueueDataOffset(queue);
-        uint16_t dataOffset = elementOffset + queue->pendingEnqueueSize;
+        uint16_t dataOffset = getEnqueueDataOffset(queue) + queue->pendingEnqueueSize;
         if (queue->enqueueCallback != NULL)
             enqueueSize = queue->enqueueCallback(&queue->data[dataOffset], queue->maxDataSize - dataOffset, &data, enqueueSize);
         else
@@ -133,19 +132,27 @@ bool queue_enqueueByte(Queue volatile* queue, uint8_t data, bool lastByte)
         if (enqueueSize > 0)
         {
             queue->pendingEnqueueSize += enqueueSize;
-            status = true;
             if (lastByte)
-            {
-                QueueElement* tail = &queue->elements[queue->tail];
-                tail->dataOffset = elementOffset;
-                tail->dataSize = queue->pendingEnqueueSize;
-                queue->size++;
-                queue->tail++;
-                if (queue->tail >= queue->maxSize)
-                    queue->tail = 0;
-                queue->pendingEnqueueSize = 0;
-            }
+                status = queue_enqueueFinalize(queue);
         }
+    }
+    return status;
+}
+
+
+bool queue_enqueueFinalize(Queue volatile* queue)
+{
+    bool status = false;
+    if ((queue != NULL) && !queue_isFull(queue) && (queue->pendingEnqueueSize > 0))
+    {
+        QueueElement* tail = &queue->elements[queue->tail];
+        tail->dataOffset = getEnqueueDataOffset(queue);
+        tail->dataSize = queue->pendingEnqueueSize;
+        queue->size++;
+        queue->tail++;
+        if (queue->tail >= queue->maxSize)
+            queue->tail = 0;
+        queue->pendingEnqueueSize = 0;
     }
     return status;
 }

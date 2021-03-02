@@ -128,7 +128,7 @@
     
     /// Enqueue (add) a new queue element into the queue tail (end) in a
     /// byte-by-byte fashion. Because enqueue modifies the queue data structure,
-    /// NO NOT enqueue in an ISR unless the queue is protected by a mutex,
+    /// DO NOT enqueue in an ISR unless the queue is protected by a mutex,
     /// semaphore, or lock.
     /// @param[in]  queue       The queue to perform the function's action on.
     /// @param[in]  data        The data to enqueue.
@@ -137,6 +137,12 @@
     ///                         element should be queuened).
     /// @return If the enqueue operation was successful.
     bool queue_enqueueByte(Queue volatile* queue, uint8_t data, bool finalize);
+    
+    /// Enqueue (add) a new queue lement into the queue tail (end) based on
+    /// the pending data added byte-by-byte by the queue_enqueueByte function.
+    /// Because enqueue modifies the queue data structure, DO NOT enqueue in an
+    /// ISR unless the queue is protected by a mutet, semaphore, or lock.
+    bool queue_enqueueFinalize(Queue volatile* queue);
     
     /// Dequeue (remove) the oldest queue element from the queue head (front).
     /// Also provides access to the data from this queue element.  Because a
