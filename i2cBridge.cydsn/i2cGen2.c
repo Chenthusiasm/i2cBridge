@@ -66,8 +66,15 @@ typedef enum AppBufferOffset_
 
 // === DEFINES =================================================================
 
-/// Size of the common data buffer.
-#define DATA_BUFFER_SIZE                (300u)
+/// Size of the receive data buffer.
+#define RX_BUFFER_SIZE                (260u)
+
+/// The max size of the transmit queue (the max number of queue elements).
+#define TX_QUEUE_MAX_SIZE               (8u)
+
+/// The size of the data array that holds the queue element data in the transmit
+/// queue.
+#define TX_QUEUE_DATA_SIZE              (600u)
 
 
 // === CONSTANTS ===============================================================
@@ -90,11 +97,34 @@ static uint32_t const G_DefaultSendStopTimeoutMS = 5u;
 
 // === GLOBALS =================================================================
 
+/// Flag indicating if the IRQ triggerd and a receive is pending consumption.
 static volatile bool g_rxPending = false;
 
-static uint8_t g_buffer[DATA_BUFFER_SIZE];
+/// The receive buffer.
+static uint8_t g_rxBuffer[RX_BUFFER_SIZE];
 
+/// The receive callback function.
 static I2CGen2_RxCallback g_rxCallback = NULL;
+
+/// Array of transmit queue elements for the transmit queue.
+static QueueElement g_txQueueElements[TX_QUEUE_MAX_SIZE];
+
+/// Array to hold the data of the elements in the transmit queue.
+static uint8_t g_txQueueData[TX_QUEUE_DATA_SIZE];
+
+/// Transmit queue.
+static Queue g_txQueue =
+{
+    g_txQueueData,
+    g_txQueueElements,
+    NULL,
+    TX_QUEUE_DATA_SIZE,
+    TX_QUEUE_MAX_SIZE,
+    0,
+    0,
+    0,
+    0,
+};
 
 
 // === ISR =====================================================================
@@ -149,6 +179,9 @@ static void resetIRQ(void)
 
 void i2cGen2_init(void)
 {
+    // Configures the transmit variables.
+    queue_empty(&g_txQueue);
+    
     slaveI2C_Start();
     
     slaveIRQ_StartEx(slaveISR);
@@ -167,13 +200,13 @@ int i2cGen2_processRx(void)
     int length = 0;
     if (g_rxPending && isIRQAsserted())
     {
-        if (slaveI2C_I2CMasterReadBuf(G_AppAddress, g_buffer, G_AppRxPacketLengthSize, slaveI2C_I2C_MODE_NO_STOP))
+        if (slaveI2C_I2CMasterReadBuf(G_AppAddress, g_rxBuffer, G_AppRxPacketLengthSize, slaveI2C_I2C_MODE_NO_STOP))
         {
-            uint8_t dataLength = g_buffer[AppRxPacketOffset_Length];
+            uint8_t dataLength = g_rxBuffer[AppRxPacketOffset_Length];
             if (isAppPacketLengthValid(dataLength))
             {
                 if (dataLength > 0)
-                    slaveI2C_I2CMasterReadBuf(G_AppAddress, &g_buffer[AppRxPacketOffset_Data], dataLength, slaveI2C_I2C_MODE_REPEAT_START);
+                    slaveI2C_I2CMasterReadBuf(G_AppAddress, &g_rxBuffer[AppRxPacketOffset_Data], dataLength, slaveI2C_I2C_MODE_REPEAT_START);
                 else
                     slaveI2C_I2CMasterSendStop(G_DefaultSendStopTimeoutMS);
             }
@@ -184,6 +217,23 @@ int i2cGen2_processRx(void)
         g_rxPending = false;
     }
     return length;
+}
+
+
+int i2xGen2_processTxQueue(void)
+{
+    int count = 0;
+    if (!queue_isEmpty(&g_txQueue))
+    {
+        uint8_t* data;
+        uint16_t size = queue_dequeue(&g_txQueue, &data);
+        if (size > 0)
+        {
+            i2cGen2_write(data[0], &data[1], size - 1);
+            ++count;
+        }
+    }
+    return count;
 }
 
 

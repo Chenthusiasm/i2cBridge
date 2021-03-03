@@ -46,11 +46,12 @@
     
     /// Process any pending data to be receved.
     /// @return The number of bytes that were processed. If -1, an error
-    /// occurred: there was data pending but it could not be read.
+    ///         occurred: there was data pending but it could not be read.
     int i2cGen2_processRx(void);
     
     /// Process any pending transmits in the transmit queue.
-    /// @return The 
+    /// @return The number of packets that were transmitted. If -1, an error
+    ///         occurred: there was packets pending but it could not be sent.
     int i2cGen2_processTxQueue(void);
     
     bool i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size);

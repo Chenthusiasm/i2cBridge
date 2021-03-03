@@ -555,7 +555,7 @@ static bool processReceivedByte(uint8_t data)
 /// @param[in]  sourceSize      The size of the source buffer in bytes.
 /// @param[in]  sourceOffset    The offset to start parsing.
 /// @return The number of bytes that were processed.
-static uint16_t processReceivedData(uint8_t const source[], uint16_t sourceSize, uint16_t sourceOffset)
+static uint16_t __attribute__((unused)) processReceivedData(uint8_t const source[], uint16_t sourceSize, uint16_t sourceOffset)
 {
     // Track the number of bytes that was processed.
     uint32_t size = 0;
