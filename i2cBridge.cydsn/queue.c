@@ -20,6 +20,10 @@
 
 // === PRIVATE FUNCTIONS =======================================================
 
+/// Get the data offset in the data buffer that defines where the pending
+/// enqueue data starts.
+/// @param[in]  queue   The queue.
+/// @return The data offset in the data buffer of the queue.
 uint16_t getEnqueueDataOffset(Queue const volatile* queue)
 {
     uint16_t offset = 0;
