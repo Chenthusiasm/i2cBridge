@@ -16,6 +16,7 @@
 
 #include <stdio.h>
 
+#include "alarm.h"
 #include "project.h"
 #include "queue.h"
 
@@ -220,17 +221,26 @@ int i2cGen2_processRx(void)
 }
 
 
-int i2xGen2_processTxQueue(void)
+int i2xGen2_processTxQueue(uint32_t timeoutMS)
 {
+    Alarm alarm;
+    if (timeoutMS > 0)
+        alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+    else
+        alarm_disarm(&alarm);
+        
     int count = 0;
-    if (!queue_isEmpty(&g_txQueue))
+    while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_txQueue))
     {
-        uint8_t* data;
-        uint16_t size = queue_dequeue(&g_txQueue, &data);
-        if (size > 0)
+        if (isBusReady())
         {
-            i2cGen2_write(data[0], &data[1], size - 1);
-            ++count;
+            uint8_t* data;
+            uint16_t size = queue_dequeue(&g_txQueue, &data);
+            if (size > 0)
+            {
+                i2cGen2_write(data[0], &data[1], size - 1);
+                ++count;
+            }
         }
     }
     return count;

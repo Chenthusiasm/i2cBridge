@@ -49,10 +49,14 @@
     ///         occurred: there was data pending but it could not be read.
     int i2cGen2_processRx(void);
     
-    /// Process any pending transmits in the transmit queue.
+    /// Process any pending transmits in the transmits.
+    /// @param[in]  timeoutMS   The amount of time the process can occur before
+    ///                         it times out and must finish. If 0, then there's
+    ///                         no timeout and the function blocks until all
+    ///                         pending actions are completed.
     /// @return The number of packets that were transmitted. If -1, an error
     ///         occurred: there was packets pending but it could not be sent.
-    int i2cGen2_processTxQueue(void);
+    int i2cGen2_processTx(uint32_t timeoutMS);
     
     bool i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size);
     
