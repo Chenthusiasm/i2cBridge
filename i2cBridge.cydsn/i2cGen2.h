@@ -56,7 +56,7 @@
     ///                         pending actions are completed.
     /// @return The number of packets that were transmitted. If -1, an error
     ///         occurred: there was packets pending but it could not be sent.
-    int i2cGen2_processTx(uint32_t timeoutMS);
+    int i2cGen2_processTxQueue(uint32_t timeoutMS);
     
     /// Read from the i2C bus.
     /// @param[in]  address The I2C address.
