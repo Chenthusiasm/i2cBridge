@@ -60,6 +60,7 @@ typedef enum ControlByte_
 } ControlByte;
 
 
+/// Defines of the different bridge commands that the host can send.
 typedef enum BridgeCommand_
 {
     /// No command.
