@@ -201,21 +201,31 @@ int i2cGen2_processRx(void)
     int length = 0;
     if (g_rxPending && isIRQAsserted())
     {
-        if (slaveI2C_I2CMasterReadBuf(G_AppAddress, g_rxBuffer, G_AppRxPacketLengthSize, slaveI2C_I2C_MODE_NO_STOP))
+        if (isBusReady())
         {
-            uint8_t dataLength = g_rxBuffer[AppRxPacketOffset_Length];
-            if (isAppPacketLengthValid(dataLength))
+            if (slaveI2C_I2CMasterReadBuf(G_AppAddress, g_rxBuffer, G_AppRxPacketLengthSize, slaveI2C_I2C_MODE_NO_STOP))
             {
-                if (dataLength > 0)
-                    slaveI2C_I2CMasterReadBuf(G_AppAddress, &g_rxBuffer[AppRxPacketOffset_Data], dataLength, slaveI2C_I2C_MODE_REPEAT_START);
+                length += (int)G_AppRxPacketLengthSize;
+                uint8_t dataLength = g_rxBuffer[AppRxPacketOffset_Length];
+                if (isAppPacketLengthValid(dataLength))
+                {
+                    if (dataLength > 0)
+                        slaveI2C_I2CMasterReadBuf(G_AppAddress, &g_rxBuffer[AppRxPacketOffset_Data], dataLength, slaveI2C_I2C_MODE_REPEAT_START);
+                    else
+                        slaveI2C_I2CMasterSendStop(G_DefaultSendStopTimeoutMS);
+                    length += (int)dataLength;
+                }
                 else
+                {
                     slaveI2C_I2CMasterSendStop(G_DefaultSendStopTimeoutMS);
+                    length = -1;
+                }
             }
-            else
-                slaveI2C_I2CMasterSendStop(G_DefaultSendStopTimeoutMS);
+            resetIRQ();
+            g_rxPending = false;
         }
-        resetIRQ();
-        g_rxPending = false;
+        else
+            length = -1;
     }
     return length;
 }
