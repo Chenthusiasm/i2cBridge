@@ -252,6 +252,11 @@ int i2xGen2_processTxQueue(uint32_t timeoutMS)
                 ++count;
             }
         }
+        else
+        {
+            count = -1;
+            break;
+        }
     }
     return count;
 }
