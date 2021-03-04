@@ -277,7 +277,7 @@ static void handleRxFrameOverflow(uint8_t data)
 
 
 /// Resets the variables associated with the pending transmit enqueue.
-void resetPendingTxEnqueue(void)
+static void resetPendingTxEnqueue(void)
 {
     g_pendingTxEnqueueCommand = BridgeCommand_None;
     static Flags const DefaultFlags = { false, false };
@@ -299,10 +299,9 @@ void resetPendingTxEnqueue(void)
 ///         to transmit.  If 0, then the source buffer was either invalid or
 ///         there's not enough bytes in target buffer to store the formatted
 ///         data.
-uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
+static uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
 {
     uint16_t t = 0;
-    
     if ((targetSize > 0) && (target != NULL))
     {
         // Always put the start frame control byte in the beginning.
@@ -376,7 +375,7 @@ uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const source[
 ///         to transmit.  If 0, then the source buffer was either invalid or
 ///         there's not enough bytes in target buffer to store the formatted
 ///         data.
-uint16_t __attribute__((unused)) encodeTxData(uint8_t target[], uint16_t targetSize, BridgeCommand command, Flags flags, uint8_t const source[], uint16_t sourceSize)
+static uint16_t __attribute__((unused)) encodeTxData(uint8_t target[], uint16_t targetSize, BridgeCommand command, Flags flags, uint8_t const source[], uint16_t sourceSize)
 {
     g_pendingTxEnqueueCommand = command;
     g_pendingTxEnqueueFlags = flags;
@@ -391,7 +390,7 @@ uint16_t __attribute__((unused)) encodeTxData(uint8_t target[], uint16_t targetS
 /// @param[in]  size    The size of the data. If the value is 0, then the data
 ///                     flag will not be set.
 /// @return If the command and associated data was successfully enqueued.
-bool txEnqueueCommand(BridgeCommand command, uint8_t const data[], uint16_t size)
+static bool txEnqueueCommand(BridgeCommand command, uint8_t const data[], uint16_t size)
 {
     bool status = false;
     if (!queue_isFull(&g_txQueue) && (command != BridgeCommand_None))
@@ -575,6 +574,7 @@ static uint16_t __attribute__((unused)) processReceivedData(uint8_t const source
 
 // === ISR =====================================================================
 
+/// ISR for UART IRQ's in general.
 static void isr(void)
 {
     uint32_t source = hostUART_GetRxInterruptSource();
@@ -694,7 +694,7 @@ bool uartFrameProtocol_txEnqueueData(uint8_t const data[], uint16_t size)
         g_pendingTxEnqueueCommand = BridgeCommand_None;
         g_pendingTxEnqueueFlags.command = false;
         g_pendingTxEnqueueFlags.data = true;
-        queue_enqueue(&g_txQueue, data, size); 
+        status = queue_enqueue(&g_txQueue, data, size); 
     }
     return status;
 }

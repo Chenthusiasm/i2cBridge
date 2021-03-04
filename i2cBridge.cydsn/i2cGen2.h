@@ -80,6 +80,22 @@
     /// @return If the write was successful. If not, then the I2C bus was busy.
     bool i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size);
     
+    /// Enqueue a transmit packet.
+    /// @param[in]  address The I2C address.
+    /// @param[in]  data    The data buffer to that contains the data to
+    ///                     transmit.
+    /// @param[in]  size    The number of bytes in data.
+    /// @return If the enqueue was successful.
+    bool i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size);
+    
+    /// Enqueue a transmit packet. The I2C address is the first byte in the data
+    /// buffer.
+    /// @param[in]  data    The data buffer to that contains the data to
+    ///                     transmit. The first byte is the I2C address.
+    /// @param[in]  size    The number of bytes in data.
+    /// @return If the enqueue was successful.
+    bool i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size);
+    
     
     #ifdef __cplusplus
         }

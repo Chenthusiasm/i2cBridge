@@ -23,6 +23,18 @@
 
 // === TYPE DEFINES ============================================================
 
+/// Definition of the transmit queue data offsets.
+typedef enum TxQueueDataOffset_
+{
+    /// The I2C address.
+    TxQueueDataOffset_Address           = 0u,
+    
+    /// The start of the data payload.
+    TxQueueDataOffset_Data              = 1u,
+    
+} TxQueueDataOffset;
+
+
 /// Definition of the duraTOUCH application I2C communication receive packet
 /// offsets.
 typedef enum AppRxPacketOffset_
@@ -127,23 +139,24 @@ static Queue g_txQueue =
     0,
 };
 
-
-// === ISR =====================================================================
-
-CY_ISR(slaveISR)
-{
-    slaveIRQ_ClearPending();
-    slaveIRQPin_ClearInterrupt();
-        
-    g_rxPending = true;
-}
+/// The I2C address associated with the data that is waiting to be enqueued into
+/// the transmit queue. This must be set prior to enqueueing data into the
+/// transmit queue.
+static uint8_t g_pendingTxEnqueueAddress = 0;
 
 
 // === PRIVATE FUNCTIONS =======================================================
 
+/// Resets the variables associated with the pending transmit enqueue.
+void resetPendingTxEnqueue(void)
+{
+    g_pendingTxEnqueueAddress = 0;
+}
+
+
 /// Checks to see if the slave I2C bus is ready.
 /// @return If the bus is ready for a new read/write transaction.
-static bool __attribute__((unused)) isBusReady(void)
+static bool isBusReady(void)
 {
     return ((slaveI2C_I2CMasterStatus() & slaveI2C_I2C_MSTAT_XFER_INP) != 0);
 }
@@ -176,11 +189,54 @@ static void resetIRQ(void)
 }
 
 
+/// Generates the transmit queue data to include the I2C address as the first
+/// byte (encode the I2C address in the data). The transmit dequeue function
+/// will take care of properly pulling out the I2C address and the actual data
+/// payload to transmit. Note that the g_pendingTxEnqueueAddress must be set
+/// properly before invoking this function.
+/// @param[in]  source      The source buffer.
+/// @param[in]  sourceSize  The number of bytes in the source.
+/// @param[out] target      The target buffer (where the formatted data is
+///                         stored).
+/// @param[in]  targetSize  The number of bytes available in the target.
+/// @return The number of bytes in the target buffer or the number of bytes
+///         to transmit.  If 0, then the source buffer was either invalid or
+///         there's not enough bytes in target buffer to store the formatted
+///         data.
+static uint16_t prepareTxQueueData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
+{
+    static uint16_t const MinSourceSize = TxQueueDataOffset_Data + 1;
+    
+    uint16_t size = 0;
+    if ((source != NULL) && (sourceSize >= MinSourceSize) && (target != NULL) && (targetSize > sourceSize))
+    {
+        target[size++] = g_pendingTxEnqueueAddress;
+        memcpy(&target[size], source, sourceSize);
+        size += sourceSize;
+    }
+    return size;
+}
+
+
+// === ISR =====================================================================
+
+/// ISR for the slaveIRQ (for the slaveIRQPin). The IRQ is asserted when there's
+/// pending I2C data to be read from the I2C slave.
+CY_ISR(slaveISR)
+{
+    slaveIRQ_ClearPending();
+    slaveIRQPin_ClearInterrupt();
+        
+    g_rxPending = true;
+}
+
+
 // === PUBLIC FUNCTIONS ========================================================
 
 void i2cGen2_init(void)
 {
     // Configures the transmit variables.
+    queue_registerEnqueueCallback(&g_txQueue, prepareTxQueueData);
     queue_empty(&g_txQueue);
     
     slaveI2C_Start();
@@ -250,7 +306,7 @@ int i2xGen2_processTxQueue(uint32_t timeoutMS)
             uint16_t size = queue_dequeue(&g_txQueue, &data);
             if (size > 0)
             {
-                i2cGen2_write(data[0], &data[1], size - 1);
+                i2cGen2_write(data[TxQueueDataOffset_Address], &data[TxQueueDataOffset_Data], size - 1);
                 ++count;
             }
         }
@@ -293,6 +349,30 @@ bool i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
     {
         size--;
         status = i2cGen2_write(data[AddressOffset], &data[DataOffset], size);
+    }
+    return status;
+}
+
+
+bool i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
+{
+    bool status = false;
+    if (!queue_isFull(&g_txQueue))
+    {
+        g_pendingTxEnqueueAddress = address;
+        status = queue_enqueue(&g_txQueue, data, size);
+    }
+    return status;
+}
+
+
+bool i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
+{
+    bool status = false;
+    if ((data != NULL) && (size > 0) && !queue_isFull(&g_txQueue))
+    {
+        g_pendingTxEnqueueAddress = data[TxQueueDataOffset_Address];
+        status = queue_enqueue(&g_txQueue, &data[TxQueueDataOffset_Data], size - 1);
     }
     return status;
 }
