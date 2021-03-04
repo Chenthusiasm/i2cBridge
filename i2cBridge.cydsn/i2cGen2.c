@@ -68,7 +68,7 @@ typedef enum AppBufferOffset_
 // === DEFINES =================================================================
 
 /// Size of the receive data buffer.
-#define RX_BUFFER_SIZE                (260u)
+#define RX_BUFFER_SIZE                  (260u)
 
 /// The max size of the transmit queue (the max number of queue elements).
 #define TX_QUEUE_MAX_SIZE               (8u)
