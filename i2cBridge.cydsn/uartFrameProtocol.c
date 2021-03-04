@@ -19,6 +19,7 @@
 
 #include "alarm.h"
 #include "hwSystemTime.h"
+#include "i2cGen2.h"
 #include "project.h"
 #include "queue.h"
 
@@ -610,6 +611,9 @@ void uartFrameProtocol_init(void)
     queue_registerEnqueueCallback(&g_txQueue, encodeData);
     queue_empty(&g_txQueue);
     resetPendingTxEnqueue();
+    
+    // Setup callback functions.
+    i2cGen2_registerRxCallback(uartFrameProtocol_txEnqueueData);
     
     // Setup the UART hardware.
     hostUART_SetCustomInterruptHandler(isr);

@@ -31,7 +31,7 @@
     /// data is received. Note that if the callback function needs to copy the
     /// received data into its own buffer if the callback needs to perform any
     /// action to the data (like modify the data).
-    typedef uint16_t (*I2CGen2_RxCallback)(uint8_t const*, uint16_t);
+    typedef bool (*I2CGen2_RxCallback)(uint8_t const*, uint16_t);
     
     
     // === FUNCTIONS ===========================================================

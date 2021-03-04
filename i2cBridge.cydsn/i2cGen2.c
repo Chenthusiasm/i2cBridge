@@ -214,6 +214,8 @@ int i2cGen2_processRx(void)
                     else
                         slaveI2C_I2CMasterSendStop(G_DefaultSendStopTimeoutMS);
                     length += (int)dataLength;
+                    if (g_rxCallback != NULL)
+                        g_rxCallback(g_rxBuffer, (uint16_t)length);
                 }
                 else
                 {
