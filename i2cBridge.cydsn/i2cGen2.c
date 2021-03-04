@@ -265,7 +265,7 @@ int i2xGen2_processTxQueue(uint32_t timeoutMS)
 bool i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 {
     bool status = false;
-    if ((data != NULL) && (size > 0))
+    if ((data != NULL) && (size > 0) && isBusReady())
         status = (slaveI2C_I2CMasterReadBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
     return status;
 }
@@ -274,7 +274,7 @@ bool i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 bool i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 {
     bool status = false;
-    if ((data != NULL) && (size > 0))
+    if ((data != NULL) && (size > 0) && isBusReady())
         status = (slaveI2C_I2CMasterWriteBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
     return status;
 }
