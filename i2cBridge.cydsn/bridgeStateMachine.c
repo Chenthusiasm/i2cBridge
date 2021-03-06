@@ -14,6 +14,8 @@
 
 #include "bridgeStateMachine.h"
 
+#include "project.h"
+
 
 // === TYPE DEFINES ============================================================
 
@@ -48,6 +50,11 @@ static State g_state = State_SlaveReset;
 /// Processes all tasks associated with resetting teh I2C slave.
 void processSlaveReset(void)
 {
+    // @TODO: is there a way to check if the reset line is connected to ensure
+    // we don't attempt to reset if the reset line is not connected.
+    slaveReset_Write(0);
+    CyDelay(100);
+    slaveReset_Write(1);
 }
 
 
