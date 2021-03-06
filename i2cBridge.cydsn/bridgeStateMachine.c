@@ -20,8 +20,8 @@
 /// The different states of the state machine.
 typedef enum State_
 {
-    /// Default/reset state.
-    State_Reset,
+    /// Reset the slave.
+    State_SlaveReset,
     
     /// Initialize the slave translator mode.
     State_InitSlaveTranslator,
@@ -40,10 +40,16 @@ typedef enum State_
 // === GLOBAL VARIABLES ========================================================
 
 /// The current state of the state machine.
-static State g_state = State_Reset;
+static State g_state = State_SlaveReset;
 
 
 // === PRIVATE FUNCTIONS =======================================================
+
+/// Processes all tasks associated with resetting teh I2C slave.
+void processSlaveReset(void)
+{
+}
+
 
 /// Processes all tasks associated with initializing the I2C slave translator.
 void processInitSlaveTranslator(void)
@@ -73,7 +79,13 @@ void processSlaveUpdater(void)
 
 void bridgeStateMachine_reset(void)
 {
-    g_state = State_Reset;
+    g_state = State_SlaveReset;    
+}
+
+
+void bridgeStateMachine_init(void)
+{
+    bridgeStateMachine_reset();
 }
 
 
@@ -81,31 +93,36 @@ void bridgeStateMachine_process(void)
 {
     switch(g_state)
     {
-        case State_Reset:
+        case State_SlaveReset:
         {
+            processSlaveReset();
             g_state = State_InitSlaveTranslator;
             break;
         }
         
         case State_InitSlaveTranslator:
         {
+            processInitSlaveTranslator();
             g_state = State_SlaveTranslator;
             break;
         }
         
         case State_InitSlaveUpdater:
         {
+            processInitSlaveUpdater();
             g_state = State_SlaveUpdater;
             break;
         }
         
         case State_SlaveTranslator:
         {
+            processSlaveTranslator();
             break;
         }
         
         case State_SlaveUpdater:
         {
+            processSlaveUpdater();
             break;
         }
         

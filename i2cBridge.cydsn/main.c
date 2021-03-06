@@ -29,11 +29,13 @@
 
 // === DEFINES =================================================================
 
+/// The default system tick period.
 #define DEFAULT_SYSTICK_PERIOD_MS       (1u)
 
 
 // === PRIVATE FUNCTIONS =======================================================
 
+/// Initialization of the hardware and system resources.
 static void init(void)
 {
     // Initialize the hardware resources.
@@ -43,12 +45,13 @@ static void init(void)
     uartFrameProtocol_init();
     
     // Initialize state machines and system controls.
-    bridgeStateMachine_reset();
+    bridgeStateMachine_init();
 }
 
 
 // === PUBLIC FUNCTIONS ========================================================
 
+/// Main function.
 int main(void)
 {
     CyGlobalIntEnable;
