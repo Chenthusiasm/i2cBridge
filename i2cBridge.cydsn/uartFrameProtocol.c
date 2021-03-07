@@ -84,8 +84,9 @@ typedef enum BridgeCommand_
     /// I2C communication timeout between bridge and I2C slave.
     BridgeCommand_SlaveTimeout          = 'T',
     
-    /// Configures bridge to slave update mode.
-    BridgeCommand_SlaveUpdate           = 'U',
+    /// Configures bridge to slave update mode. This is the old variant that is
+    /// kept for backwards compatibility.
+    BridgeCommand_SlaveUpdateLegacy     = 'U',
     
     /// Bridge version information.
     BridgeCommand_Version               = 'V',
@@ -98,6 +99,9 @@ typedef enum BridgeCommand_
     
     /// Bridge reset.
     BridgeCommand_Reset                 = 'r',
+    
+    /// Configures bridge to slave update mode. This is the new variant.
+    BridgeCommand_SlaveUpdate           = 'u',
     
 } BridgeCommand;
 
@@ -454,7 +458,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 break;
             }
             
-            case BridgeCommand_SlaveUpdate:
+            case BridgeCommand_SlaveUpdateLegacy:
             {
                 break;
             }
@@ -471,6 +475,11 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             }
             
             case BridgeCommand_SlaveACK:
+            {
+                break;
+            }
+            
+            case BridgeCommand_SlaveUpdate:
             {
                 break;
             }
