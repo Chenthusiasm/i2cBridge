@@ -443,6 +443,9 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveRead:
             {
+                uint8_t readData[0xff];
+                if (i2cGen2_read(data[PacketOffset_BridgeData], readData, sizeof(readData)))
+                    uartFrameProtocol_txEnqueueData(data, size);
                 break;
             }
             
@@ -463,6 +466,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveWrite:
             {
+                i2cGen2_txEnqueueWithAddressInData(&data[PacketOffset_BridgeData], size - 1);
                 break;
             }
             
