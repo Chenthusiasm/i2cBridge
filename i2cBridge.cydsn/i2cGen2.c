@@ -378,4 +378,25 @@ bool i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 }
 
 
+bool i2cGen2_ACK(uint32_t timeoutMS)
+{
+    Alarm alarm;
+    if (timeoutMS > 0)
+        alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+    else
+        alarm_disarm(&alarm);
+        
+    bool status = false;
+    while (!alarm_hasElapsed(&alarm))
+    {
+        // Scratch buffer; used so that the I2C read function has a valid non-
+        // NULL pointer for reading 0 bytes.
+        uint8_t scratch;
+        if (isBusReady())
+            status = (slaveI2C_I2CMasterReadBuf(G_AppAddress, &scratch, 0, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
+    }
+    return status;
+}
+
+
 /* [] END OF FILE */

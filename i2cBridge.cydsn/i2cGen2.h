@@ -96,6 +96,16 @@
     /// @return If the enqueue was successful.
     bool i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size);
     
+    /// Perform an ACK handshake with the slave app.
+    /// @param[in]  timeout The amount of time in milliseconds the function
+    ///                     can wait for the I2C bus to free up before timing
+    ///                     out. If 0, then the function will wait indefinitely
+    ///                     until the bus is free.
+    /// @return If ACK was successful. The result will be false if there is no
+    ///         response from the slave ACK or if the bus is so busy that the
+    ///         timeout expires.
+    bool i2cGen2_appACK(uint32_t timeoutMS);
+    
     
     #ifdef __cplusplus
         }
