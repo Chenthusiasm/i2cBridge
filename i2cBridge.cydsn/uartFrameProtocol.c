@@ -75,8 +75,8 @@ typedef enum BridgeCommand_
     /// Access the I2C slave address.
     BridgeCommand_SlaveAddress          = 'I',
     
-    /// Bridge to I2C slave NACK over I2C.
-    BridgeCommand_SlaveNACK             = 'N',
+    /// Bridge to I2C slave NAK over I2C.
+    BridgeCommand_SlaveNAK              = 'N',
     
     /// Bridge I2C read from I2C slave.
     BridgeCommand_SlaveRead             = 'R',
@@ -440,11 +440,11 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 break;
             }
             
-            case BridgeCommand_SlaveNACK:
+            case BridgeCommand_SlaveNAK:
             {
                 // @TODO Check to see if this makes sense, the host should not
-                // be sending a slave NACK message to the bridge.
-                txEnqueueCommand(BridgeCommand_SlaveNACK, NULL, 0);
+                // be sending a slave NAK message to the bridge.
+                txEnqueueCommand(BridgeCommand_SlaveNAK, NULL, 0);
                 break;
             }
             
@@ -458,6 +458,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveTimeout:
             {
+                txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
                 break;
             }
             
@@ -483,7 +484,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 if (i2cGen2_appACK(timeoutMS))
                     txEnqueueCommand(BridgeCommand_SlaveACK, NULL, 0);
                 else
-                    txEnqueueCommand(BridgeCommand_SlaveNACK, NULL, 0);
+                    txEnqueueCommand(BridgeCommand_SlaveNAK, NULL, 0);
                 break;
             }
             

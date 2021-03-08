@@ -289,7 +289,7 @@ int i2cGen2_processRx(void)
 }
 
 
-int i2xGen2_processTxQueue(uint32_t timeoutMS)
+int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
 {
     Alarm alarm;
     if (timeoutMS > 0)
@@ -298,8 +298,13 @@ int i2xGen2_processTxQueue(uint32_t timeoutMS)
         alarm_disarm(&alarm);
         
     int count = 0;
-    while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_txQueue))
+    while (!queue_isEmpty(&g_txQueue))
     {
+        if (alarm_hasElapsed(&alarm))
+        {
+            count = -1;
+            break;
+        }
         if (isBusReady())
         {
             uint8_t* data;
@@ -310,7 +315,7 @@ int i2xGen2_processTxQueue(uint32_t timeoutMS)
                 ++count;
             }
         }
-        else
+        else if (quitIfBusy)
         {
             count = -1;
             break;

@@ -45,8 +45,9 @@
     void i2cGen2_registerRxCallback(I2CGen2_RxCallback callback);
     
     /// Process any pending data to be receved.
-    /// @return The number of bytes that were processed. If -1, an error
-    ///         occurred: there was data pending but it could not be read.
+    /// @return The number of bytes that were processed. If 0, then no bytes
+    ///         were pending to receive. If -1, an error occurred: there was
+    ///         data pending but it could not be read because the bus was busy.
     int i2cGen2_processRx(void);
     
     /// Process any pending transmits in the transmits.
@@ -54,9 +55,13 @@
     ///                         it times out and must finish. If 0, then there's
     ///                         no timeout and the function blocks until all
     ///                         pending actions are completed.
-    /// @return The number of packets that were transmitted. If -1, an error
-    ///         occurred: there was packets pending but it could not be sent.
-    int i2cGen2_processTxQueue(uint32_t timeoutMS);
+    /// @param[in]  quitIfBusy  Flag indicating if the function should quit if
+    ///                         the bus is busy and not timeout.
+    /// @return The number of packets that were transmitted. If 0, then no
+    ///         packets are pending to transmit. If -1, a timeout occurred or if
+    ///         the quitIfBusy flag is set, then the bus was busy so the
+    ///         function ended early.
+    int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy);
     
     /// Read from the i2C bus.
     /// @param[in]  address The I2C address.
