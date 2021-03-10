@@ -43,8 +43,8 @@
             /// not be addressed.
             bool nak : 1;
             
-            /// Error flag indicating that the transmit buffer is full.
-            bool transmitbufferFull : 1;
+            /// Error flag indicating that the transmit queue is full.
+            bool transmitQueueFull : 1;
             
             /// Error flag indicating that the input parameters are invalid.
             bool inputParametersInvalid : 1;

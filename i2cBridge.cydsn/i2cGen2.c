@@ -337,9 +337,10 @@ I2CGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
     {
         if (isBusReady())
         {
-            g_lastDriverStatus = slaveI2C_I2CMasterReadBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER);
-            if (g_lastDriverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
+            uint32_t driverStatus = slaveI2C_I2CMasterReadBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER);
+            if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
                 status.driverError = true;
+            g_lastDriverStatus = driverStatus;
         }
         else
             status.busBusy = true;
@@ -352,9 +353,23 @@ I2CGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 
 I2CGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 {
-    bool status = false;
-    if ((data != NULL) && (size > 0) && isBusReady())
-        status = (slaveI2C_I2CMasterWriteBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
+    I2CGen2Status status;
+    status.errorOccurred = false;
+    if ((data != NULL) && (size > 0))
+    {
+        if (isBusReady())
+        {
+            uint32_t driverStatus = slaveI2C_I2CMasterWriteBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER);
+            if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
+                status.driverError = true;
+            g_lastDriverStatus = driverStatus;
+        }
+        else
+            status.busBusy = true;
+
+    }
+    else
+        status.inputParametersInvalid = true;
     return status;
 }
 
@@ -365,7 +380,8 @@ I2CGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
     static uint8_t const AddressOffset = 0u;
     static uint8_t const DataOffset = 1u;
     
-    bool status = false;
+    I2CGen2Status status;
+    status.errorOccurred = false;
     if ((data != NULL) && (size > MinSize))
     {
         size--;
@@ -377,24 +393,42 @@ I2CGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
 
 I2CGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 {
-    bool status = false;
-    if (!queue_isFull(&g_txQueue))
+    I2CGen2Status status;
+    status.errorOccurred = false;
+    if ((data != NULL) && (size > 0))
     {
-        g_pendingTxEnqueueAddress = address;
-        status = queue_enqueue(&g_txQueue, data, size);
+        if (!queue_isFull(&g_txQueue))
+        {
+            g_pendingTxEnqueueAddress = address;
+            if (!queue_enqueue(&g_txQueue, data, size))
+                status.transmitQueueFull = true;
+        }
+        else
+            status.transmitQueueFull = true;
     }
+    else
+        status.inputParametersInvalid = true;
     return status;
 }
 
 
 I2CGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 {
-    bool status = false;
-    if ((data != NULL) && (size > 0) && !queue_isFull(&g_txQueue))
+    I2CGen2Status status;
+    status.errorOccurred = false;
+    if ((data != NULL) && (size > 0))
     {
-        g_pendingTxEnqueueAddress = data[TxQueueDataOffset_Address];
-        status = queue_enqueue(&g_txQueue, &data[TxQueueDataOffset_Data], size - 1);
+        if(!queue_isFull(&g_txQueue))
+        {
+            g_pendingTxEnqueueAddress = data[TxQueueDataOffset_Address];
+            if (!queue_enqueue(&g_txQueue, &data[TxQueueDataOffset_Data], size - 1))
+                status.transmitQueueFull = true;
+        }
+        else
+            status.inputParametersInvalid = true;
     }
+    else
+        status.inputParametersInvalid = true;
     return status;
 }
 
@@ -407,14 +441,30 @@ I2CGen2Status i2cGen2_appACK(uint32_t timeoutMS)
     else
         alarm_disarm(&alarm);
         
-    bool status = false;
-    while (!alarm_hasElapsed(&alarm))
+    I2CGen2Status status;
+    status.errorOccurred = false;
+    while (true)
     {
+        if (alarm_hasElapsed(&alarm))
+        {
+            status.busBusy = true;
+            break;
+        }
+        
         // Scratch buffer; used so that the I2C read function has a valid non-
         // NULL pointer for reading 0 bytes.
         uint8_t scratch;
         if (isBusReady())
-            status = (slaveI2C_I2CMasterReadBuf(G_AppAddress, &scratch, 0, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
+        {
+            uint32_t driverStatus = slaveI2C_I2CMasterReadBuf(G_AppAddress, &scratch, 0, slaveI2C_I2C_MODE_COMPLETE_XFER);
+            if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
+            {
+                status.driverError = true;
+                if ((driverStatus & slaveI2C_I2C_MSTR_ERR_LB_NAK) > 0)
+                    status.nak = true;
+            }
+            g_lastDriverStatus = driverStatus;
+        }
     }
     return status;
 }
