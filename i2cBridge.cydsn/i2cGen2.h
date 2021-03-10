@@ -27,6 +27,26 @@
     
     // === TYPE DEFINES ========================================================
     
+    /// Structure that holds the error result of any I2C function.
+    typedef union I2CGen2Error_
+    {
+        struct
+        {
+            /// Error flag indicating the bus was busy and the I2C transaction
+            /// couldn't be completed; a timeout occurred.
+            bool busBusy : 1;
+            
+            /// Error flag indicating a NAK occurred and the slave device could
+            /// not be address.
+            bool nak : 1;
+        };
+        
+        /// General flag indicating an error occured; if false, no error
+        /// occurred.
+        bool errorOccurred;
+        
+    } I2CGen2Status_;
+    
     /// Definition of the receive callback function that should be invoked when
     /// data is received. Note that if the callback function needs to copy the
     /// received data into its own buffer if the callback needs to perform any

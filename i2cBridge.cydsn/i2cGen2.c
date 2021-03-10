@@ -383,7 +383,7 @@ bool i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 }
 
 
-bool i2cGen2_ACK(uint32_t timeoutMS)
+bool i2cGen2_appACK(uint32_t timeoutMS)
 {
     Alarm alarm;
     if (timeoutMS > 0)
