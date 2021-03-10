@@ -419,6 +419,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
     bool status = false;
     if ((data != NULL) && (size > PacketOffset_BridgeCommand))
     {
+        status = true;
         uint8_t command = data[PacketOffset_BridgeCommand];
         switch (command)
         {
@@ -436,7 +437,10 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveAddress:
             {
-                // @TODO Modify the slave address.
+                if (size > PacketOffset_BridgeData)
+                    i2cGen2_setSlaveAddress(data[PacketOffset_BridgeData]);
+                else
+                    status = false;
                 break;
             }
             
@@ -454,13 +458,19 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 I2CGen2Status i2cStatus = i2cGen2_read(data[PacketOffset_BridgeData], readData, sizeof(readData));
                 if (!i2cStatus.errorOccurred)
                     uartFrameProtocol_txEnqueueData(data, size);
-                else if (i2cStatus.busBusy)
-                    txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
+                else
+                {
+                    if (i2cStatus.busBusy)
+                        txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
+                    status = false;
+                }
                 break;
             }
             
             case BridgeCommand_SlaveTimeout:
             {
+                // @TODO Check to see if this makes sense, the host should not
+                // be sending a slave timeout message to the bridge.
                 txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
                 break;
             }
@@ -487,10 +497,14 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 I2CGen2Status i2cStatus = i2cGen2_appACK(timeoutMS);
                 if (!i2cStatus.errorOccurred)
                     txEnqueueCommand(BridgeCommand_SlaveACK, NULL, 0);
-                else if (i2cStatus.busBusy)
-                    txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
-                else if (i2cStatus.nak)
-                    txEnqueueCommand(BridgeCommand_SlaveNAK, NULL, 0);
+                else
+                {
+                    if (i2cStatus.busBusy)
+                        txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
+                    else if (i2cStatus.nak)
+                        txEnqueueCommand(BridgeCommand_SlaveNAK, NULL, 0);
+                    status = false;
+                }
                 break;
             }
             
@@ -507,6 +521,8 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             default:
             {
+                // Should not get here.
+                status = false;
                 break;
             }
         }
