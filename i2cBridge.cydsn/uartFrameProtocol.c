@@ -451,8 +451,11 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             case BridgeCommand_SlaveRead:
             {
                 uint8_t readData[0xff];
-                if (i2cGen2_read(data[PacketOffset_BridgeData], readData, sizeof(readData)))
+                I2CGen2Status i2cStatus = i2cGen2_read(data[PacketOffset_BridgeData], readData, sizeof(readData));
+                if (!i2cStatus.errorOccurred)
                     uartFrameProtocol_txEnqueueData(data, size);
+                else if (i2cStatus.busBusy)
+                    txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
                 break;
             }
             
@@ -481,9 +484,12 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             case BridgeCommand_SlaveACK:
             {
                 static uint32_t timeoutMS = (10u);
-                if (i2cGen2_appACK(timeoutMS))
+                I2CGen2Status i2cStatus = i2cGen2_appACK(timeoutMS);
+                if (!i2cStatus.errorOccurred)
                     txEnqueueCommand(BridgeCommand_SlaveACK, NULL, 0);
-                else
+                else if (i2cStatus.busBusy)
+                    txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
+                else if (i2cStatus.nak)
                     txEnqueueCommand(BridgeCommand_SlaveNAK, NULL, 0);
                 break;
             }
