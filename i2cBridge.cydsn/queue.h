@@ -79,7 +79,7 @@
         /// The number of elements currently in the queue.
         uint8_t size;
         
-    } __attribute__((packed)) Queue;
+    } Queue;
     
     
     // === PUBLIC FUNCTIONS ====================================================
