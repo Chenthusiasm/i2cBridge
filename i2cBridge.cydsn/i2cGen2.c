@@ -79,6 +79,9 @@ typedef enum AppBufferOffset_
 
 // === DEFINES =================================================================
 
+/// Address of the default slave I2C app.
+#define DEFAULT_SLAVE_ADDRESS           (0x48)
+
 /// Size of the receive data buffer.
 #define RX_BUFFER_SIZE                  (260u)
 
@@ -91,9 +94,6 @@ typedef enum AppBufferOffset_
 
 
 // === CONSTANTS ===============================================================
-
-/// Address of the slave I2C app.
-static uint8_t const G_AppAddress = 0x48;
 
 /// The number of bytes to read in order to find the number of bytes in the
 /// receive data payload.
@@ -109,6 +109,10 @@ static uint32_t const G_DefaultSendStopTimeoutMS = 5u;
 
 
 // === GLOBALS =================================================================
+
+/// The current 7-bit slave address. When the slaveIRQ line is asserted, a read
+/// will be performed from this address.
+static uint8_t g_slaveAddress = DEFAULT_SLAVE_ADDRESS;
 
 /// Flag indicating if the IRQ triggerd and a receive is pending consumption.
 static volatile bool g_rxPending = false;
@@ -189,7 +193,7 @@ static bool isIRQAsserted(void)
 static void resetIRQ(void)
 {
     static uint8_t clear[] = { AppBufferOffset_Response, 0 };
-    slaveI2C_I2CMasterWriteBuf(G_AppAddress, clear, sizeof(clear), slaveI2C_I2C_MODE_COMPLETE_XFER);
+    slaveI2C_I2CMasterWriteBuf(g_slaveAddress, clear, sizeof(clear), slaveI2C_I2C_MODE_COMPLETE_XFER);
 }
 
 
@@ -243,12 +247,26 @@ void i2cGen2_init(void)
     queue_registerEnqueueCallback(&g_txQueue, prepareTxQueueData);
     queue_empty(&g_txQueue);
     
+    i2cGen2_resetSlaveAddress();
+    
     slaveI2C_Start();
     
     slaveIRQ_StartEx(slaveISR);
 }
 
 
+void i2cGen2_setSlaveAddress(uint8_t address)
+{
+    g_slaveAddress = address;
+}
+
+
+void i2cGen2_resetSlaveAddress(void)
+{
+    g_slaveAddress = DEFAULT_SLAVE_ADDRESS;
+}
+
+    
 void i2cGen2_registerRxCallback(I2CGen2_RxCallback pCallback)
 {
     if (pCallback != NULL)
@@ -263,14 +281,14 @@ int i2cGen2_processRx(void)
     {
         if (isBusReady())
         {
-            if (slaveI2C_I2CMasterReadBuf(G_AppAddress, g_rxBuffer, G_AppRxPacketLengthSize, slaveI2C_I2C_MODE_NO_STOP))
+            if (slaveI2C_I2CMasterReadBuf(g_slaveAddress, g_rxBuffer, G_AppRxPacketLengthSize, slaveI2C_I2C_MODE_NO_STOP))
             {
                 length += (int)G_AppRxPacketLengthSize;
                 uint8_t dataLength = g_rxBuffer[AppRxPacketOffset_Length];
                 if (isAppPacketLengthValid(dataLength))
                 {
                     if (dataLength > 0)
-                        slaveI2C_I2CMasterReadBuf(G_AppAddress, &g_rxBuffer[AppRxPacketOffset_Data], dataLength, slaveI2C_I2C_MODE_REPEAT_START);
+                        slaveI2C_I2CMasterReadBuf(g_slaveAddress, &g_rxBuffer[AppRxPacketOffset_Data], dataLength, slaveI2C_I2C_MODE_REPEAT_START);
                     else
                         slaveI2C_I2CMasterSendStop(G_DefaultSendStopTimeoutMS);
                     length += (int)dataLength;
@@ -456,7 +474,7 @@ I2CGen2Status i2cGen2_appACK(uint32_t timeoutMS)
         uint8_t scratch;
         if (isBusReady())
         {
-            uint32_t driverStatus = slaveI2C_I2CMasterReadBuf(G_AppAddress, &scratch, 0, slaveI2C_I2C_MODE_COMPLETE_XFER);
+            uint32_t driverStatus = slaveI2C_I2CMasterReadBuf(g_slaveAddress, &scratch, 0, slaveI2C_I2C_MODE_COMPLETE_XFER);
             if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
             {
                 status.driverError = true;

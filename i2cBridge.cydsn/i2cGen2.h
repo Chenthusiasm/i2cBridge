@@ -73,6 +73,15 @@
     /// @param[in]  callback    Pointer to the callback function.
     void i2cGen2_registerRxCallback(I2CGen2_RxCallback callback);
     
+    /// Registers a new slave address which ensures the write I2C slave device
+    /// is addressed when attempting to read when the slaveIRQ line is asserted.
+    /// @param[in]  address The new slave address to set.
+    void i2cGen2_setSlaveAddress(uint8_t address);
+    
+    /// Resets the slave address to the default. The slave address is used when
+    /// the IRQ line is asserted and a slave read is to be performed.
+    void i2cGen2_resetSlaveAddress(void);
+    
     /// Process any pending data to be receved.
     /// @return The number of bytes that were processed. If 0, then no bytes
     ///         were pending to receive. If -1, an error occurred: there was
