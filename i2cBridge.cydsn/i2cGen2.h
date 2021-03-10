@@ -27,25 +27,34 @@
     
     // === TYPE DEFINES ========================================================
     
-    /// Structure that holds the error result of any I2C function.
-    typedef union I2CGen2Error_
+    /// Structure that holds the status of I2C gen 2 functions.
+    typedef union I2CGen2Status_
     {
         struct
         {
+            /// A low level driver error occurred.
+            bool driverError : 1;
+            
             /// Error flag indicating the bus was busy and the I2C transaction
             /// couldn't be completed; a timeout occurred.
             bool busBusy : 1;
             
             /// Error flag indicating a NAK occurred and the slave device could
-            /// not be address.
+            /// not be addressed.
             bool nak : 1;
+            
+            /// Error flag indicating that the transmit buffer is full.
+            bool transmitbufferFull : 1;
+            
+            /// Error flag indicating that the input parameters are invalid.
+            bool inputParametersInvalid : 1;
         };
         
         /// General flag indicating an error occured; if false, no error
         /// occurred.
         bool errorOccurred;
         
-    } I2CGen2Status_;
+    } I2CGen2Status;
     
     /// Definition of the receive callback function that should be invoked when
     /// data is received. Note that if the callback function needs to copy the
@@ -87,49 +96,53 @@
     /// @param[in]  address The I2C address.
     /// @param[in]  data    The data buffer to store the read data.
     /// @param[in]  size    The number of bytes to read.
-    /// @return If the read was successful. If not, then the I2C bus was busy.
-    bool i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size);
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2CGen2Status union.
+    I2CGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size);
     
     /// Write to the i2C bus.
     /// @param[in]  address The I2C address.
     /// @param[in]  data    The data buffer to that contains the data to write.
     /// @param[in]  size    The number of bytes to write.
-    /// @return If the write was successful. If not, then the I2C bus was busy.
-    bool i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size);
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2CGen2Status union.
+    I2CGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size);
     
     /// Write to the i2C bus; the I2C address in in the data buffer.
     /// @param[in]  data    The data buffer to that contains the data to write.
     ///                     The first byte is assumed to be the I2C address.
     /// @param[in]  size    The number of bytes in data (including the I2C
     ///                     address).
-    /// @return If the write was successful. If not, then the I2C bus was busy.
-    bool i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size);
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2CGen2Status union.
+    I2CGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size);
     
     /// Enqueue a transmit packet.
     /// @param[in]  address The I2C address.
     /// @param[in]  data    The data buffer to that contains the data to
     ///                     transmit.
     /// @param[in]  size    The number of bytes in data.
-    /// @return If the enqueue was successful.
-    bool i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size);
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2CGen2Status union.
+    I2CGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size);
     
     /// Enqueue a transmit packet. The I2C address is the first byte in the data
     /// buffer.
     /// @param[in]  data    The data buffer to that contains the data to
     ///                     transmit. The first byte is the I2C address.
     /// @param[in]  size    The number of bytes in data.
-    /// @return If the enqueue was successful.
-    bool i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size);
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2CGen2Status union.
+    I2CGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size);
     
     /// Perform an ACK handshake with the slave app.
     /// @param[in]  timeout The amount of time in milliseconds the function
     ///                     can wait for the I2C bus to free up before timing
     ///                     out. If 0, then the function will wait indefinitely
     ///                     until the bus is free.
-    /// @return If ACK was successful. The result will be false if there is no
-    ///         response from the slave ACK or if the bus is so busy that the
-    ///         timeout expires.
-    bool i2cGen2_appACK(uint32_t timeoutMS);
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2CGen2Status union.
+    I2CGen2Status i2cGen2_appACK(uint32_t timeoutMS);
     
     
     #ifdef __cplusplus

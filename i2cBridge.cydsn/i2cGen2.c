@@ -144,6 +144,10 @@ static Queue g_txQueue =
 /// transmit queue.
 static uint8_t g_pendingTxEnqueueAddress = 0;
 
+/// The status of the last driver API call. Refer to the possible error messages
+/// in the generated "I2C Component Name"_I2C.h file.
+static uint32_t g_lastDriverStatus = 0;
+
 
 // === PRIVATE FUNCTIONS =======================================================
 
@@ -325,16 +329,28 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
 }
 
 
-bool i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
+I2CGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 {
-    bool status = false;
-    if ((data != NULL) && (size > 0) && isBusReady())
-        status = (slaveI2C_I2CMasterReadBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER) == slaveI2C_I2C_MSTR_NO_ERROR);
+    I2CGen2Status status;
+    status.errorOccurred = false;
+    if ((data != NULL) && (size > 0))
+    {
+        if (isBusReady())
+        {
+            g_lastDriverStatus = slaveI2C_I2CMasterReadBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER);
+            if (g_lastDriverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
+                status.driverError = true;
+        }
+        else
+            status.busBusy = true;
+    }
+    else
+        status.inputParametersInvalid = true;
     return status;
 }
 
 
-bool i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
+I2CGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 {
     bool status = false;
     if ((data != NULL) && (size > 0) && isBusReady())
@@ -343,7 +359,7 @@ bool i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 }
 
 
-bool i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
+I2CGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
 {
     static uint8_t const MinSize = 2u;
     static uint8_t const AddressOffset = 0u;
@@ -359,7 +375,7 @@ bool i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
 }
 
 
-bool i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
+I2CGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 {
     bool status = false;
     if (!queue_isFull(&g_txQueue))
@@ -371,7 +387,7 @@ bool i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 }
 
 
-bool i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
+I2CGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 {
     bool status = false;
     if ((data != NULL) && (size > 0) && !queue_isFull(&g_txQueue))
@@ -383,7 +399,7 @@ bool i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 }
 
 
-bool i2cGen2_appACK(uint32_t timeoutMS)
+I2CGen2Status i2cGen2_appACK(uint32_t timeoutMS)
 {
     Alarm alarm;
     if (timeoutMS > 0)
