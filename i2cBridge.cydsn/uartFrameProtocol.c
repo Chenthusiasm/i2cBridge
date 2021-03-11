@@ -160,21 +160,47 @@ typedef struct Flags_
 /// be run in a mutual exclusive fashion (one or the other; no overlap).
 typedef struct Heap_
 {
+    /// Decoded receive queue.
     volatile Queue decodedRxQueue;
+    
+    /// Transmit queue.
     Queue txQueue;
+    
+    /// Array of decoded receive queue elements for the receive queue; these
+    /// elements have been received but are pending processing.
     QueueElement decodedRxQueueElements[RX_QUEUE_MAX_SIZE];
+    
+    /// Array of transmit queue elements for the transmit queue.
     QueueElement txQueueElements[TX_QUEUE_MAX_SIZE];
+    
+    /// The type flags of the data that is waiting to be enqueued into the
+    /// transmit queue. This must be set prior to enqueueing data into the
+    /// transmit queue.
     Flags pendingTxEnqueueFlags;
-    BridgeCommand pendingTxEnqueueBridgeCommand;
+    
+    /// The command associated with the data that is watiting to be enqueued
+    /// into the transmit queue. This must be set prior to enqueueing data into
+    /// the transmit queue.
+    BridgeCommand pendingTxEnqueueCommand;
+    
+    /// Array to hold the decoded data of elements in the receive queue.
     uint8_t decodedRxQueueData[RX_QUEUE_DATA_SIZE];
+    
+    /// Array to hold the data of the elements in the transmit queue.
     uint8_t txQueueData[TX_QUEUE_DATA_SIZE];
+    
 } Heap;
 
 
 // === GLOBALS =================================================================
 
-/// Flag indicating if the system is started.
-static bool g_started = false;
+/// @TODO: remove this when ready to use the dynamic memory allocation.
+static Heap g_tempHeap;
+
+/// Heap-like memory that points to the global variables used by the module that
+/// was dynamically allocated. If NULL, then the module's global variables
+/// have not been dynamically allocated and the module has not started.
+static Heap* g_heap = NULL;
 
 /// The current state in the protocol state machine for receive processing.
 /// frame.
@@ -193,56 +219,78 @@ static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NUL
 
 /// Array of decoded receive queue elements for the receive queue; these
 /// elements have been received but are pending processing.
-static QueueElement g_decodedRxQueueElements[RX_QUEUE_MAX_SIZE];
+//static QueueElement g_decodedRxQueueElements[RX_QUEUE_MAX_SIZE];
 
 /// Array to hold the decoded data of elements in the receive queue.
-static uint8_t g_decodedRxQueueData[RX_QUEUE_DATA_SIZE];
+//static uint8_t g_decodedRxQueueData[RX_QUEUE_DATA_SIZE];
 
 /// Decoded receive queue.
-static volatile Queue g_decodedRxQueue =
-{
-    g_decodedRxQueueData,
-    g_decodedRxQueueElements,
-    NULL,
-    RX_QUEUE_DATA_SIZE,
-    RX_QUEUE_MAX_SIZE,
-    0,
-    0,
-    0,
-    0,
-};
+//static volatile Queue g_decodedRxQueue =
+//{
+//    g_decodedRxQueueData,
+//    g_decodedRxQueueElements,
+//    NULL,
+//    RX_QUEUE_DATA_SIZE,
+//    RX_QUEUE_MAX_SIZE,
+//    0,
+//    0,
+//    0,
+//    0,
+//};
 
 /// Array of transmit queue elements for the transmit queue.
-static QueueElement g_txQueueElements[TX_QUEUE_MAX_SIZE];
+//static QueueElement g_txQueueElements[TX_QUEUE_MAX_SIZE];
 
 /// Array to hold the data of the elements in the transmit queue.
-static uint8_t g_txQueueData[TX_QUEUE_DATA_SIZE];
+//static uint8_t g_txQueueData[TX_QUEUE_DATA_SIZE];
 
 /// Transmit queue.
-static Queue g_txQueue =
-{
-    g_txQueueData,
-    g_txQueueElements,
-    NULL,
-    TX_QUEUE_DATA_SIZE,
-    TX_QUEUE_MAX_SIZE,
-    0,
-    0,
-    0,
-    0,
-};
+//static Queue g_txQueue =
+//{
+//    g_txQueueData,
+//    g_txQueueElements,
+//    NULL,
+//    TX_QUEUE_DATA_SIZE,
+//    TX_QUEUE_MAX_SIZE,
+//    0,
+//    0,
+//    0,
+//    0,
+//};
 
 /// The type flags of the data that is waiting to be enqueued into the transmit
 /// queue. This must be set prior to enqueueing data into the transmit queue.
-static Flags g_pendingTxEnqueueFlags = { false, false };
+//static Flags g_pendingTxEnqueueFlags = { false, false };
 
 /// The command associated with the data that is watiting to be enqueued into
 /// the transmit queue. This must be set prior to enqueueing data into the
 /// transmit queue.
-static BridgeCommand g_pendingTxEnqueueCommand = BridgeCommand_None;
+//static BridgeCommand g_pendingTxEnqueueCommand = BridgeCommand_None;
 
 
 // === PRIVATE FUNCTIONS =======================================================
+
+/// Initializes the decoded receive queue.
+void initDecodedRxQueue()
+{
+    g_heap->decodedRxQueue.data = g_heap->decodedRxQueueData;
+    g_heap->decodedRxQueue.elements = g_heap->decodedRxQueueElements;
+    g_heap->decodedRxQueue.maxDataSize = RX_QUEUE_DATA_SIZE;
+    g_heap->decodedRxQueue.maxSize = RX_QUEUE_MAX_SIZE;
+    queue_empty(&g_heap->decodedRxQueue);
+}
+
+
+/// Initializes the transmit queue.
+void initTxQueue()
+{
+    g_heap->txQueue.data = g_heap->txQueueData;
+    g_heap->txQueue.elements = g_heap->txQueueElements;
+    g_heap->txQueue.maxDataSize = TX_QUEUE_DATA_SIZE;
+    g_heap->txQueue.maxSize = TX_QUEUE_MAX_SIZE;
+    queue_empty(&g_heap->txQueue);
+}
+
 
 /// Sets all the global variables pertaining to the decoded receive buffer to
 /// an initial state.
@@ -304,9 +352,9 @@ static void handleRxFrameOverflow(uint8_t data)
 /// Resets the variables associated with the pending transmit enqueue.
 static void resetPendingTxEnqueue(void)
 {
-    g_pendingTxEnqueueCommand = BridgeCommand_None;
+    g_heap->pendingTxEnqueueCommand = BridgeCommand_None;
     static Flags const DefaultFlags = { false, false };
-    g_pendingTxEnqueueFlags = DefaultFlags;
+    g_heap->pendingTxEnqueueFlags = DefaultFlags;
 }
 
 
@@ -333,7 +381,7 @@ static uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const 
         target[t++] = ControlByte_StartFrame;
         
         bool processPendingData = true;
-        if (g_pendingTxEnqueueFlags.command && (g_pendingTxEnqueueCommand != BridgeCommand_None))
+        if (g_heap->pendingTxEnqueueFlags.command && (g_heap->pendingTxEnqueueCommand != BridgeCommand_None))
         {
             static uint8_t const CommandSize = 3u;
             if ((t + CommandSize) > targetSize)
@@ -345,11 +393,11 @@ static uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const 
             {
                 target[t++] = ControlByte_Escape;
                 target[t++] = ControlByte_Escape;
-                target[t++] = g_pendingTxEnqueueCommand;
+                target[t++] = g_heap->pendingTxEnqueueCommand;
             }
         }
         
-        if (g_pendingTxEnqueueFlags.data && processPendingData && (sourceSize > 0) && (source != NULL))
+        if (g_heap->pendingTxEnqueueFlags.data && processPendingData && (sourceSize > 0) && (source != NULL))
         {
             // Iterate through the source buffer and copy it into transmit buffer.
             for (uint32_t s = 0; s < sourceSize; ++s)
@@ -402,8 +450,8 @@ static uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const 
 ///         data.
 static uint16_t __attribute__((unused)) encodeTxData(uint8_t target[], uint16_t targetSize, BridgeCommand command, Flags flags, uint8_t const source[], uint16_t sourceSize)
 {
-    g_pendingTxEnqueueCommand = command;
-    g_pendingTxEnqueueFlags = flags;
+    g_heap->pendingTxEnqueueCommand = command;
+    g_heap->pendingTxEnqueueFlags = flags;
     return encodeData(target, targetSize, source, sourceSize);
 }
 
@@ -418,12 +466,12 @@ static uint16_t __attribute__((unused)) encodeTxData(uint8_t target[], uint16_t 
 static bool txEnqueueCommand(BridgeCommand command, uint8_t const data[], uint16_t size)
 {
     bool status = false;
-    if (!queue_isFull(&g_txQueue) && (command != BridgeCommand_None))
+    if (!queue_isFull(&g_heap->txQueue) && (command != BridgeCommand_None))
     {
-        g_pendingTxEnqueueCommand = command;
-        g_pendingTxEnqueueFlags.command = false;
-        g_pendingTxEnqueueFlags.data = ((data != NULL) && (size > 0));
-        queue_enqueue(&g_txQueue, data, size); 
+        g_heap->pendingTxEnqueueCommand = command;
+        g_heap->pendingTxEnqueueFlags.command = false;
+        g_heap->pendingTxEnqueueFlags.data = ((data != NULL) && (size > 0));
+        queue_enqueue(&g_heap->txQueue, data, size); 
     }
     return status;
 }
@@ -573,12 +621,12 @@ static bool processReceivedByte(uint8_t data)
                 g_rxState = RxState_EscapeCharacter;
             else if (isEndFrameCharacter(data))
             {
-                status = queue_enqueueFinalize(&g_decodedRxQueue);
+                status = queue_enqueueFinalize(&g_heap->decodedRxQueue);
                 g_rxState = RxState_OutOfFrame;
             }
             else
             {
-                status = queue_enqueueByte(&g_decodedRxQueue, data, false);
+                status = queue_enqueueByte(&g_heap->decodedRxQueue, data, false);
                 if (!status)
                     handleRxFrameOverflow(data);
             }
@@ -587,7 +635,7 @@ static bool processReceivedByte(uint8_t data)
         
         case RxState_EscapeCharacter:
         {
-            status = queue_enqueueByte(&g_decodedRxQueue, data, false);
+            status = queue_enqueueByte(&g_heap->decodedRxQueue, data, false);
                 if (!status)
                     handleRxFrameOverflow(data);
             break;
@@ -668,8 +716,8 @@ void uartFrameProtocol_init(void)
     resetDecodedRxQueue();
     
     // Configures the transmit variables.
-    queue_registerEnqueueCallback(&g_txQueue, encodeData);
-    queue_empty(&g_txQueue);
+    queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
+    queue_empty(&g_heap->txQueue);
     resetPendingTxEnqueue();
     
     // Setup callback functions.
@@ -684,13 +732,22 @@ void uartFrameProtocol_init(void)
 uint16_t uartFrameProtocol_start(uint8_t* memory, uint16_t size)
 {
     uint16_t allocatedSize = 0;
+    if ((memory != NULL) && (sizeof(Heap) <= (sizeof(uint32_t) * size)))
+    {
+        g_heap = (Heap*)memory;
+        // @TODO: remove the following line when the dynamic memory allocation
+        // is ready.
+        g_heap = &g_tempHeap;
+        initDecodedRxQueue();
+        initTxQueue();
+    }
     return allocatedSize;
 }
 
 
 void uartFrameProtocol_stop(void)
 {
-    g_started = false;
+    g_heap = NULL;
 }
 
 
@@ -710,7 +767,7 @@ void uartFrameProtocol_registerRxFrameOverflowCallback(UartFrameProtocol_RxFrame
 
 bool uartFrameProtocol_isTxQueueEmpty(void)
 {
-    return (queue_isEmpty(&g_txQueue));
+    return (queue_isEmpty(&g_heap->txQueue));
 }
 
 
@@ -723,10 +780,10 @@ uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS)
         alarm_disarm(&alarm);
         
     uint16_t count = 0;
-    while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_decodedRxQueue))
+    while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_heap->decodedRxQueue))
     {
         uint8_t* data;
-        uint16_t size = queue_dequeue(&g_decodedRxQueue, &data);
+        uint16_t size = queue_dequeue(&g_heap->decodedRxQueue, &data);
         if (size > 0)
             if (processDecodedRxPacket(data, size))
                 ++count;
@@ -744,10 +801,10 @@ uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
         alarm_disarm(&alarm);
         
     uint16_t count = 0;
-    while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_txQueue))
+    while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_heap->txQueue))
     {
         uint8_t* data;
-        uint16_t size = queue_dequeue(&g_txQueue, &data);
+        uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
         if (size > 0)
         {
             for (uint32_t i = 0; i < size; ++i)
@@ -762,12 +819,12 @@ uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
 bool uartFrameProtocol_txEnqueueData(uint8_t const data[], uint16_t size)
 {
     bool status = false;
-    if (!queue_isFull(&g_txQueue))
+    if (!queue_isFull(&g_heap->txQueue))
     {
-        g_pendingTxEnqueueCommand = BridgeCommand_None;
-        g_pendingTxEnqueueFlags.command = false;
-        g_pendingTxEnqueueFlags.data = true;
-        status = queue_enqueue(&g_txQueue, data, size); 
+        g_heap->pendingTxEnqueueCommand = BridgeCommand_None;
+        g_heap->pendingTxEnqueueFlags.command = false;
+        g_heap->pendingTxEnqueueFlags.data = true;
+        status = queue_enqueue(&g_heap->txQueue, data, size); 
     }
     return status;
 }

@@ -44,16 +44,19 @@
     /// Initializes the communications interface.
     void uartFrameProtocol_init(void);
     
-    /// Starts the UART frame protocl system and sets up its memory buffer. This
-    /// must be invoked before using any processRx or processTx-like functions.
-    /// @param[in]  memory  Memory location
-    /// @param[in]  size    The size available to the 
-    /// @return The number of bytes that the start function allocated from
-    ///         memory for its own purpose. If 0, then the memory was not able
-    ///         to be allocated and the system didn't start.
-    uint16_t uartFrameProtocol_start(uint8_t* memory, uint16_t size);
+    /// Starts the UART frame protocol module and sets up its memory buffer.
+    /// This must be invoked before using any processRx or processTx-like
+    /// functions.
+    /// @param[in]  memory  Memory buffer that is available for the module's
+    ///                     globals. This is an array of 32-bit words to help
+    ///                     preserve word alignment.
+    /// @param[in]  size    The size (in 32-bit words) of the memory array.
+    /// @return The number of 32-bit words the module used for its globals. If 0
+    ///         Then there was an error and the module hasn't started.
+    uint16_t uartFrameProtocol_start(uint8_t memory[], uint16_t size);
     
-    /// Stops the slave I2C system and effectively deallocates the memory.
+    /// Stops the UART frame protocol module and effectively deallocates the
+    /// memory.
     void uartFrameProtocol_stop(void);
     
     /// Registers the receive callback function that should be invoked when
