@@ -32,7 +32,11 @@
     {
         struct
         {
-            /// A low level driver error occurred.
+            /// Error flag indicating that the system itself is hasn't been
+            /// started.
+            bool systemNotStarted : 1;
+            
+            /// Error flag indicating a low level driver error occurred.
             bool driverError : 1;
             
             /// Error flag indicating the bus was busy and the I2C transaction
@@ -67,6 +71,18 @@
     
     /// Initialize the slave I2C hardware.
     void i2cGen2_init(void);
+    
+    /// Starts the slave I2C gen 2 system and sets up its memory buffer. This
+    /// must be invoked before using any processRx or processTx-like functions.
+    /// @param[in]  memory  Memory location
+    /// @param[in]  size    The size available to the 
+    /// @return The number of bytes that the start function allocated from
+    ///         memory for its own purpose. If 0, then the memory was not able
+    ///         to be allocated and the system didn't start.
+    uint16_t i2cGen2_start(uint8_t* memory, uint16_t size);
+    
+    /// Stops the slave I2C system and effectively deallocates the memory.
+    void i2cGen2_stop(void);
     
     /// Registers the receive callback function that should be invoked when
     /// data is received.

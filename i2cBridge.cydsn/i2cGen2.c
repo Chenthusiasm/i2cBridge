@@ -21,6 +21,22 @@
 #include "queue.h"
 
 
+// === DEFINES =================================================================
+
+/// Address of the default slave I2C app.
+#define DEFAULT_SLAVE_ADDRESS           (0x48)
+
+/// Size of the receive data buffer.
+#define RX_BUFFER_SIZE                  (260u)
+
+/// The max size of the transmit queue (the max number of queue elements).
+#define TX_QUEUE_MAX_SIZE               (8u)
+
+/// The size of the data array that holds the queue element data in the transmit
+/// queue.
+#define TX_QUEUE_DATA_SIZE              (600u)
+
+
 // === TYPE DEFINES ============================================================
 
 /// Definition of the transmit queue data offsets.
@@ -77,20 +93,19 @@ typedef enum AppBufferOffset_
 } AppBufferOffset;
 
 
-// === DEFINES =================================================================
-
-/// Address of the default slave I2C app.
-#define DEFAULT_SLAVE_ADDRESS           (0x48)
-
-/// Size of the receive data buffer.
-#define RX_BUFFER_SIZE                  (260u)
-
-/// The max size of the transmit queue (the max number of queue elements).
-#define TX_QUEUE_MAX_SIZE               (8u)
-
-/// The size of the data array that holds the queue element data in the transmit
-/// queue.
-#define TX_QUEUE_DATA_SIZE              (600u)
+/// Data structure that defines memory used by the system in a similar fashion
+/// to a heap. Globals are contained in this structure that are used when the
+/// system is running and then "deallocated" when the system is stopped. This
+/// allows the memory to be used by another system. Note that these systems must
+/// be run in a mutual exclusive fashion (one or the other; no overlap).
+typedef struct Heap_
+{
+    Queue txQueue;
+    QueueElement txQueueElements[TX_QUEUE_MAX_SIZE];
+    uint8_t txQueueData[TX_QUEUE_DATA_SIZE];
+    uint8_t rxBuffer[RX_BUFFER_SIZE];
+    uint8_t pendingTxEnqueueAddress;
+} Heap;
 
 
 // === CONSTANTS ===============================================================
@@ -109,6 +124,9 @@ static uint32_t const G_DefaultSendStopTimeoutMS = 5u;
 
 
 // === GLOBALS =================================================================
+
+/// Flag indicating if the system is started.
+static bool g_started = false;
 
 /// The current 7-bit slave address. When the slaveIRQ line is asserted, a read
 /// will be performed from this address.
@@ -252,6 +270,18 @@ void i2cGen2_init(void)
     slaveI2C_Start();
     
     slaveIRQ_StartEx(slaveISR);
+}
+
+
+uint16_t i2cGen2_start(uint8_t* memory, uint16_t size)
+{
+    uint16_t allocatedSize = 0;
+    return allocatedSize;
+}
+ 
+
+void i2cGen2_stop(void)
+{
 }
 
 
