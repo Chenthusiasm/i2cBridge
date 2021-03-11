@@ -126,7 +126,7 @@ static uint32_t const G_DefaultSendStopTimeoutMS = 5u;
 // === GLOBALS =================================================================
 
 /// Flag indicating if the system is started.
-static bool g_started = false;
+static bool __attribute__((used)) g_started = false;
 
 /// The current 7-bit slave address. When the slaveIRQ line is asserted, a read
 /// will be performed from this address.

@@ -24,6 +24,26 @@
 #include "queue.h"
 
 
+// === DEFINES =================================================================
+
+/// The amount of time between receipts of bytes before we automatically reset
+/// the receive state machine.
+#define RX_RESET_TIMEOUT_MS                 (2000u)
+
+/// The max size of the receive queue (the max number of queue elements).
+#define RX_QUEUE_MAX_SIZE                   (8u)
+
+/// The size of the data array that holds the queue element data in the receive
+/// queue.
+#define RX_QUEUE_DATA_SIZE                  (600u)
+
+/// The max size of the transmit queue (the max number of queue elements).
+#define TX_QUEUE_MAX_SIZE                   (8u)
+
+/// The size of the data array that holds the queue element data in the transmit
+/// queue.
+#define TX_QUEUE_DATA_SIZE                  (800u)
+
 
 // === TYPEDEFINES =============================================================
 
@@ -133,28 +153,28 @@ typedef struct Flags_
 } Flags;
 
 
-// === DEFINES =================================================================
-
-/// The amount of time between receipts of bytes before we automatically reset
-/// the receive state machine.
-#define RX_RESET_TIMEOUT_MS                 (2000u)
-
-/// The max size of the receive queue (the max number of queue elements).
-#define RX_QUEUE_MAX_SIZE                   (8u)
-
-/// The size of the data array that holds the queue element data in the receive
-/// queue.
-#define RX_QUEUE_DATA_SIZE                  (600u)
-
-/// The max size of the transmit queue (the max number of queue elements).
-#define TX_QUEUE_MAX_SIZE                   (8u)
-
-/// The size of the data array that holds the queue element data in the transmit
-/// queue.
-#define TX_QUEUE_DATA_SIZE                  (800u)
+/// Data structure that defines memory used by the system in a similar fashion
+/// to a heap. Globals are contained in this structure that are used when the
+/// system is running and then "deallocated" when the system is stopped. This
+/// allows the memory to be used by another system. Note that these systems must
+/// be run in a mutual exclusive fashion (one or the other; no overlap).
+typedef struct Heap_
+{
+    volatile Queue decodedRxQueue;
+    Queue txQueue;
+    QueueElement decodedRxQueueElements[RX_QUEUE_MAX_SIZE];
+    QueueElement txQueueElements[TX_QUEUE_MAX_SIZE];
+    Flags pendingTxEnqueueFlags;
+    BridgeCommand pendingTxEnqueueBridgeCommand;
+    uint8_t decodedRxQueueData[RX_QUEUE_DATA_SIZE];
+    uint8_t txQueueData[TX_QUEUE_DATA_SIZE];
+} Heap;
 
 
 // === GLOBALS =================================================================
+
+/// Flag indicating if the system is started.
+static bool __attribute__((used)) g_started = false;
 
 /// The current state in the protocol state machine for receive processing.
 /// frame.
@@ -191,9 +211,6 @@ static volatile Queue g_decodedRxQueue =
     0,
     0,
 };
-
-/// The index in the decoded receive data buffer where insertion occurs next.
-static volatile uint16_t g_decodedRxInsertIndex = 0;
 
 /// Array of transmit queue elements for the transmit queue.
 static QueueElement g_txQueueElements[TX_QUEUE_MAX_SIZE];
@@ -661,6 +678,18 @@ void uartFrameProtocol_init(void)
     // Setup the UART hardware.
     hostUART_SetCustomInterruptHandler(isr);
     hostUART_Start();
+}
+
+
+uint16_t uartFrameProtocol_start(uint8_t* memory, uint16_t size)
+{
+    uint16_t allocatedSize = 0;
+    return allocatedSize;
+}
+
+
+void uartFrameProtocol_stop(void)
+{
 }
 
 
