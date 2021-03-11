@@ -270,33 +270,20 @@ static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NUL
 
 // === PRIVATE FUNCTIONS =======================================================
 
-/// Initializes the decoded receive queue.
-static void initDecodedRxQueue()
-{
-    g_heap->decodedRxQueue.data = g_heap->decodedRxQueueData;
-    g_heap->decodedRxQueue.elements = g_heap->decodedRxQueueElements;
-    g_heap->decodedRxQueue.maxDataSize = RX_QUEUE_DATA_SIZE;
-    g_heap->decodedRxQueue.maxSize = RX_QUEUE_MAX_SIZE;
-    queue_empty(&g_heap->decodedRxQueue);
-}
-
-
-/// Initializes the transmit queue.
-static void initTxQueue()
-{
-    g_heap->txQueue.data = g_heap->txQueueData;
-    g_heap->txQueue.elements = g_heap->txQueueElements;
-    g_heap->txQueue.maxDataSize = TX_QUEUE_DATA_SIZE;
-    g_heap->txQueue.maxSize = TX_QUEUE_MAX_SIZE;
-    queue_empty(&g_heap->txQueue);
-}
-
-
 /// Sets all the global variables pertaining to the decoded receive buffer to
 /// an initial state.
 static void resetDecodedRxQueue(void)
 {
     g_lastRxTimeMS = hwSystemTime_getCurrentMS();
+}
+
+
+/// Resets the variables associated with the pending transmit enqueue.
+static void resetPendingTxEnqueue(void)
+{
+    g_heap->pendingTxEnqueueCommand = BridgeCommand_None;
+    static Flags const DefaultFlags = { false, false };
+    g_heap->pendingTxEnqueueFlags = DefaultFlags;
 }
 
 
@@ -346,15 +333,6 @@ static void handleRxFrameOverflow(uint8_t data)
 {
     if (g_rxFrameOverflowCallback != NULL)
         g_rxFrameOverflowCallback(data);
-}
-
-
-/// Resets the variables associated with the pending transmit enqueue.
-static void resetPendingTxEnqueue(void)
-{
-    g_heap->pendingTxEnqueueCommand = BridgeCommand_None;
-    static Flags const DefaultFlags = { false, false };
-    g_heap->pendingTxEnqueueFlags = DefaultFlags;
 }
 
 
@@ -680,6 +658,32 @@ static uint16_t __attribute__((unused)) processReceivedData(uint8_t const source
 }
 
 
+/// Initializes the decoded receive queue.
+static void initDecodedRxQueue()
+{
+    g_rxState = RxState_OutOfFrame;
+    g_heap->decodedRxQueue.data = g_heap->decodedRxQueueData;
+    g_heap->decodedRxQueue.elements = g_heap->decodedRxQueueElements;
+    g_heap->decodedRxQueue.maxDataSize = RX_QUEUE_DATA_SIZE;
+    g_heap->decodedRxQueue.maxSize = RX_QUEUE_MAX_SIZE;
+    queue_empty(&g_heap->decodedRxQueue);
+    resetDecodedRxQueue();
+}
+
+
+/// Initializes the transmit queue.
+static void initTxQueue()
+{
+    queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
+    g_heap->txQueue.data = g_heap->txQueueData;
+    g_heap->txQueue.elements = g_heap->txQueueElements;
+    g_heap->txQueue.maxDataSize = TX_QUEUE_DATA_SIZE;
+    g_heap->txQueue.maxSize = TX_QUEUE_MAX_SIZE;
+    queue_empty(&g_heap->txQueue);
+    resetPendingTxEnqueue();
+}
+
+
 // === ISR =====================================================================
 
 /// ISR for UART IRQ's in general.
@@ -711,18 +715,6 @@ static void isr(void)
 
 void uartFrameProtocol_init(void)
 {
-    // Configure the receive variables.
-    g_rxState = RxState_OutOfFrame;
-    resetDecodedRxQueue();
-    
-    // Configures the transmit variables.
-    queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
-    queue_empty(&g_heap->txQueue);
-    resetPendingTxEnqueue();
-    
-    // Setup callback functions.
-    i2cGen2_registerRxCallback(uartFrameProtocol_txEnqueueData);
-    
     // Setup the UART hardware.
     hostUART_SetCustomInterruptHandler(isr);
     hostUART_Start();
