@@ -100,11 +100,23 @@ typedef enum AppBufferOffset_
 /// be run in a mutual exclusive fashion (one or the other; no overlap).
 typedef struct Heap_
 {
+    /// Transmit queue.
     Queue txQueue;
+    
+    /// Array of transmit queue elements for the transmit queue.
     QueueElement txQueueElements[TX_QUEUE_MAX_SIZE];
+    
+    /// Array to hold the data of the elements in the transmit queue.
     uint8_t txQueueData[TX_QUEUE_DATA_SIZE];
+    
+    /// The receive buffer.
     uint8_t rxBuffer[RX_BUFFER_SIZE];
+    
+    /// The I2C address associated with the data that is waiting to be enqueued
+    /// into the transmit queue. This must be set prior to enqueueing data into
+    /// the transmit queue.
     uint8_t pendingTxEnqueueAddress;
+    
 } Heap;
 
 
@@ -125,8 +137,11 @@ static uint32_t const G_DefaultSendStopTimeoutMS = 5u;
 
 // === GLOBALS =================================================================
 
+/// @TODO: remove this when ready to use the dynamic memory allocation.
+static Heap g_tempHeap;
+
 /// Flag indicating if the system is started.
-static bool __attribute__((used)) g_started = false;
+static Heap* g_heap = NULL;
 
 /// The current 7-bit slave address. When the slaveIRQ line is asserted, a read
 /// will be performed from this address.
@@ -135,36 +150,8 @@ static uint8_t g_slaveAddress = DEFAULT_SLAVE_ADDRESS;
 /// Flag indicating if the IRQ triggerd and a receive is pending consumption.
 static volatile bool g_rxPending = false;
 
-/// The receive buffer.
-static uint8_t g_rxBuffer[RX_BUFFER_SIZE];
-
 /// The receive callback function.
 static I2CGen2_RxCallback g_rxCallback = NULL;
-
-/// Array of transmit queue elements for the transmit queue.
-static QueueElement g_txQueueElements[TX_QUEUE_MAX_SIZE];
-
-/// Array to hold the data of the elements in the transmit queue.
-static uint8_t g_txQueueData[TX_QUEUE_DATA_SIZE];
-
-/// Transmit queue.
-static Queue g_txQueue =
-{
-    g_txQueueData,
-    g_txQueueElements,
-    NULL,
-    TX_QUEUE_DATA_SIZE,
-    TX_QUEUE_MAX_SIZE,
-    0,
-    0,
-    0,
-    0,
-};
-
-/// The I2C address associated with the data that is waiting to be enqueued into
-/// the transmit queue. This must be set prior to enqueueing data into the
-/// transmit queue.
-static uint8_t g_pendingTxEnqueueAddress = 0;
 
 /// The status of the last driver API call. Refer to the possible error messages
 /// in the generated "I2C Component Name"_I2C.h file.
@@ -173,10 +160,50 @@ static uint32_t g_lastDriverStatus = 0;
 
 // === PRIVATE FUNCTIONS =======================================================
 
+/// Generates the transmit queue data to include the I2C address as the first
+/// byte (encode the I2C address in the data). The transmit dequeue function
+/// will take care of properly pulling out the I2C address and the actual data
+/// payload to transmit. Note that the g_pendingTxEnqueueAddress must be set
+/// properly before invoking this function.
+/// @param[in]  source      The source buffer.
+/// @param[in]  sourceSize  The number of bytes in the source.
+/// @param[out] target      The target buffer (where the formatted data is
+///                         stored).
+/// @param[in]  targetSize  The number of bytes available in the target.
+/// @return The number of bytes in the target buffer or the number of bytes
+///         to transmit.  If 0, then the source buffer was either invalid or
+///         there's not enough bytes in target buffer to store the formatted
+///         data.
+static uint16_t prepareTxQueueData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
+{
+    static uint16_t const MinSourceSize = TxQueueDataOffset_Data + 1;
+    
+    uint16_t size = 0;
+    if ((source != NULL) && (sourceSize >= MinSourceSize) && (target != NULL) && (targetSize > sourceSize))
+    {
+        target[size++] = g_heap->pendingTxEnqueueAddress;
+        memcpy(&target[size], source, sourceSize);
+        size += sourceSize;
+    }
+    return size;
+}
+
+/// Initializes the transmit queue.
+void initTxQueue(void)
+{
+    queue_registerEnqueueCallback(&g_heap->txQueue, prepareTxQueueData);
+    g_heap->txQueue.data = g_heap->txQueueData;
+    g_heap->txQueue.elements = g_heap->txQueueElements;
+    g_heap->txQueue.maxDataSize = TX_QUEUE_DATA_SIZE;
+    g_heap->txQueue.maxSize = TX_QUEUE_MAX_SIZE;
+    queue_empty(&g_heap->txQueue);
+}
+
+
 /// Resets the variables associated with the pending transmit enqueue.
 void resetPendingTxEnqueue(void)
 {
-    g_pendingTxEnqueueAddress = 0;
+    g_heap->pendingTxEnqueueAddress = 0;
 }
 
 
@@ -215,33 +242,7 @@ static void resetIRQ(void)
 }
 
 
-/// Generates the transmit queue data to include the I2C address as the first
-/// byte (encode the I2C address in the data). The transmit dequeue function
-/// will take care of properly pulling out the I2C address and the actual data
-/// payload to transmit. Note that the g_pendingTxEnqueueAddress must be set
-/// properly before invoking this function.
-/// @param[in]  source      The source buffer.
-/// @param[in]  sourceSize  The number of bytes in the source.
-/// @param[out] target      The target buffer (where the formatted data is
-///                         stored).
-/// @param[in]  targetSize  The number of bytes available in the target.
-/// @return The number of bytes in the target buffer or the number of bytes
-///         to transmit.  If 0, then the source buffer was either invalid or
-///         there's not enough bytes in target buffer to store the formatted
-///         data.
-static uint16_t prepareTxQueueData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
-{
-    static uint16_t const MinSourceSize = TxQueueDataOffset_Data + 1;
-    
-    uint16_t size = 0;
-    if ((source != NULL) && (sourceSize >= MinSourceSize) && (target != NULL) && (targetSize > sourceSize))
-    {
-        target[size++] = g_pendingTxEnqueueAddress;
-        memcpy(&target[size], source, sourceSize);
-        size += sourceSize;
-    }
-    return size;
-}
+
 
 
 // === ISR =====================================================================
@@ -261,27 +262,30 @@ CY_ISR(slaveISR)
 
 void i2cGen2_init(void)
 {
-    // Configures the transmit variables.
-    queue_registerEnqueueCallback(&g_txQueue, prepareTxQueueData);
-    queue_empty(&g_txQueue);
-    
     i2cGen2_resetSlaveAddress();
     
     slaveI2C_Start();
-    
     slaveIRQ_StartEx(slaveISR);
 }
 
 
-uint16_t i2cGen2_start(uint8_t* memory, uint16_t size)
+uint16_t i2cGen2_start(uint32_t memory[], uint16_t size)
 {
-    uint16_t allocatedSize = 0;
+    uint32_t allocatedSize = 0;
+    if ((memory != NULL) && (sizeof(Heap) <= (sizeof(uint32_t) * size)))
+    {
+        g_heap = (Heap*)memory;
+        // @TODO: remove the following line when the dynamic memory allocation
+        // is ready.
+        g_heap = &g_tempHeap;
+    }
     return allocatedSize;
 }
  
 
 void i2cGen2_stop(void)
 {
+    g_heap = NULL;
 }
 
 
@@ -307,72 +311,83 @@ void i2cGen2_registerRxCallback(I2CGen2_RxCallback pCallback)
 int i2cGen2_processRx(void)
 {
     int length = 0;
-    if (g_rxPending && isIRQAsserted())
+    if (g_heap != NULL)
     {
-        if (isBusReady())
+        if (g_rxPending && isIRQAsserted())
         {
-            if (slaveI2C_I2CMasterReadBuf(g_slaveAddress, g_rxBuffer, G_AppRxPacketLengthSize, slaveI2C_I2C_MODE_NO_STOP))
+            if (isBusReady())
             {
-                length += (int)G_AppRxPacketLengthSize;
-                uint8_t dataLength = g_rxBuffer[AppRxPacketOffset_Length];
-                if (isAppPacketLengthValid(dataLength))
+                if (slaveI2C_I2CMasterReadBuf(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, slaveI2C_I2C_MODE_NO_STOP))
                 {
-                    if (dataLength > 0)
-                        slaveI2C_I2CMasterReadBuf(g_slaveAddress, &g_rxBuffer[AppRxPacketOffset_Data], dataLength, slaveI2C_I2C_MODE_REPEAT_START);
+                    length += (int)G_AppRxPacketLengthSize;
+                    uint8_t dataLength = g_heap->rxBuffer[AppRxPacketOffset_Length];
+                    if (isAppPacketLengthValid(dataLength))
+                    {
+                        if (dataLength > 0)
+                            slaveI2C_I2CMasterReadBuf(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], dataLength, slaveI2C_I2C_MODE_REPEAT_START);
+                        else
+                            slaveI2C_I2CMasterSendStop(G_DefaultSendStopTimeoutMS);
+                        length += (int)dataLength;
+                        if (g_rxCallback != NULL)
+                            g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
+                    }
                     else
+                    {
                         slaveI2C_I2CMasterSendStop(G_DefaultSendStopTimeoutMS);
-                    length += (int)dataLength;
-                    if (g_rxCallback != NULL)
-                        g_rxCallback(g_rxBuffer, (uint16_t)length);
+                        length = -1;
+                    }
                 }
-                else
-                {
-                    slaveI2C_I2CMasterSendStop(G_DefaultSendStopTimeoutMS);
-                    length = -1;
-                }
+                resetIRQ();
+                g_rxPending = false;
             }
-            resetIRQ();
-            g_rxPending = false;
+            else
+                length = -1;
         }
-        else
-            length = -1;
     }
+    else
+        length = -1;
     return length;
 }
 
 
 int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
 {
-    Alarm alarm;
-    if (timeoutMS > 0)
-        alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
-    else
-        alarm_disarm(&alarm);
-        
     int count = 0;
-    while (!queue_isEmpty(&g_txQueue))
+    if (g_heap != NULL)
     {
-        if (alarm_hasElapsed(&alarm))
+        Alarm alarm;
+        if (timeoutMS > 0)
+            alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+        else
+            alarm_disarm(&alarm);
+            
+        int count = 0;
+        while (!queue_isEmpty(&g_heap->txQueue))
         {
-            count = -1;
-            break;
-        }
-        if (isBusReady())
-        {
-            uint8_t* data;
-            uint16_t size = queue_dequeue(&g_txQueue, &data);
-            if (size > 0)
+            if (alarm_hasElapsed(&alarm))
             {
-                i2cGen2_write(data[TxQueueDataOffset_Address], &data[TxQueueDataOffset_Data], size - 1);
-                ++count;
+                count = -1;
+                break;
+            }
+            if (isBusReady())
+            {
+                uint8_t* data;
+                uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
+                if (size > 0)
+                {
+                    i2cGen2_write(data[TxQueueDataOffset_Address], &data[TxQueueDataOffset_Data], size - 1);
+                    ++count;
+                }
+            }
+            else if (quitIfBusy)
+            {
+                count = -1;
+                break;
             }
         }
-        else if (quitIfBusy)
-        {
-            count = -1;
-            break;
-        }
     }
+    else
+        count = -1;
     return count;
 }
 
@@ -381,20 +396,25 @@ I2CGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 {
     I2CGen2Status status;
     status.errorOccurred = false;
-    if ((data != NULL) && (size > 0))
+    if (g_heap != NULL)
     {
-        if (isBusReady())
+        if ((data != NULL) && (size > 0))
         {
-            uint32_t driverStatus = slaveI2C_I2CMasterReadBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER);
-            if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
-                status.driverError = true;
-            g_lastDriverStatus = driverStatus;
+            if (isBusReady())
+            {
+                uint32_t driverStatus = slaveI2C_I2CMasterReadBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER);
+                if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
+                    status.driverError = true;
+                g_lastDriverStatus = driverStatus;
+            }
+            else
+                status.busBusy = true;
         }
         else
-            status.busBusy = true;
+            status.inputParametersInvalid = true;
     }
     else
-        status.inputParametersInvalid = true;
+        status.systemNotStarted = true;
     return status;
 }
 
@@ -403,21 +423,26 @@ I2CGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 {
     I2CGen2Status status;
     status.errorOccurred = false;
-    if ((data != NULL) && (size > 0))
+    if (g_heap != NULL)
     {
-        if (isBusReady())
+        if ((data != NULL) && (size > 0))
         {
-            uint32_t driverStatus = slaveI2C_I2CMasterWriteBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER);
-            if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
-                status.driverError = true;
-            g_lastDriverStatus = driverStatus;
+            if (isBusReady())
+            {
+                uint32_t driverStatus = slaveI2C_I2CMasterWriteBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER);
+                if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
+                    status.driverError = true;
+                g_lastDriverStatus = driverStatus;
+            }
+            else
+                status.busBusy = true;
+
         }
         else
-            status.busBusy = true;
-
+            status.inputParametersInvalid = true;
     }
     else
-        status.inputParametersInvalid = true;
+        status.systemNotStarted = true;
     return status;
 }
 
@@ -430,11 +455,16 @@ I2CGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
     
     I2CGen2Status status;
     status.errorOccurred = false;
-    if ((data != NULL) && (size > MinSize))
+    if (g_heap != NULL)
     {
-        size--;
-        status = i2cGen2_write(data[AddressOffset], &data[DataOffset], size);
+        if ((data != NULL) && (size > MinSize))
+        {
+            size--;
+            status = i2cGen2_write(data[AddressOffset], &data[DataOffset], size);
+        }
     }
+    else
+        status.systemNotStarted = true;
     return status;
 }
 
@@ -443,19 +473,24 @@ I2CGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 {
     I2CGen2Status status;
     status.errorOccurred = false;
-    if ((data != NULL) && (size > 0))
+    if (g_heap != NULL)
     {
-        if (!queue_isFull(&g_txQueue))
+        if ((data != NULL) && (size > 0))
         {
-            g_pendingTxEnqueueAddress = address;
-            if (!queue_enqueue(&g_txQueue, data, size))
+            if (!queue_isFull(&g_heap->txQueue))
+            {
+                g_heap->pendingTxEnqueueAddress = address;
+                if (!queue_enqueue(&g_heap->txQueue, data, size))
+                    status.transmitQueueFull = true;
+            }
+            else
                 status.transmitQueueFull = true;
         }
         else
-            status.transmitQueueFull = true;
+            status.inputParametersInvalid = true;
     }
     else
-        status.inputParametersInvalid = true;
+        status.systemNotStarted = true;
     return status;
 }
 
@@ -464,56 +499,67 @@ I2CGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 {
     I2CGen2Status status;
     status.errorOccurred = false;
-    if ((data != NULL) && (size > 0))
+    if (g_heap != NULL)
     {
-        if(!queue_isFull(&g_txQueue))
+        if ((data != NULL) && (size > 0))
         {
-            g_pendingTxEnqueueAddress = data[TxQueueDataOffset_Address];
-            if (!queue_enqueue(&g_txQueue, &data[TxQueueDataOffset_Data], size - 1))
-                status.transmitQueueFull = true;
+            if(!queue_isFull(&g_heap->txQueue))
+            {
+                g_heap->pendingTxEnqueueAddress = data[TxQueueDataOffset_Address];
+                if (!queue_enqueue(&g_heap->txQueue, &data[TxQueueDataOffset_Data], size - 1))
+                    status.transmitQueueFull = true;
+            }
+            else
+                status.inputParametersInvalid = true;
         }
         else
             status.inputParametersInvalid = true;
     }
     else
-        status.inputParametersInvalid = true;
+        status.systemNotStarted = true;
     return status;
 }
 
 
 I2CGen2Status i2cGen2_appACK(uint32_t timeoutMS)
 {
-    Alarm alarm;
-    if (timeoutMS > 0)
-        alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
-    else
-        alarm_disarm(&alarm);
-        
     I2CGen2Status status;
     status.errorOccurred = false;
-    while (true)
+    if (g_heap != NULL)
     {
-        if (alarm_hasElapsed(&alarm))
-        {
-            status.busBusy = true;
-            break;
-        }
+        Alarm alarm;
+        if (timeoutMS > 0)
+            alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+        else
+            alarm_disarm(&alarm);
+            
         
-        // Scratch buffer; used so that the I2C read function has a valid non-
-        // NULL pointer for reading 0 bytes.
-        uint8_t scratch;
-        if (isBusReady())
+        while (true)
         {
-            uint32_t driverStatus = slaveI2C_I2CMasterReadBuf(g_slaveAddress, &scratch, 0, slaveI2C_I2C_MODE_COMPLETE_XFER);
-            if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
+            if (alarm_hasElapsed(&alarm))
             {
-                status.driverError = true;
-                if ((driverStatus & slaveI2C_I2C_MSTR_ERR_LB_NAK) > 0)
-                    status.nak = true;
+                status.busBusy = true;
+                break;
             }
-            g_lastDriverStatus = driverStatus;
+            
+            // Scratch buffer; used so that the I2C read function has a valid non-
+            // NULL pointer for reading 0 bytes.
+            uint8_t scratch;
+            if (isBusReady())
+            {
+                uint32_t driverStatus = slaveI2C_I2CMasterReadBuf(g_slaveAddress, &scratch, 0, slaveI2C_I2C_MODE_COMPLETE_XFER);
+                if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
+                {
+                    status.driverError = true;
+                    if ((driverStatus & slaveI2C_I2C_MSTR_ERR_LB_NAK) > 0)
+                        status.nak = true;
+                }
+                g_lastDriverStatus = driverStatus;
+            }
         }
     }
+    else
+        status.systemNotStarted = true;
     return status;
 }
 

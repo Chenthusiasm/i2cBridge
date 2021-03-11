@@ -174,7 +174,7 @@ typedef struct Heap_
 // === GLOBALS =================================================================
 
 /// Flag indicating if the system is started.
-static bool __attribute__((used)) g_started = false;
+static bool g_started = false;
 
 /// The current state in the protocol state machine for receive processing.
 /// frame.
@@ -690,6 +690,7 @@ uint16_t uartFrameProtocol_start(uint8_t* memory, uint16_t size)
 
 void uartFrameProtocol_stop(void)
 {
+    g_started = false;
 }
 
 
