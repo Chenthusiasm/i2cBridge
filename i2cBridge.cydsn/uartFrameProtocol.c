@@ -271,7 +271,7 @@ static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NUL
 // === PRIVATE FUNCTIONS =======================================================
 
 /// Initializes the decoded receive queue.
-void initDecodedRxQueue()
+static void initDecodedRxQueue()
 {
     g_heap->decodedRxQueue.data = g_heap->decodedRxQueueData;
     g_heap->decodedRxQueue.elements = g_heap->decodedRxQueueElements;
@@ -282,7 +282,7 @@ void initDecodedRxQueue()
 
 
 /// Initializes the transmit queue.
-void initTxQueue()
+static void initTxQueue()
 {
     g_heap->txQueue.data = g_heap->txQueueData;
     g_heap->txQueue.elements = g_heap->txQueueElements;

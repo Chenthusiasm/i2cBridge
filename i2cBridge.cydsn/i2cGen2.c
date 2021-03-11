@@ -189,7 +189,7 @@ static uint16_t prepareTxQueueData(uint8_t target[], uint16_t targetSize, uint8_
 }
 
 /// Initializes the transmit queue.
-void initTxQueue(void)
+static void initTxQueue(void)
 {
     queue_registerEnqueueCallback(&g_heap->txQueue, prepareTxQueueData);
     g_heap->txQueue.data = g_heap->txQueueData;
