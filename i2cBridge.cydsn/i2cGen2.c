@@ -278,6 +278,7 @@ uint16_t i2cGen2_start(uint32_t memory[], uint16_t size)
         // @TODO: remove the following line when the dynamic memory allocation
         // is ready.
         g_heap = &g_tempHeap;
+        initTxQueue();
     }
     return allocatedSize;
 }
