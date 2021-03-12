@@ -151,11 +151,11 @@ typedef struct Flags_
 } Flags;
 
 
-/// Data structure that defines memory used by the system in a similar fashion
+/// Data structure that defines memory used by the module in a similar fashion
 /// to a heap. Globals are contained in this structure that are used when the
-/// system is running and then "deallocated" when the system is stopped. This
-/// allows the memory to be used by another system. Note that these systems must
-/// be run in a mutual exclusive fashion (one or the other; no overlap).
+/// module is activated and then "deallocated" when the module is deactivated.
+/// This allows the memory to be used by another module. Note that these modules
+/// must be run in a mutual exclusive fashion (one or the other; no overlap).
 typedef struct Heap_
 {
     /// Decoded receive queue.
@@ -732,7 +732,7 @@ void uartFrameProtocol_init(void)
 }
 
 
-uint16_t uartFrameProtocol_start(uint8_t* memory, uint16_t size)
+uint16_t uartFrameProtocol_activate(uint8_t* memory, uint16_t size)
 {
     uint16_t allocatedSize = 0;
     if ((memory != NULL) && (sizeof(Heap) <= (sizeof(uint32_t) * size)))
@@ -744,12 +744,15 @@ uint16_t uartFrameProtocol_start(uint8_t* memory, uint16_t size)
         initRx();
         initDecodedRxQueue();
         initTxQueue();
+        allocatedSize = sizeof(Heap) / 4;
+        if ((sizeof(Heap) & 0x3) != 0)
+            allocatedSize++;
     }
     return allocatedSize;
 }
 
 
-void uartFrameProtocol_stop(void)
+void uartFrameProtocol_deactivate(void)
 {
     g_heap = NULL;
 }

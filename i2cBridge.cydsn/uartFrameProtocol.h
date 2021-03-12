@@ -44,7 +44,7 @@
     /// Initializes the communications interface.
     void uartFrameProtocol_init(void);
     
-    /// Starts the UART frame protocol module and sets up its memory buffer.
+    /// Activates the UART frame protocol module and sets up its globals.
     /// This must be invoked before using any processRx or processTx-like
     /// functions.
     /// @param[in]  memory  Memory buffer that is available for the module's
@@ -53,11 +53,11 @@
     /// @param[in]  size    The size (in 32-bit words) of the memory array.
     /// @return The number of 32-bit words the module used for its globals. If 0
     ///         Then there was an error and the module hasn't started.
-    uint16_t uartFrameProtocol_start(uint8_t memory[], uint16_t size);
+    uint16_t uartFrameProtocol_activate(uint8_t memory[], uint16_t size);
     
-    /// Stops the UART frame protocol module and effectively deallocates the
-    /// memory.
-    void uartFrameProtocol_stop(void);
+    /// Deactivates the UART frame protocol module and effectively deallocates
+    /// the global memory.
+    void uartFrameProtocol_deactivate(void);
     
     /// Registers the receive callback function that should be invoked when
     /// data is received out of frame.
