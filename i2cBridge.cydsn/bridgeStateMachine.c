@@ -19,6 +19,14 @@
 #include "uartFrameProtocol.h"
 
 
+// === DEFINES =================================================================
+
+/// The size of the scratch buffer. Note that the scratch buffer contains data
+/// of type uint32_t to keek word aligned; therefore, we divide by the size of
+/// a uint32_t.
+#define SCRATCH_BUFFER_SIZE             (2500u / sizeof(uint32_t))
+
+
 // === TYPE DEFINES ============================================================
 
 /// The different states of the state machine.
@@ -46,6 +54,15 @@ typedef enum State_
 /// The current state of the state machine.
 static State g_state = State_SlaveReset;
 
+/// Scratch buffer used for dynamic memory allocation by the comm modules.
+/// @TODO: remove the temporary small scratch buffer when we're ready to use
+/// the full scratch buffer.
+#if 0
+static uint32_t __attribute__((used)) g_scratchBuffer[SCRATCH_BUFFER_SIZE];
+#else
+static uint32_t __attribute__((used)) g_scratchBuffer[1];
+#endif
+
 
 // === PRIVATE FUNCTIONS =======================================================
 
@@ -63,6 +80,17 @@ void processSlaveReset(void)
 /// Processes all tasks associated with initializing the I2C slave translator.
 void processInitSlaveTranslator(void)
 {
+    uint16_t offset = uartFrameProtocol_activate(g_scratchBuffer, SCRATCH_BUFFER_SIZE);
+    if (offset > 0)
+        offset = i2cGen2_activate(&g_scratchBuffer[offset], SCRATCH_BUFFER_SIZE - offset);
+        
+    if (offset <= 0)
+    {
+        // Since one of the comm modules could not activate, deactivate both and
+        uartFrameProtocol_deactivate();
+        i2cGen2_deactivate();
+        // @TODO: perform some additional error handling here.
+    }
 }
 
 
