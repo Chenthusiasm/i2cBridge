@@ -206,13 +206,6 @@ static Heap g_tempHeap;
 /// have not been dynamically allocated and the module has not started.
 static Heap* g_heap = NULL;
 
-/// The current state in the protocol state machine for receive processing.
-/// frame.
-//static volatile RxState g_rxState = RxState_OutOfFrame;
-
-/// The last time data was received in milliseconds.
-//static volatile uint32_t g_lastRxTimeMS = 0;
-
 /// Callback function that is invoked when data is received out of the frame
 /// state machine.
 static UartFrameProtocol_RxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
@@ -220,56 +213,6 @@ static UartFrameProtocol_RxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
 /// Callback function that is invoked when data is received but the receive
 /// buffer is not large enough to store it so the data overflowed.
 static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NULL;
-
-/// Array of decoded receive queue elements for the receive queue; these
-/// elements have been received but are pending processing.
-//static QueueElement g_decodedRxQueueElements[RX_QUEUE_MAX_SIZE];
-
-/// Array to hold the decoded data of elements in the receive queue.
-//static uint8_t g_decodedRxQueueData[RX_QUEUE_DATA_SIZE];
-
-/// Decoded receive queue.
-//static volatile Queue g_decodedRxQueue =
-//{
-//    g_decodedRxQueueData,
-//    g_decodedRxQueueElements,
-//    NULL,
-//    RX_QUEUE_DATA_SIZE,
-//    RX_QUEUE_MAX_SIZE,
-//    0,
-//    0,
-//    0,
-//    0,
-//};
-
-/// Array of transmit queue elements for the transmit queue.
-//static QueueElement g_txQueueElements[TX_QUEUE_MAX_SIZE];
-
-/// Array to hold the data of the elements in the transmit queue.
-//static uint8_t g_txQueueData[TX_QUEUE_DATA_SIZE];
-
-/// Transmit queue.
-//static Queue g_txQueue =
-//{
-//    g_txQueueData,
-//    g_txQueueElements,
-//    NULL,
-//    TX_QUEUE_DATA_SIZE,
-//    TX_QUEUE_MAX_SIZE,
-//    0,
-//    0,
-//    0,
-//    0,
-//};
-
-/// The type flags of the data that is waiting to be enqueued into the transmit
-/// queue. This must be set prior to enqueueing data into the transmit queue.
-//static Flags g_pendingTxEnqueueFlags = { false, false };
-
-/// The command associated with the data that is watiting to be enqueued into
-/// the transmit queue. This must be set prior to enqueueing data into the
-/// transmit queue.
-//static BridgeCommand g_pendingTxEnqueueCommand = BridgeCommand_None;
 
 
 // === PRIVATE FUNCTIONS =======================================================
