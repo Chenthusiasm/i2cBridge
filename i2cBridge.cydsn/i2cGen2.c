@@ -93,11 +93,11 @@ typedef enum AppBufferOffset_
 } AppBufferOffset;
 
 
-/// Data structure that defines memory used by the system in a similar fashion
+/// Data structure that defines memory used by the module in a similar fashion
 /// to a heap. Globals are contained in this structure that are used when the
-/// system is running and then "deallocated" when the system is stopped. This
-/// allows the memory to be used by another system. Note that these systems must
-/// be run in a mutual exclusive fashion (one or the other; no overlap).
+/// module is activated and then "deallocated" when the module is deactivated.
+/// This allows the memory to be used by another module. Note that these modules
+/// must be run in a mutual exclusive fashion (one or the other; no overlap).
 typedef struct Heap_
 {
     /// Transmit queue.
@@ -140,7 +140,9 @@ static uint32_t const G_DefaultSendStopTimeoutMS = 5u;
 /// @TODO: remove this when ready to use the dynamic memory allocation.
 static Heap g_tempHeap;
 
-/// Flag indicating if the system is started.
+/// Heap-like memory that points to the global variables used by the module that
+/// was dynamically allocated. If NULL, then the module's global variables
+/// have not been dynamically allocated and the module has not started.
 static Heap* g_heap = NULL;
 
 /// The current 7-bit slave address. When the slaveIRQ line is asserted, a read
@@ -269,7 +271,7 @@ void i2cGen2_init(void)
 }
 
 
-uint16_t i2cGen2_start(uint32_t memory[], uint16_t size)
+uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size)
 {
     uint32_t allocatedSize = 0;
     if ((memory != NULL) && (sizeof(Heap) <= (sizeof(uint32_t) * size)))
@@ -279,12 +281,15 @@ uint16_t i2cGen2_start(uint32_t memory[], uint16_t size)
         // is ready.
         g_heap = &g_tempHeap;
         initTxQueue();
+        allocatedSize = sizeof(Heap) / sizeof(uint32_t);
+        if ((sizeof(Heap) & 0x3) != 0)
+            allocatedSize++;
     }
     return allocatedSize;
 }
  
 
-void i2cGen2_stop(void)
+void i2cGen2_deactivate(void)
 {
     g_heap = NULL;
 }
@@ -415,7 +420,7 @@ I2CGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
             status.inputParametersInvalid = true;
     }
     else
-        status.systemNotStarted = true;
+        status.deactivated = true;
     return status;
 }
 
@@ -443,7 +448,7 @@ I2CGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
             status.inputParametersInvalid = true;
     }
     else
-        status.systemNotStarted = true;
+        status.deactivated = true;
     return status;
 }
 
@@ -465,7 +470,7 @@ I2CGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
         }
     }
     else
-        status.systemNotStarted = true;
+        status.deactivated = true;
     return status;
 }
 
@@ -491,7 +496,7 @@ I2CGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
             status.inputParametersInvalid = true;
     }
     else
-        status.systemNotStarted = true;
+        status.deactivated = true;
     return status;
 }
 
@@ -517,7 +522,7 @@ I2CGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
             status.inputParametersInvalid = true;
     }
     else
-        status.systemNotStarted = true;
+        status.deactivated = true;
     return status;
 }
 
@@ -560,7 +565,7 @@ I2CGen2Status i2cGen2_appACK(uint32_t timeoutMS)
         }
     }
     else
-        status.systemNotStarted = true;
+        status.deactivated = true;
     return status;
 }
 

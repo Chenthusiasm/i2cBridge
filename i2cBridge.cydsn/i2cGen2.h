@@ -32,9 +32,9 @@
     {
         struct
         {
-            /// Error flag indicating that the system itself is hasn't been
-            /// started.
-            bool systemNotStarted : 1;
+            /// Error flag indicating that the module hasn't been activated and
+            /// the globals have not had memory dynamically allocated.
+            bool deactivated : 1;
             
             /// Error flag indicating a low level driver error occurred.
             bool driverError : 1;
@@ -72,18 +72,18 @@
     /// Initialize the slave I2C hardware.
     void i2cGen2_init(void);
     
-    /// Starts the slave I2C gen 2 module and sets up its memory buffer. This
-    /// must be invoked before using any processRx or processTx-like functions.
+    /// Activates the slave I2C gen 2 module and sets up its globals. This must
+    /// be invoked before using any processRx or processTx-like functions.
     /// @param[in]  memory  Memory buffer that is available for the module's
     ///                     globals. This is an array of 32-bit words to help
     ///                     preserve word alignment.
     /// @param[in]  size    The size (in 32-bit words) of the memory array.
     /// @return The number of 32-bit words the module used for its globals. If 0
     ///         Then there was an error and the module hasn't started.
-    uint16_t i2cGen2_start(uint32_t memory[], uint16_t size);
+    uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size);
     
-    /// Stops the slave I2C system and effectively deallocates the memory.
-    void i2cGen2_stop(void);
+    /// Deactivates the slave I2C module and effectively deallocates the memory.
+    void i2cGen2_deactivate(void);
     
     /// Registers the receive callback function that should be invoked when
     /// data is received.
