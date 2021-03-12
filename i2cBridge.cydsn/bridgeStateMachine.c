@@ -14,7 +14,9 @@
 
 #include "bridgeStateMachine.h"
 
+#include "i2cGen2.h"
 #include "project.h"
+#include "uartFrameProtocol.h"
 
 
 // === TYPE DEFINES ============================================================
@@ -73,12 +75,14 @@ void processSlaveTranslator(void)
 /// Processes all tasks associated with initializing the I2C slave updater.
 void processInitSlaveUpdater(void)
 {
+    // @TODO: implement.
 }
 
 
 /// Processes all tasks associated with the I2C slave updater.
 void processSlaveUpdater(void)
 {
+    // @TODO: implement.
 }
 
 

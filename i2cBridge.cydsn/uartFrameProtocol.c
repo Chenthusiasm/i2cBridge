@@ -675,7 +675,18 @@ void uartFrameProtocol_init(void)
 }
 
 
-uint16_t uartFrameProtocol_activate(uint8_t* memory, uint16_t size)
+uint16_t uartFrameProtocol_getMemoryRequirement(void)
+{
+    uint16_t const Mask = sizeof(uint32_t) - 1;
+    
+    uint16_t size = sizeof(Heap);
+    if ((size & Mask) != 0)
+        size = (size + sizeof(uint32_t)) & ~Mask;
+    return size;
+}
+
+
+uint16_t uartFrameProtocol_activate(uint32_t* memory, uint16_t size)
 {
     uint16_t allocatedSize = 0;
     if ((memory != NULL) && (sizeof(Heap) <= (sizeof(uint32_t) * size)))
@@ -687,9 +698,7 @@ uint16_t uartFrameProtocol_activate(uint8_t* memory, uint16_t size)
         initRx();
         initDecodedRxQueue();
         initTxQueue();
-        allocatedSize = sizeof(Heap) / 4;
-        if ((sizeof(Heap) & 0x3) != 0)
-            allocatedSize++;
+        allocatedSize = uartFrameProtocol_getMemoryRequirement() / sizeof(uint32_t);
     }
     return allocatedSize;
 }
