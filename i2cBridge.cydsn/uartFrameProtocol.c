@@ -112,8 +112,6 @@ typedef enum BridgeCommand_
     /// I2C communication timeout between bridge and I2C slave.
     BridgeCommand_SlaveTimeout          = 'T',
     
-
-    
     /// Bridge version information.
     BridgeCommand_Version               = 'V',
     
@@ -173,6 +171,12 @@ typedef struct Heap_
     /// Array of transmit queue elements for the transmit queue.
     QueueElement txQueueElements[TX_QUEUE_MAX_SIZE];
     
+    /// The last time data was received in milliseconds.
+    volatile uint32_t lastRxTimeMS;
+    
+    /// The current state in the protocol state machine for receive processing.
+    /// frame.
+    volatile RxState rxState;
     /// The type flags of the data that is waiting to be enqueued into the
     /// transmit queue. This must be set prior to enqueueing data into the
     /// transmit queue.
@@ -204,10 +208,10 @@ static Heap* g_heap = NULL;
 
 /// The current state in the protocol state machine for receive processing.
 /// frame.
-static volatile RxState g_rxState = RxState_OutOfFrame;
+//static volatile RxState g_rxState = RxState_OutOfFrame;
 
 /// The last time data was received in milliseconds.
-static volatile uint32_t g_lastRxTimeMS = 0;
+//static volatile uint32_t g_lastRxTimeMS = 0;
 
 /// Callback function that is invoked when data is received out of the frame
 /// state machine.
@@ -272,9 +276,9 @@ static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NUL
 
 /// Sets all the global variables pertaining to the decoded receive buffer to
 /// an initial state.
-static void resetDecodedRxQueue(void)
+static void resetRxTime(void)
 {
-    g_lastRxTimeMS = hwSystemTime_getCurrentMS();
+    g_heap->lastRxTimeMS = hwSystemTime_getCurrentMS();
 }
 
 
@@ -575,14 +579,14 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
 static bool processReceivedByte(uint8_t data)
 {
     bool status = true;
-    switch (g_rxState)
+    switch (g_heap->rxState)
     {
         case RxState_OutOfFrame:
         {
             if (data == ControlByte_StartFrame)
             {                        
-                resetDecodedRxQueue();
-                g_rxState = RxState_InFrame;
+                resetRxTime();
+                g_heap->rxState = RxState_InFrame;
             }
             else
             {
@@ -596,11 +600,11 @@ static bool processReceivedByte(uint8_t data)
         case RxState_InFrame:
         {
             if (isEscapeCharacter(data))
-                g_rxState = RxState_EscapeCharacter;
+                g_heap->rxState = RxState_EscapeCharacter;
             else if (isEndFrameCharacter(data))
             {
                 status = queue_enqueueFinalize(&g_heap->decodedRxQueue);
-                g_rxState = RxState_OutOfFrame;
+                g_heap->rxState = RxState_OutOfFrame;
             }
             else
             {
@@ -625,7 +629,7 @@ static bool processReceivedByte(uint8_t data)
             // wrong happened.  Potentially do some error handling.
             
             // Reset to the default state: out of frame.
-            g_rxState = RxState_OutOfFrame;
+            g_heap->rxState = RxState_OutOfFrame;
             status = false;
             break;
         }
@@ -658,16 +662,23 @@ static uint16_t __attribute__((unused)) processReceivedData(uint8_t const source
 }
 
 
-/// Initializes the decoded receive queue.
-static void initDecodedRxQueue()
+/// Initializes the basic receive variables
+static void initRx(void)
 {
-    g_rxState = RxState_OutOfFrame;
+    g_heap->rxState = RxState_OutOfFrame;
+    resetRxTime();
+}
+
+
+/// Initializes the decoded receive queue.
+static void initDecodedRxQueue(void)
+{
     g_heap->decodedRxQueue.data = g_heap->decodedRxQueueData;
     g_heap->decodedRxQueue.elements = g_heap->decodedRxQueueElements;
     g_heap->decodedRxQueue.maxDataSize = RX_QUEUE_DATA_SIZE;
     g_heap->decodedRxQueue.maxSize = RX_QUEUE_MAX_SIZE;
     queue_empty(&g_heap->decodedRxQueue);
-    resetDecodedRxQueue();
+    resetRxTime();
 }
 
 
@@ -730,6 +741,7 @@ uint16_t uartFrameProtocol_start(uint8_t* memory, uint16_t size)
         // @TODO: remove the following line when the dynamic memory allocation
         // is ready.
         g_heap = &g_tempHeap;
+        initRx();
         initDecodedRxQueue();
         initTxQueue();
     }
@@ -759,26 +771,32 @@ void uartFrameProtocol_registerRxFrameOverflowCallback(UartFrameProtocol_RxFrame
 
 bool uartFrameProtocol_isTxQueueEmpty(void)
 {
-    return (queue_isEmpty(&g_heap->txQueue));
+    bool empty = false;
+    if (g_heap != NULL)
+        empty = queue_isEmpty(&g_heap->txQueue);
+    return empty;
 }
 
 
 uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS)
-{        
-    Alarm alarm;
-    if (timeoutMS > 0)
-        alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
-    else
-        alarm_disarm(&alarm);
-        
+{
     uint16_t count = 0;
-    while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_heap->decodedRxQueue))
+    if (g_heap != NULL)
     {
-        uint8_t* data;
-        uint16_t size = queue_dequeue(&g_heap->decodedRxQueue, &data);
-        if (size > 0)
-            if (processDecodedRxPacket(data, size))
-                ++count;
+        Alarm alarm;
+        if (timeoutMS > 0)
+            alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+        else
+            alarm_disarm(&alarm);
+            
+        while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_heap->decodedRxQueue))
+        {
+            uint8_t* data;
+            uint16_t size = queue_dequeue(&g_heap->decodedRxQueue, &data);
+            if (size > 0)
+                if (processDecodedRxPacket(data, size))
+                    ++count;
+        }
     }
     return count;
 }
@@ -786,22 +804,25 @@ uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS)
 
 uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
 {
-    Alarm alarm;
-    if (timeoutMS > 0)
-        alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
-    else
-        alarm_disarm(&alarm);
-        
     uint16_t count = 0;
-    while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_heap->txQueue))
+    if (g_heap != NULL)
     {
-        uint8_t* data;
-        uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
-        if (size > 0)
+        Alarm alarm;
+        if (timeoutMS > 0)
+            alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+        else
+            alarm_disarm(&alarm);
+            
+        while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_heap->txQueue))
         {
-            for (uint32_t i = 0; i < size; ++i)
-                hostUART_UartPutChar(data[i]);
-            ++count;
+            uint8_t* data;
+            uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
+            if (size > 0)
+            {
+                for (uint32_t i = 0; i < size; ++i)
+                    hostUART_UartPutChar(data[i]);
+                ++count;
+            }
         }
     }
     return count;
@@ -811,7 +832,7 @@ uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
 bool uartFrameProtocol_txEnqueueData(uint8_t const data[], uint16_t size)
 {
     bool status = false;
-    if (!queue_isFull(&g_heap->txQueue))
+    if ((g_heap != NULL) && !queue_isFull(&g_heap->txQueue))
     {
         g_heap->pendingTxEnqueueCommand = BridgeCommand_None;
         g_heap->pendingTxEnqueueFlags.command = false;
