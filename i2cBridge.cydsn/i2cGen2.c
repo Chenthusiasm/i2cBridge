@@ -271,6 +271,17 @@ void i2cGen2_init(void)
 }
 
 
+uint16_t i2cGen2_getMemoryRequirement(void)
+{
+    uint16_t const Mask = sizeof(uint32_t) - 1;
+    
+    uint16_t size = sizeof(Heap);
+    if ((size & Mask) != 0)
+        size = (size + sizeof(uint32_t)) & ~Mask;
+    return size;
+}
+
+
 uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size)
 {
     uint32_t allocatedSize = 0;
@@ -281,9 +292,7 @@ uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size)
         // is ready.
         g_heap = &g_tempHeap;
         initTxQueue();
-        allocatedSize = sizeof(Heap) / sizeof(uint32_t);
-        if ((sizeof(Heap) & 0x3) != 0)
-            allocatedSize++;
+        allocatedSize = i2cGen2_getMemoryRequirement() / sizeof(uint32_t);
     }
     return allocatedSize;
 }

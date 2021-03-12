@@ -72,6 +72,10 @@
     /// Initialize the slave I2C hardware.
     void i2cGen2_init(void);
     
+    /// Accessor to get the number of bytes required for global variables.
+    /// @return The number of bytes need for global variables.
+    uint16_t i2cGen2_getMemoryRequirement(void);
+    
     /// Activates the slave I2C gen 2 module and sets up its globals. This must
     /// be invoked before using any processRx or processTx-like functions.
     /// @param[in]  memory  Memory buffer that is available for the module's
