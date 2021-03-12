@@ -101,10 +101,13 @@ void processSlaveTranslator(void)
     uint32_t const UARTProcessTxTimeoutMS = 3u;
     uint32_t const I2CProcessTxTimeoutMS = 5u;
     
+    i2cGen2_processRx();
     uartFrameProtocol_processRx(UARTProcessRxTimeoutMS);
+    i2cGen2_processRx();
     i2cGen2_processTxQueue(I2CProcessTxTimeoutMS, true);
     i2cGen2_processRx();
     uartFrameProtocol_processTx(UARTProcessTxTimeoutMS);
+    i2cGen2_processRx();
 }
 
 

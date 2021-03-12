@@ -649,9 +649,9 @@ static void isr(void)
         uint32_t data = hostUART_UartGetByte();
         if (data > 0xff)
         {
-            // @TODO Error handling.
+            // @TODO: Error handling.
         }
-        else
+        else if (g_heap != NULL)
             processReceivedByte(data);
         hostUART_ClearRxInterruptSource(hostUART_INTR_RX_NOT_EMPTY);
     }
