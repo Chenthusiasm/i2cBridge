@@ -70,7 +70,7 @@
         /// The maximum number of elements that can be queued.
         uint8_t maxSize;
         
-        /// The head of the queue, entries are dequeue (removed) from the head.
+        /// The head of the queue, entries are dequeued (removed) from the head.
         uint8_t head;
         
         /// The tail of the queue, entries are enqueued (added) to the tail.
@@ -82,7 +82,7 @@
     } Queue;
     
     
-    // === PUBLIC FUNCTIONS ====================================================
+    // === FUNCTIONS ===========================================================
     
     /// Empty the queue; no queue elements will be in the queue. Note that the
     /// data array holding each queue element's data will not be cleared.
