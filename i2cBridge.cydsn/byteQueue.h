@@ -33,7 +33,7 @@
         uint8_t* data;
         
         /// The maximum number of bytes that can fit in data.
-        uint16_t maxDataSize;
+        uint16_t maxSize;
         
         /// The head of the queue, data is dequeued (removed) from the head.
         uint16_t head;
@@ -59,12 +59,14 @@
     /// Check if the queue is full; if the queue is full, subsequent enqueues
     /// will fail.
     /// @param[in]  queue   The queue to perform the function's action on.
-    /// @return If the queue is full.
+    /// @return If the queue is full. Also returns true if the queue is invalid
+    ///         (NULL).
     bool byteQueue_isFull(ByteQueue const volatile* queue);
     
     /// Check if the queue is empty; there are no queue elements in the queue.
     /// @param[in]  queue   The queue to perform the function's action on.
-    /// @return If the queue is empty.
+    /// @return If the queue is empty. Also returns true if the queue is
+    ///         invalid (NULL).
     bool byteQueue_isEmpty(ByteQueue const volatile* queue);
     
     /// Enqueue (add) multiple new bytes into the queue tail (end). Because an
