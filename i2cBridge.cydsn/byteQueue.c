@@ -20,28 +20,6 @@
 
 // === PRIVATE FUNCTIONS =======================================================
 
-/// Gets the number of bytes free or open in the queue to enqueue additional
-/// bytes.
-/// @param[in]  queue   The queue to check. The function assumes this is non-
-///                     null.
-/// @return The number of free bytes.
-static uint16_t getFreeSize(ByteQueue const volatile* queue)
-{
-    return (queue->maxSize - queue->size);
-}
-
-
-/// Gets the number of bytes free or open in the queue to the end of the data
-/// buffer. Data cannot be added beyond this point so overflow bytes have to be
-/// added back to the beginning of the data buffer.
-/// @param[in]  queue   The queue to check. The function assumes this is non-
-///                     null.
-/// @return The number of free bytes until the end of the data buffer.
-static uint16_t getFreeSizeToEnd(ByteQueue const volatile* queue)
-{
-    return (queue->maxSize - queue->tail);
-}
-
 
 // === PUBLIC FUNCTIONS ========================================================
 
@@ -77,9 +55,9 @@ bool byteQueue_isEmpty(ByteQueue const volatile* queue)
 bool bytequeue_enqueue(ByteQueue volatile* queue, uint8_t const data[], uint16_t size)
 {
     bool status = false;
-    if (!byteQueue_isFull(queue) && (data != NULL) && (size > 0) && (size <= getFreeSize(queue)))
+    if (!byteQueue_isFull(queue) && (data != NULL) && (size > 0) && (size <= (queue->maxSize - queue->size)))
     {
-        uint16_t copySize = getFreeSizeToEnd(queue);
+        uint16_t copySize = queue->maxSize - queue->tail;
         if (copySize > size)
             copySize = size;
         memcpy(&queue->data[queue->tail], data, copySize);
