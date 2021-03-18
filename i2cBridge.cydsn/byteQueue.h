@@ -26,7 +26,7 @@
     
     // === TYPE DEFINES ========================================================
     
-    /// Definition of the uint8_t queue.
+    /// Definition of the byte queue.
     typedef struct ByteQueue_
     {
         /// Pointer to array that holds the bytes.
@@ -125,7 +125,7 @@
         } // extern "C"
     #endif
     
-#endif // QUEUE_U8_H
+#endif // BYTE_QUEUE_H
 
 
 /* [] END OF FILE */
