@@ -67,14 +67,14 @@ bool byteQueue_isFull(ByteQueue const volatile* queue)
 
 bool byteQueue_isEmpty(ByteQueue const volatile* queue)
 {
-    bool status = false;
+    bool status = true;
     if (queue != NULL)
-        status = (queue->size == 0);
+        status = (queue->size <= 0);
     return status;
 }
 
 
-bool bytequeue_enqueue(ByteQueue volatile* queue, uint8_t const* data, uint16_t size)
+bool bytequeue_enqueue(ByteQueue volatile* queue, uint8_t const data[], uint16_t size)
 {
     bool status = false;
     if (!byteQueue_isFull(queue) && (data != NULL) && (size > 0) && (size <= getFreeSize(queue)))
@@ -92,23 +92,88 @@ bool bytequeue_enqueue(ByteQueue volatile* queue, uint8_t const* data, uint16_t 
         }
         else
         {
-            queue->tail = queue->tail + copySize;
+            queue->tail += copySize;
             if (queue->tail >= queue->maxSize)
                 queue->tail = 0;
         }
         queue->size += size;
+        status = true;
     }
     return status;
 }
 
 
-bool bytequeue_enqueueByte(ByteQueue volatile* queue, uint8_t data);
+bool bytequeue_enqueueByte(ByteQueue volatile* queue, uint8_t data)
+{
+    bool status = false;
+    if (!byteQueue_isFull(queue))
+    {
+        queue->data[queue->tail++] = data;
+        if (queue->tail >= queue->maxSize)
+            queue->tail = 0;
+        --queue->size;
+        status = true;
+    }
+    return status;
+}
 
-uint16_t byteQueue_dequeue(ByteQueue volatile* queue, uint8_t** data, uint16_t size);
 
-int byteQueue_dequeueByte(ByteQueue volatile* queue);
+uint16_t byteQueue_dequeue(ByteQueue volatile* queue, uint8_t data[], uint16_t size)
+{
+    if (!byteQueue_isEmpty(queue) && (data != NULL) && (size > 0))
+    {
+        if (size > queue->size)
+            size = queue->size;
+        uint16_t copySize = size;
+        if ((queue->head + copySize) > queue->maxSize)
+        {
+            copySize = queue->maxSize - queue->head;
+        }    
+        memcpy(data, &queue->data[queue->head], copySize);
+        if (copySize < size)
+        {
+            data += copySize;
+            copySize = size - copySize;
+            memcpy(data, queue->data, copySize);
+            queue->head = copySize;
+        }
+        else
+        {
+            queue->head += copySize;
+            if (queue->head >= queue->maxSize)
+                queue->head = 0;
+        }
+        queue->size -= size;
+        
+        // If the queue is empty, empty the queue to reset the head and tail.
+        if (byteQueue_isEmpty(queue))
+            byteQueue_empty(queue);
+    }
+    else
+        size = 0;
+    return size;
+}
 
-uint16_t byteQueue_peak(ByteQueue const volatile* queue, uint8_t** data, uint16_t size);
+
+int byteQueue_dequeueByte(ByteQueue volatile* queue)
+{
+    int data = -1;
+    if (!byteQueue_isEmpty(queue))
+    {
+        data = (int)queue->data[queue->head++];
+        if (queue->head >= queue->maxSize)
+            queue->head;
+        --queue->size;
+        
+        // If the queue is empty, empty the queue to reset the head and tail.
+        if (byteQueue_isEmpty(queue))
+            byteQueue_empty(queue);
+    }
+    return data;
+}
+
+
+uint16_t byteQueue_peak(ByteQueue const volatile* queue, uint8_t data[], uint16_t size);
 
 int byteQueue_peakByte(ByteQueue const volatile* queue);
 

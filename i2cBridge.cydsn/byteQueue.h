@@ -76,7 +76,7 @@
     /// @param[in]  data    The data to enqueue.
     /// @param[in]  size    The size of the data (in bytes) to enqueue.
     /// @return If the enqueue operation was successful.
-    bool bytequeue_enqueue(ByteQueue volatile* queue, uint8_t const* data, uint16_t size);
+    bool bytequeue_enqueue(ByteQueue volatile* queue, uint8_t const data[], uint16_t size);
     
     /// Enqueue (add) a new byte into the queue tail (end). Because an enqueue
     /// modifies the queue data structure, DO NOT enqueue in an ISR unless the
@@ -90,10 +90,11 @@
     /// Because a dequeue modifies the queue data structure, DO NOT dequeue in
     /// an ISR unless the queue is protected by a mutex, semaphore, or lock.
     /// @param[in]  queue   The queue to perform the function's action on.
-    /// @param[out] data    Pointer to the dequeued data from the queue.
-    /// @param[in]  size    The number of bytes to dequeue.
+    /// @param[out] data    The data buffer to copy the dequeued data to.
+    /// @param[in]  size    The number of bytes to dequeue. Size must be greater
+    ///                     than or equal to the number of bytes in the queue.
     /// @return The number of bytes that were dequeued.
-    uint16_t byteQueue_dequeue(ByteQueue volatile* queue, uint8_t** data, uint16_t size);
+    uint16_t byteQueue_dequeue(ByteQueue volatile* queue, uint8_t data[], uint16_t size);
     
     /// Dequeue (remove) a byte from the queue head (front). Because a dequeue
     /// modifies the queue data structure, DO NOT dequeue in an ISR unless the
@@ -106,10 +107,11 @@
     /// from dequeue because the head will stay in the queue and the queue size
     /// will stay the same.
     /// @param[in]  queue   The queue to perform the function's action on.
-    /// @param[out] data    Pointer to the peaked data from the queue.
-    /// @param[in]  size    The number of bytes to peak.
+    /// @param[out] data    The data buffer to copy the dequeued data to.
+    /// @param[in]  size    The number of bytes to peak. Size must be greater
+    ///                     than or equal to the number of bytes in the queue.
     /// @return The size of the queue element that was dequeued.
-    uint16_t byteQueue_peak(ByteQueue const volatile* queue, uint8_t** data, uint16_t size);
+    uint16_t byteQueue_peak(ByteQueue const volatile* queue, uint8_t data[], uint16_t size);
     
     /// Get the byte from the queue head (front). This operation is different
     /// from dequeue because the head will stay in the queue and the queue size
