@@ -120,6 +120,39 @@ bool bytequeue_enqueueByte(ByteQueue volatile* queue, uint8_t data)
 
 uint16_t byteQueue_dequeue(ByteQueue volatile* queue, uint8_t data[], uint16_t size)
 {
+    uint16_t dequeueSize = byteQueue_peak(queue, data, size);
+    if (dequeueSize > 0)
+    {
+        uint32_t head = queue->head + dequeueSize;
+        if (head >= queue->maxSize)
+            head -= queue->maxSize;
+        queue->head = (uint16_t)head;
+        queue->size -= dequeueSize;
+        if (byteQueue_isEmpty(queue))
+            byteQueue_empty(queue);
+    }
+    return dequeueSize;
+}
+
+
+int byteQueue_dequeueByte(ByteQueue volatile* queue)
+{
+    int byte = byteQueue_peakByte(queue);
+    if (byte < 0)
+    {
+        queue->head++;
+        if (queue->head >= queue->maxSize)
+            queue->head = 0;
+        queue->size--;
+        if (byteQueue_isEmpty(queue))
+            byteQueue_empty(queue);
+    }
+    return byte;
+}
+
+
+uint16_t byteQueue_peak(ByteQueue const volatile* queue, uint8_t data[], uint16_t size)
+{
     if (!byteQueue_isEmpty(queue) && (data != NULL) && (size > 0))
     {
         if (size > queue->size)
@@ -135,19 +168,7 @@ uint16_t byteQueue_dequeue(ByteQueue volatile* queue, uint8_t data[], uint16_t s
             data += copySize;
             copySize = size - copySize;
             memcpy(data, queue->data, copySize);
-            queue->head = copySize;
         }
-        else
-        {
-            queue->head += copySize;
-            if (queue->head >= queue->maxSize)
-                queue->head = 0;
-        }
-        queue->size -= size;
-        
-        // If the queue is empty, empty the queue to reset the head and tail.
-        if (byteQueue_isEmpty(queue))
-            byteQueue_empty(queue);
     }
     else
         size = 0;
@@ -155,27 +176,13 @@ uint16_t byteQueue_dequeue(ByteQueue volatile* queue, uint8_t data[], uint16_t s
 }
 
 
-int byteQueue_dequeueByte(ByteQueue volatile* queue)
+int byteQueue_peakByte(ByteQueue const volatile* queue)
 {
     int data = -1;
     if (!byteQueue_isEmpty(queue))
-    {
-        data = (int)queue->data[queue->head++];
-        if (queue->head >= queue->maxSize)
-            queue->head;
-        --queue->size;
-        
-        // If the queue is empty, empty the queue to reset the head and tail.
-        if (byteQueue_isEmpty(queue))
-            byteQueue_empty(queue);
-    }
+        data = (int)queue->data[queue->head];
     return data;
 }
-
-
-uint16_t byteQueue_peak(ByteQueue const volatile* queue, uint8_t data[], uint16_t size);
-
-int byteQueue_peakByte(ByteQueue const volatile* queue);
 
 
 /* [] END OF FILE */
