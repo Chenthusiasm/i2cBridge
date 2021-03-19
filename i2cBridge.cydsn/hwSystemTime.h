@@ -28,7 +28,7 @@
     // === FUNCTIONS ===========================================================
     
     /// Initializes the system timer.
-    /// @param  periodMS[in]    The time period in milliseconds at which the
+    /// @param[in]  periodMS    The time period in milliseconds at which the
     ///                         system time will be tracked.
     void hwSystemTime_init(uint16_t periodMS);
     
