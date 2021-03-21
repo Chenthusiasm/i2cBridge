@@ -14,11 +14,15 @@
 
 #include "hwWatchdog.h"
 
+#include "project.h"
+
 
 // === DEFINES =================================================================
 
 /// The default watchdog timeout in milliseconds.
 #define DEFAULT_TIMEOUT_MS              (2000u)
+
+#define WATCHDOG_INTERRUPT_NUMBER       (9u)
 
 
 // === GLOBAL VARIABLES ========================================================
@@ -35,17 +39,32 @@ static uint16_t g_timeoutMS = 0;
 // === PRIVATE FUNCTIONS =======================================================
 
 
+// === ISR =====================================================================
+
+CY_ISR(watchdogISR)
+{
+}
+
+
 // === PUBLIC FUNCTIONS ========================================================
 
 void hwWatchdog_init(uint16_t timeoutMS)
 {
-    if (g_running && (g_timeoutMS != 0))
+    if (g_timeoutMS == 0)
+    {
+        CyIntSetVector(WATCHDOG_INTERRUPT_NUMBER, watchdogISR);
+        CyIntEnable(WATCHDOG_INTERRUPT_NUMBER);
+        
+        CySysWdtWriteMode(CY_SYS_WDT_COUNTER0, CY_SYS_WDT_MODE_INT);
+    }
+    else if (g_running)
     {
         hwWatchdog_feed();
         hwWatchdog_stop();
     }
     if (timeoutMS <= 0)
         timeoutMS = DEFAULT_TIMEOUT_MS;
+    g_timeoutMS = timeoutMS;
     hwWatchdog_start();
 }
 

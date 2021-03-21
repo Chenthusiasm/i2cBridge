@@ -7,6 +7,9 @@
  * CONFIDENTIAL AND PROPRIETARY INFORMATION
  * WHICH IS THE PROPERTY OF your company.
  *
+ * Refer to CE224703: PSoC4 Watchdog Timer
+ * example project for reference.
+ *
  * ========================================
 */
 
