@@ -19,9 +19,19 @@
 #include "alarm.h"
 #include "project.h"
 #include "queue.h"
+#include "utility.h"
 
 
 // === DEFINES =================================================================
+
+/// Name of the slave I2C component.
+#define SLAVE_I2C                       slaveI2c_
+
+/// Name of the slave IRQ component.
+#define SLAVE_IRQ                       slaveIrq_
+
+/// Name of the slave IRQ pin component.
+#define SLAVE_IRQ_PIN                   slaveIrqPin_
 
 /// Address of the default slave I2C app.
 #define DEFAULT_SLAVE_ADDRESS           (0x48)
@@ -213,7 +223,7 @@ void resetPendingTxEnqueue(void)
 /// @return If the bus is ready for a new read/write transaction.
 static bool isBusReady(void)
 {
-    return ((slaveI2C_I2CMasterStatus() & slaveI2C_I2C_MSTAT_XFER_INP) != 0);
+    return ((COMPONENT(SLAVE_I2C, I2CMasterStatus)() & COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_INP)) != 0);
 }
 
 
@@ -231,7 +241,7 @@ static bool isAppPacketLengthValid(uint8_t length)
 /// @return If the slave IRQ pin is asserted.
 static bool isIRQAsserted(void)
 {
-    return (slaveIRQPin_Read() == 0);
+    return (COMPONENT(SLAVE_IRQ_PIN, Read)() == 0);
 }
 
 
@@ -240,11 +250,8 @@ static bool isIRQAsserted(void)
 static void resetIRQ(void)
 {
     static uint8_t clear[] = { AppBufferOffset_Response, 0 };
-    slaveI2C_I2CMasterWriteBuf(g_slaveAddress, clear, sizeof(clear), slaveI2C_I2C_MODE_COMPLETE_XFER);
+    COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(g_slaveAddress, clear, sizeof(clear), COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
 }
-
-
-
 
 
 // === ISR =====================================================================
@@ -253,8 +260,8 @@ static void resetIRQ(void)
 /// pending I2C data to be read from the I2C slave.
 CY_ISR(slaveIsr)
 {
-    slaveIRQ_ClearPending();
-    slaveIRQPin_ClearInterrupt();
+    COMPONENT(SLAVE_IRQ, ClearPending)();
+    COMPONENT(SLAVE_IRQ_PIN, ClearInterrupt)();
         
     g_rxPending = true;
 }
@@ -266,8 +273,8 @@ void i2cGen2_init(void)
 {
     i2cGen2_resetSlaveAddress();
     
-    slaveI2C_Start();
-    slaveIRQ_StartEx(slaveIsr);
+    COMPONENT(SLAVE_I2C, Start)();
+    COMPONENT(SLAVE_IRQ, StartEx)(slaveIsr);
 }
 
 
@@ -332,23 +339,23 @@ int i2cGen2_processRx(void)
         {
             if (isBusReady())
             {
-                if (slaveI2C_I2CMasterReadBuf(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, slaveI2C_I2C_MODE_NO_STOP))
+                if (COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, COMPONENT(SLAVE_I2C, I2C_MODE_NO_STOP)))
                 {
                     length += (int)G_AppRxPacketLengthSize;
                     uint8_t dataLength = g_heap->rxBuffer[AppRxPacketOffset_Length];
                     if (isAppPacketLengthValid(dataLength))
                     {
                         if (dataLength > 0)
-                            slaveI2C_I2CMasterReadBuf(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], dataLength, slaveI2C_I2C_MODE_REPEAT_START);
+                            COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], dataLength, COMPONENT(SLAVE_I2C, I2C_MODE_REPEAT_START));
                         else
-                            slaveI2C_I2CMasterSendStop(G_DefaultSendStopTimeoutMS);
+                            COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
                         length += (int)dataLength;
                         if (g_rxCallback != NULL)
                             g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
                     }
                     else
                     {
-                        slaveI2C_I2CMasterSendStop(G_DefaultSendStopTimeoutMS);
+                        COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
                         length = -1;
                     }
                 }
@@ -417,8 +424,8 @@ I2CGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
         {
             if (isBusReady())
             {
-                uint32_t driverStatus = slaveI2C_I2CMasterReadBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER);
-                if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
+                uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
+                if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
                     status.driverError = true;
                 g_lastDriverStatus = driverStatus;
             }
@@ -444,8 +451,8 @@ I2CGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
         {
             if (isBusReady())
             {
-                uint32_t driverStatus = slaveI2C_I2CMasterWriteBuf(address, data, size, slaveI2C_I2C_MODE_COMPLETE_XFER);
-                if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
+                uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, data, size, COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
+                if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
                     status.driverError = true;
                 g_lastDriverStatus = driverStatus;
             }
@@ -562,11 +569,11 @@ I2CGen2Status i2cGen2_appACK(uint32_t timeoutMS)
             uint8_t scratch;
             if (isBusReady())
             {
-                uint32_t driverStatus = slaveI2C_I2CMasterReadBuf(g_slaveAddress, &scratch, 0, slaveI2C_I2C_MODE_COMPLETE_XFER);
-                if (driverStatus != slaveI2C_I2C_MSTR_NO_ERROR)
+                uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(g_slaveAddress, &scratch, 0, COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
+                if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
                 {
                     status.driverError = true;
-                    if ((driverStatus & slaveI2C_I2C_MSTR_ERR_LB_NAK) > 0)
+                    if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
                         status.nak = true;
                 }
                 g_lastDriverStatus = driverStatus;
