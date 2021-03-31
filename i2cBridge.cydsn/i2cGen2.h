@@ -172,7 +172,7 @@
     ///                     until the bus is free.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2CGen2Status union.
-    I2CGen2Status i2cGen2_appACK(uint32_t timeoutMS);
+    I2CGen2Status i2cGen2_appAck(uint32_t timeoutMS);
     
     
     #ifdef __cplusplus

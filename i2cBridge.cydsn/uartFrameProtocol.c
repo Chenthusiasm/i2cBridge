@@ -95,7 +95,7 @@ typedef enum BridgeCommand_
     BridgeCommand_None                  = 0x00,
     
     /// Host to bridge ACK over UART.
-    BridgeCommand_ACK                   = 'A',
+    BridgeCommand_Ack                   = 'A',
     
     /// Configures bridge to slave update mode. This is the old variant that is
     /// kept for backwards compatibility.
@@ -108,7 +108,7 @@ typedef enum BridgeCommand_
     BridgeCommand_SlaveAddress          = 'I',
     
     /// Bridge to I2C slave NAK over I2C.
-    BridgeCommand_SlaveNAK              = 'N',
+    BridgeCommand_SlaveNak              = 'N',
     
     /// Bridge I2C read from I2C slave.
     BridgeCommand_SlaveRead             = 'R',
@@ -123,7 +123,7 @@ typedef enum BridgeCommand_
     BridgeCommand_SlaveWrite            = 'W',
     
     /// Bridge to I2C slave ACK over I2C.
-    BridgeCommand_SlaveACK              = 'a',
+    BridgeCommand_SlaveAck              = 'a',
     
     /// Bridge reset.
     BridgeCommand_Reset                 = 'r',
@@ -420,9 +420,9 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
         uint8_t command = data[PacketOffset_BridgeCommand];
         switch (command)
         {
-            case BridgeCommand_ACK:
+            case BridgeCommand_Ack:
             {
-                txEnqueueCommand(BridgeCommand_ACK, NULL, 0);
+                txEnqueueCommand(BridgeCommand_Ack, NULL, 0);
                 break;
             }
             
@@ -441,11 +441,11 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 break;
             }
             
-            case BridgeCommand_SlaveNAK:
+            case BridgeCommand_SlaveNak:
             {
                 // @TODO Check to see if this makes sense, the host should not
                 // be sending a slave NAK message to the bridge.
-                txEnqueueCommand(BridgeCommand_SlaveNAK, NULL, 0);
+                txEnqueueCommand(BridgeCommand_SlaveNak, NULL, 0);
                 break;
             }
             
@@ -483,18 +483,18 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 break;
             }
             
-            case BridgeCommand_SlaveACK:
+            case BridgeCommand_SlaveAck:
             {
                 static uint32_t timeoutMS = (10u);
-                I2CGen2Status i2cStatus = i2cGen2_appACK(timeoutMS);
+                I2CGen2Status i2cStatus = i2cGen2_appAck(timeoutMS);
                 if (!i2cStatus.errorOccurred)
-                    txEnqueueCommand(BridgeCommand_SlaveACK, NULL, 0);
+                    txEnqueueCommand(BridgeCommand_SlaveAck, NULL, 0);
                 else
                 {
                     if (i2cStatus.busBusy)
                         txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
                     else if (i2cStatus.nak)
-                        txEnqueueCommand(BridgeCommand_SlaveNAK, NULL, 0);
+                        txEnqueueCommand(BridgeCommand_SlaveNak, NULL, 0);
                     status = false;
                 }
                 break;

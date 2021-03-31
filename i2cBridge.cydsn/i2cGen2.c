@@ -543,7 +543,7 @@ I2CGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 }
 
 
-I2CGen2Status i2cGen2_appACK(uint32_t timeoutMS)
+I2CGen2Status i2cGen2_appAck(uint32_t timeoutMS)
 {
     I2CGen2Status status;
     status.errorOccurred = false;
