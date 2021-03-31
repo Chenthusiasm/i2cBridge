@@ -22,9 +22,13 @@
 #include "i2cGen2.h"
 #include "project.h"
 #include "queue.h"
+#include "utility.h"
 
 
 // === DEFINES =================================================================
+
+/// Name of the host UART component.
+#define HOST_UART                           hostUart_
 
 /// The amount of time between receipts of bytes before we automatically reset
 /// the receive state machine.
@@ -643,25 +647,25 @@ static void initTxQueue()
 /// ISR for UART IRQ's in general.
 static void isr(void)
 {
-    uint32_t source = hostUART_GetRxInterruptSource();
-    if ((source & hostUART_INTR_RX_NOT_EMPTY) != 0)
+    uint32_t source = COMPONENT(HOST_UART, GetRxInterruptSource)();
+    if ((source & COMPONENT(HOST_UART, INTR_RX_NOT_EMPTY)) != 0)
     {
-        uint32_t data = hostUART_UartGetByte();
+        uint32_t data = COMPONENT(HOST_UART, UartGetByte)();
         if (data > 0xff)
         {
             // @TODO: Error handling.
         }
         else if (g_heap != NULL)
             processReceivedByte(data);
-        hostUART_ClearRxInterruptSource(hostUART_INTR_RX_NOT_EMPTY);
+        COMPONENT(HOST_UART, ClearRxInterruptSource)(COMPONENT(HOST_UART, INTR_RX_NOT_EMPTY));
     }
-    else if ((source & hostUART_INTR_RX_FRAME_ERROR) != 0)
+    else if ((source & COMPONENT(HOST_UART, INTR_RX_FRAME_ERROR)) != 0)
     {
         // Do some special handling for a frame error; possibly determine baud
         // rate.
-        hostUART_ClearRxInterruptSource(hostUART_INTR_RX_FRAME_ERROR);
+        COMPONENT(HOST_UART, ClearRxInterruptSource)(COMPONENT(HOST_UART, INTR_RX_FRAME_ERROR));
     }
-    hostUART_ClearPendingInt();
+    COMPONENT(HOST_UART, ClearPendingInt)();
 }
 
 
@@ -670,8 +674,8 @@ static void isr(void)
 void uartFrameProtocol_init(void)
 {
     // Setup the UART hardware.
-    hostUART_SetCustomInterruptHandler(isr);
-    hostUART_Start();
+    COMPONENT(HOST_UART, SetCustomInterruptHandler)(isr);
+    COMPONENT(HOST_UART, Start)();
 }
 
 
@@ -775,7 +779,7 @@ uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
             if (size > 0)
             {
                 for (uint32_t i = 0; i < size; ++i)
-                    hostUART_UartPutChar(data[i]);
+                    COMPONENT(HOST_UART, UartPutChar)(data[i]);
                 ++count;
             }
         }

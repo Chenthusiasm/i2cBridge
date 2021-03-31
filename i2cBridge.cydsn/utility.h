@@ -35,6 +35,9 @@
     /// Concatenate two preprocessor tokens into a single resulting token.
     #define PASTE(a, b)             PASTE__(a, b)
     
+    /// Token past for Cypress components.
+    #define COMPONENT(a, b)         PASTE__(a, b)
+    
     
     #ifdef __cplusplus
         } // extern "C"
