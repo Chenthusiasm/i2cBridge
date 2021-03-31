@@ -239,7 +239,7 @@ static bool isAppPacketLengthValid(uint8_t length)
 /// Checks to see if the slave IRQ pin has been asserted, meaning there's data
 /// ready to be read from the slave device.
 /// @return If the slave IRQ pin is asserted.
-static bool isIRQAsserted(void)
+static bool isIrqAsserted(void)
 {
     return (COMPONENT(SLAVE_IRQ_PIN, Read)() == 0);
 }
@@ -247,7 +247,7 @@ static bool isIRQAsserted(void)
 
 /// Create and sends the packet to the slave to instruct it to reset/clear the
 /// IRQ line.
-static void resetIRQ(void)
+static void resetIrq(void)
 {
     static uint8_t clear[] = { AppBufferOffset_Response, 0 };
     COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(g_slaveAddress, clear, sizeof(clear), COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
@@ -335,7 +335,7 @@ int i2cGen2_processRx(void)
     int length = 0;
     if (g_heap != NULL)
     {
-        if (g_rxPending && isIRQAsserted())
+        if (g_rxPending && isIrqAsserted())
         {
             if (isBusReady())
             {
@@ -359,7 +359,7 @@ int i2cGen2_processRx(void)
                         length = -1;
                     }
                 }
-                resetIRQ();
+                resetIrq();
                 g_rxPending = false;
             }
             else
