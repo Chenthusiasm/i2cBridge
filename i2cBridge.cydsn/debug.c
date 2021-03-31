@@ -15,6 +15,19 @@
 #include "debug.h"
 
 #include "project.h"
+#include "utility.h"
+
+
+// === DEFINES =================================================================
+
+/// Name of the debug UART component.
+#define DEBUG_UART                      debugUart_
+
+/// Name of the debug pin 0 component.
+#define DEBUG_PIN_0                     debugPin0_
+
+/// Name of the debug pin 1 component.
+#define DEBUG_PIN_1                     debugPin1_
 
 
 // === PUBLIC FUNCTIONS ========================================================
@@ -22,7 +35,7 @@
 void debug_init(void)
 {
     #if ACTIVE_DEBUG_UART
-        debugUART_Start();
+        COMPONENT(DEBU_UART, Start)();
     #endif
     
     debug_setPin0(true);
@@ -34,13 +47,13 @@ void debug_init(void)
     
     void debug_setPin0(bool set)
     {
-        debugPin0_Write((set) ? (1u) : (0u));
+        COMPONENT(DEBUG_PIN_0, Write)((set) ? (1u) : (0u));
     }
     
     
     bool debug_isSetPin0(void)
     {
-        return (debugPin0_Read() != 0);
+        return (COMPONENT(DEBUG_PIN_0, Read)() != 0);
     }
     
 #endif // ACTIVE_DEBUG_PIN_0
@@ -50,13 +63,13 @@ void debug_init(void)
     
     void debug_setPin1(bool set)
     {
-        debugPin1_Write((set) ? (1u) : (0u));
+        COMPONENT(DEBUG_PIN_1, Write)((set) ? (1u) : (0u));
     }
     
     
     bool debug_isSetPin1(void)
     {
-        return (debugPin1_Read() != 0);
+        return (COMPONENT(DEBUG_PIN_1, Read)() != 0);
     }
     
 #endif // ACTIVE_DEBUG_PIN_0
@@ -66,19 +79,19 @@ void debug_init(void)
     
     void debug_uartWriteByte(uint8_t byte)
     {
-        debugUART_PutChar(byte);
+        COMPONENT(DEBUG_UART, PutChar)(byte);
     }
     
     
     void debug_uartWriteArray(uint8_t* pData, uint32_t length)
     {
-        debugUART_PutArray(pData, length);
+        COMPONENT(DEBUG_UART, PutArray)(pData, length);
     }
     
     
     void debug_uartPrint(char string[])
     {
-        debugUART_PutString(string);
+        COMPONENT(DEBUG_UART, PutString)(string);
     }
      
 #endif

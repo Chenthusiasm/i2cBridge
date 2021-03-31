@@ -60,7 +60,9 @@ int main(void)
     
     for( ; ; )
     {
+        debug_setPin1(false);
         bridgeStateMachine_process();
+        debug_setPin1(true);
     }
 }
 

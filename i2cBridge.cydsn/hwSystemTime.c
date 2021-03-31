@@ -14,6 +14,7 @@
 
 #include "hwSystemTime.h"
 
+#include "debug.h"
 #include "project.h"
 
 
@@ -44,7 +45,9 @@ static uint16_t g_periodMS = DEFAULT_PERIOD_MS;
 
 CY_ISR(SysTickIsr)
 {
+    debug_setPin0(false);
     g_currentTimeMS += g_periodMS;
+    debug_setPin0(true);
 }
 
 
