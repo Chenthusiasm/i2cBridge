@@ -251,7 +251,7 @@ static void resetIRQ(void)
 
 /// ISR for the slaveIRQ (for the slaveIRQPin). The IRQ is asserted when there's
 /// pending I2C data to be read from the I2C slave.
-CY_ISR(slaveISR)
+CY_ISR(slaveIsr)
 {
     slaveIRQ_ClearPending();
     slaveIRQPin_ClearInterrupt();
@@ -267,7 +267,7 @@ void i2cGen2_init(void)
     i2cGen2_resetSlaveAddress();
     
     slaveI2C_Start();
-    slaveIRQ_StartEx(slaveISR);
+    slaveIRQ_StartEx(slaveIsr);
 }
 
 

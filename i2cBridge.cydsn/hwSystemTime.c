@@ -42,7 +42,7 @@ static uint16_t g_periodMS = DEFAULT_PERIOD_MS;
 
 // === ISR =====================================================================
 
-CY_ISR(SysTick_ISR)
+CY_ISR(SysTickIsr)
 {
     g_currentTimeMS += g_periodMS;
 }
@@ -58,7 +58,7 @@ void hwSystemTime_init(uint16_t periodMS)
     g_periodMS = periodMS;
     
     // Configure the ISR for the system tick.
-    CyIntSetSysVector((SysTick_IRQn + 16), SysTick_ISR);
+    CyIntSetSysVector((SysTick_IRQn + 16), SysTickIsr);
     
     // Configure and enable the system tick.
     SysTick_Config(periodMS * ONE_MILLISECOND);

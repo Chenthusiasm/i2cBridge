@@ -14,6 +14,7 @@
 
 #include "hwWatchdog.h"
 
+#include "debug.h"
 #include "project.h"
 
 
@@ -41,7 +42,7 @@ static uint16_t g_timeoutMS = 0;
 
 // === ISR =====================================================================
 
-CY_ISR(watchdogISR)
+CY_ISR(watchdogIsr)
 {
 }
 
@@ -52,7 +53,7 @@ void hwWatchdog_init(uint16_t timeoutMS)
 {
     if (g_timeoutMS == 0)
     {
-        CyIntSetVector(WATCHDOG_INTERRUPT_NUMBER, watchdogISR);
+        CyIntSetVector(WATCHDOG_INTERRUPT_NUMBER, watchdogIsr);
         CyIntEnable(WATCHDOG_INTERRUPT_NUMBER);
         
         CySysWdtWriteMode(CY_SYS_WDT_COUNTER0, CY_SYS_WDT_MODE_INT);
