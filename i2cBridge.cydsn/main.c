@@ -57,7 +57,7 @@ int main(void)
     CyGlobalIntEnable;
     
     init();
-    debug_uartPrint(">> init()\r\n");
+    debug_uartPrint(">> init()\n");
     
     for(int i = 0; ; ++i)
     {
