@@ -543,7 +543,7 @@ I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 }
 
 
-I2cGen2Status i2cGen2_appAck(uint32_t timeoutMS)
+I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
 {
     I2cGen2Status status;
     status.errorOccurred = false;
@@ -555,7 +555,6 @@ I2cGen2Status i2cGen2_appAck(uint32_t timeoutMS)
         else
             alarm_disarm(&alarm);
             
-        
         while (true)
         {
             if (alarm_hasElapsed(&alarm))
@@ -569,7 +568,7 @@ I2cGen2Status i2cGen2_appAck(uint32_t timeoutMS)
             uint8_t scratch;
             if (isBusReady())
             {
-                uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(g_slaveAddress, &scratch, 0, COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
+                uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, &scratch, 0, COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
                 if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
                 {
                     status.driverError = true;
@@ -583,6 +582,12 @@ I2cGen2Status i2cGen2_appAck(uint32_t timeoutMS)
     else
         status.deactivated = true;
     return status;
+}
+
+
+I2cGen2Status i2cGen2_appAck(uint32_t timeoutMS)
+{
+    return i2cGen2_ack(g_slaveAddress, timeoutMS);
 }
 
 

@@ -122,23 +122,23 @@
     ///         function ended early.
     int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy);
     
-    /// Read from the i2C bus.
-    /// @param[in]  address The I2C address.
+    /// Read from the I2C bus.
+    /// @param[in]  address The 7-bit I2C address.
     /// @param[in]  data    The data buffer to store the read data.
     /// @param[in]  size    The number of bytes to read.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cGen2Status union.
     I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size);
     
-    /// Write to the i2C bus.
-    /// @param[in]  address The I2C address.
+    /// Write to the I2C bus.
+    /// @param[in]  address The 7-bit I2C address.
     /// @param[in]  data    The data buffer to that contains the data to write.
     /// @param[in]  size    The number of bytes to write.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cGen2Status union.
     I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size);
     
-    /// Write to the i2C bus; the I2C address in in the data buffer.
+    /// Write to the I2C bus; the I2C address in in the data buffer.
     /// @param[in]  data    The data buffer to that contains the data to write.
     ///                     The first byte is assumed to be the I2C address.
     /// @param[in]  size    The number of bytes in data (including the I2C
@@ -148,7 +148,7 @@
     I2cGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size);
     
     /// Enqueue a transmit packet.
-    /// @param[in]  address The I2C address.
+    /// @param[in]  address The 7-bit I2C address.
     /// @param[in]  data    The data buffer to that contains the data to
     ///                     transmit.
     /// @param[in]  size    The number of bytes in data.
@@ -156,14 +156,24 @@
     ///         I2cGen2Status union.
     I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size);
     
-    /// Enqueue a transmit packet. The I2C address is the first byte in the data
-    /// buffer.
+    /// Enqueue a transmit packet. The 7-bit I2C address is the first byte in
+    /// the data buffer.
     /// @param[in]  data    The data buffer to that contains the data to
     ///                     transmit. The first byte is the I2C address.
     /// @param[in]  size    The number of bytes in data.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cGen2Status union.
     I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size);
+    
+    /// Perform an ACK handshake with a specific slave device on the I2C bus.
+    /// @param[in]  address The 7-bit I2C address.
+    /// @param[in]  timeout The amount of time in milliseconds the function
+    ///                     can wait for the I2C bus to free up before timing
+    ///                     out. If 0, then the function will wait indefinitely
+    ///                     until the bus is free.
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2cGen2Status union.
+    I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS);
     
     /// Perform an ACK handshake with the slave app.
     /// @param[in]  timeout The amount of time in milliseconds the function
