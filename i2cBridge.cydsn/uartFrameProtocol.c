@@ -469,7 +469,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             {
                 debug_uartPrint("\t[U] SlaveRead\r\n");
                 uint8_t readData[0xff];
-                I2CGen2Status i2cStatus = i2cGen2_read(data[PacketOffset_BridgeData], readData, sizeof(readData));
+                I2cGen2Status i2cStatus = i2cGen2_read(data[PacketOffset_BridgeData], readData, sizeof(readData));
                 if (!i2cStatus.errorOccurred)
                     uartFrameProtocol_txEnqueueData(data, size);
                 else
@@ -507,7 +507,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             {
                 debug_uartPrint("\t[U] SlaveAck\r\n");
                 static uint32_t timeoutMS = (10u);
-                I2CGen2Status i2cStatus = i2cGen2_appAck(timeoutMS);
+                I2cGen2Status i2cStatus = i2cGen2_appAck(timeoutMS);
                 if (!i2cStatus.errorOccurred)
                     txEnqueueCommand(BridgeCommand_SlaveAck, NULL, 0);
                 else

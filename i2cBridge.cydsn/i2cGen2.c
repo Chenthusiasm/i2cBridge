@@ -414,9 +414,9 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
 }
 
 
-I2CGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
+I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 {
-    I2CGen2Status status;
+    I2cGen2Status status;
     status.errorOccurred = false;
     if (g_heap != NULL)
     {
@@ -441,9 +441,9 @@ I2CGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 }
 
 
-I2CGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
+I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 {
-    I2CGen2Status status;
+    I2cGen2Status status;
     status.errorOccurred = false;
     if (g_heap != NULL)
     {
@@ -469,13 +469,13 @@ I2CGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 }
 
 
-I2CGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
+I2cGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
 {
     static uint8_t const MinSize = 2u;
     static uint8_t const AddressOffset = 0u;
     static uint8_t const DataOffset = 1u;
     
-    I2CGen2Status status;
+    I2cGen2Status status;
     status.errorOccurred = false;
     if (g_heap != NULL)
     {
@@ -491,9 +491,9 @@ I2CGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
 }
 
 
-I2CGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
+I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 {
-    I2CGen2Status status;
+    I2cGen2Status status;
     status.errorOccurred = false;
     if (g_heap != NULL)
     {
@@ -517,9 +517,9 @@ I2CGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 }
 
 
-I2CGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
+I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 {
-    I2CGen2Status status;
+    I2cGen2Status status;
     status.errorOccurred = false;
     if (g_heap != NULL)
     {
@@ -543,9 +543,9 @@ I2CGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 }
 
 
-I2CGen2Status i2cGen2_appAck(uint32_t timeoutMS)
+I2cGen2Status i2cGen2_appAck(uint32_t timeoutMS)
 {
-    I2CGen2Status status;
+    I2cGen2Status status;
     status.errorOccurred = false;
     if (g_heap != NULL)
     {
