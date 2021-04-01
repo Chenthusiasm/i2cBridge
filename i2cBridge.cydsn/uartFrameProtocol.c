@@ -398,10 +398,21 @@ static bool txEnqueueCommand(BridgeCommand command, uint8_t const data[], uint16
     bool status = false;
     if (!queue_isFull(&g_heap->txQueue) && (command != BridgeCommand_None))
     {
+        bool isEmptyData = ((data == NULL) || (size <= 0));
         g_heap->pendingTxEnqueueCommand = command;
-        g_heap->pendingTxEnqueueFlags.command = false;
-        g_heap->pendingTxEnqueueFlags.data = ((data != NULL) && (size > 0));
-        queue_enqueue(&g_heap->txQueue, data, size); 
+        g_heap->pendingTxEnqueueFlags.command = true;
+        g_heap->pendingTxEnqueueFlags.data = !isEmptyData;
+        if (isEmptyData)
+        {
+            // The dummyData variables serves as a placeholder to allow for a
+            // successful enqueue of only commands in the txQueue. The data doesn't
+            // matter. This will allow the enqueue callback function, encodeData(),
+            // to populate the enqueue with the command.
+            uint8_t dummyData = 0;
+            queue_enqueue(&g_heap->txQueue, &dummyData, sizeof(dummyData));
+        }
+        else
+            queue_enqueue(&g_heap->txQueue, data, size); 
     }
     return status;
 }

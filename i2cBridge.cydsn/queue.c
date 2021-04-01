@@ -101,7 +101,7 @@ bool queue_enqueue(Queue volatile* queue, uint8_t const* data, uint16_t size)
             {
                 QueueElement* tail = &queue->elements[queue->tail];
                 tail->dataOffset = offset;
-                tail->dataSize = size;
+                tail->dataSize = enqueueSize;
                 queue->size++;
                 queue->tail++;
                 if (queue->tail >= queue->maxSize)
