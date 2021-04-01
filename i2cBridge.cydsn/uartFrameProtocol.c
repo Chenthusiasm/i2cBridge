@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "alarm.h"
+#include "debug.h"
 #include "hwSystemTime.h"
 #include "i2cGen2.h"
 #include "project.h"
@@ -422,18 +423,21 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
         {
             case BridgeCommand_Ack:
             {
+                debug_uartPrint("\t[U] Ack\r\n");
                 txEnqueueCommand(BridgeCommand_Ack, NULL, 0);
                 break;
             }
             
             case BridgeCommand_SlaveError:
             {
+                debug_uartPrint("\t[U] SlaveError\r\n");
                 // @TODO Send last slave device error.
                 break;
             }
             
             case BridgeCommand_SlaveAddress:
             {
+                debug_uartPrint("\t[U] SlaveAddress\r\n");
                 if (size > PacketOffset_BridgeData)
                     i2cGen2_setSlaveAddress(data[PacketOffset_BridgeData]);
                 else
@@ -443,6 +447,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveNak:
             {
+                debug_uartPrint("\t[U] SlaveNak\r\n");
                 // @TODO Check to see if this makes sense, the host should not
                 // be sending a slave NAK message to the bridge.
                 txEnqueueCommand(BridgeCommand_SlaveNak, NULL, 0);
@@ -451,6 +456,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveRead:
             {
+                debug_uartPrint("\t[U] SlaveRead\r\n");
                 uint8_t readData[0xff];
                 I2CGen2Status i2cStatus = i2cGen2_read(data[PacketOffset_BridgeData], readData, sizeof(readData));
                 if (!i2cStatus.errorOccurred)
@@ -466,6 +472,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveTimeout:
             {
+                debug_uartPrint("\t[U] SlaveTimeout\r\n");
                 // @TODO Check to see if this makes sense, the host should not
                 // be sending a slave timeout message to the bridge.
                 txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
@@ -474,17 +481,20 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_Version:
             {
+                debug_uartPrint("\t[U] Version\r\n");
                 break;
             }
             
             case BridgeCommand_SlaveWrite:
             {
+                debug_uartPrint("\t[U] SlaveWrite\r\n");
                 i2cGen2_txEnqueueWithAddressInData(&data[PacketOffset_BridgeData], size - 1);
                 break;
             }
             
             case BridgeCommand_SlaveAck:
             {
+                debug_uartPrint("\t[U] SlaveAck\r\n");
                 static uint32_t timeoutMS = (10u);
                 I2CGen2Status i2cStatus = i2cGen2_appAck(timeoutMS);
                 if (!i2cStatus.errorOccurred)
@@ -502,17 +512,20 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveUpdate:
             {
+                debug_uartPrint("\t[U] SlaveUpdate\r\n");
                 break;
             }
             
             case BridgeCommand_Reset:
             {
+                debug_uartPrint("\t[U] Reset\r\n");
                 CySoftwareReset();
                 break;
             }
             
             default:
             {
+                debug_uartPrint("\t[U] Error\r\n");
                 // Should not get here.
                 status = false;
                 break;
@@ -650,6 +663,7 @@ static void isr(void)
     uint32_t source = COMPONENT(HOST_UART, GetRxInterruptSource)();
     if ((source & COMPONENT(HOST_UART, INTR_RX_NOT_EMPTY)) != 0)
     {
+        debug_setPin1(false);
         uint32_t data = COMPONENT(HOST_UART, UartGetByte)();
         if (data > 0xff)
         {
@@ -658,6 +672,7 @@ static void isr(void)
         else if (g_heap != NULL)
             processReceivedByte(data);
         COMPONENT(HOST_UART, ClearRxInterruptSource)(COMPONENT(HOST_UART, INTR_RX_NOT_EMPTY));
+        debug_setPin1(true);
     }
     else if ((source & COMPONENT(HOST_UART, INTR_RX_FRAME_ERROR)) != 0)
     {
@@ -782,6 +797,11 @@ uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
                     COMPONENT(HOST_UART, UartPutChar)(data[i]);
                 ++count;
             }
+        }
+        if (count > 0)
+        {
+            debug_uartPrint("\t[U:tx]");
+            debug_uartWriteByte(count);
         }
     }
     return count;

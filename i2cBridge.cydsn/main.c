@@ -55,14 +55,13 @@ static void init(void)
 int main(void)
 {
     CyGlobalIntEnable;
-
-    init();
     
-    for( ; ; )
+    init();
+    debug_uartPrint(">> init()\r\n");
+    
+    for(int i = 0; ; ++i)
     {
-        debug_setPin1(false);
         bridgeStateMachine_process();
-        debug_setPin1(true);
     }
 }
 

@@ -35,7 +35,7 @@
 void debug_init(void)
 {
     #if ACTIVE_DEBUG_UART
-        COMPONENT(DEBU_UART, Start)();
+        COMPONENT(DEBUG_UART, Start)();
     #endif
     
     debug_setPin0(true);

@@ -62,7 +62,7 @@
         
     #endif
     
-    #if defined(CY_PINS_debugPin1_H) && !defined(CY_SW_TX_UART_debugUART_H)
+    #if defined(CY_PINS_debugPin1_H) && !defined(CY_SW_TX_UART_debugUart_H)
         
         // !!IMPORTANT!! Do not modify the following macro definitions.
         #undef ACTIVE_DEBUG_PIN_1
@@ -78,7 +78,7 @@
         
     #endif
     
-    #if defined(CY_SW_TX_UART_debugUART_H)
+    #if defined(CY_SW_TX_UART_debugUart_H)
         
         // !!IMPORTANT!! Do not modify the following macro definitions.
         #undef ACTIVE_DEBUG_UART
