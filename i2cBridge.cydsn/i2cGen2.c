@@ -596,7 +596,7 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
 }
 
 
-I2cGen2Status i2cGen2_appAck(uint32_t timeoutMS)
+I2cGen2Status i2cGen2_ackApp(uint32_t timeoutMS)
 {
     return i2cGen2_ack(g_slaveAddress, timeoutMS);
 }
