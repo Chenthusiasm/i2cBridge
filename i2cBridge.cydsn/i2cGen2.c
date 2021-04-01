@@ -33,9 +33,6 @@
 /// Name of the slave IRQ pin component.
 #define SLAVE_IRQ_PIN                   slaveIrqPin_
 
-/// Address of the default slave I2C app.
-#define DEFAULT_SLAVE_ADDRESS           (0x48)
-
 /// Size of the receive data buffer.
 #define RX_BUFFER_SIZE                  (260u)
 
@@ -48,6 +45,20 @@
 
 
 // === TYPE DEFINES ============================================================
+
+/// Pre-defined 7-bit addresses of slave devices on the I2C bus.
+typedef enum SlaveAddress_
+{
+    /// Default 7-bit I2C address of the main application for UICO generation 2
+    /// duraTOUCH MCU's (dT1xx, dT2xx, and dT4xx).
+    SlaveAddress_App                    = 0x48,
+    
+    /// Default 7-bit I2C address of the bootloader for UICO generation 2
+    /// duraTOUCH MCU's (dT1xx, dT2xx, and dT4xx).
+    SlaveAddress_Bootloader             = 0x58,
+    
+} SlaveAddress;
+
 
 /// Definition of the transmit queue data offsets.
 typedef enum TxQueueDataOffset_
@@ -157,7 +168,7 @@ static Heap* g_heap = NULL;
 
 /// The current 7-bit slave address. When the slaveIRQ line is asserted, a read
 /// will be performed from this address.
-static uint8_t g_slaveAddress = DEFAULT_SLAVE_ADDRESS;
+static uint8_t g_slaveAddress = SlaveAddress_App;
 
 /// Flag indicating if the IRQ triggerd and a receive is pending consumption.
 static volatile bool g_rxPending = false;
@@ -319,7 +330,7 @@ void i2cGen2_setSlaveAddress(uint8_t address)
 
 void i2cGen2_resetSlaveAddress(void)
 {
-    g_slaveAddress = DEFAULT_SLAVE_ADDRESS;
+    g_slaveAddress = SlaveAddress_App;
 }
 
     
