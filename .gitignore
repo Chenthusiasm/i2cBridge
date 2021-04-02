@@ -37,6 +37,7 @@ CortexM0/
 CortexM0p/
 Export/
 Generated_Source/
+Generated_Source*/
 codegentemp/
 
 # Ignore thumbnails created by windows
