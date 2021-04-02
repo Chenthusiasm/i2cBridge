@@ -40,12 +40,17 @@ static void init(void)
 {
     // Initialize the hardware resources.
     debug_init();
+    debug_uartPrint("[i]debug\n");
     hwSystemTime_init(DEFAULT_SYSTICK_PERIOD_MS);
+    debug_uartPrint("[i]sysTime\n");
     i2cGen2_init();
+    debug_uartPrint("[i]i2c\n");
     uartFrameProtocol_init();
+    debug_uartPrint("[i]uart\n");
     
     // Initialize state machines and system controls.
     bridgeStateMachine_init();
+    debug_uartPrint("[i]bsm\n");
 }
 
 
@@ -57,8 +62,8 @@ int main(void)
     CyGlobalIntEnable;
     
     init();
-    debug_uartPrint(">> init()\n");
     
+    debug_uartPrint("[LOOP]\n");
     for(int i = 0; ; ++i)
     {
         bridgeStateMachine_process();
