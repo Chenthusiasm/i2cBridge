@@ -786,6 +786,11 @@ uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS)
                 if (processDecodedRxPacket(data, size))
                     ++count;
         }
+        if (count > 0)
+        {
+            debug_uartPrint("\t[U:Rx]");
+            debug_uartPrintHexUint16(count);
+        }
     }
     return count;
 }
@@ -816,7 +821,7 @@ uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
         if (count > 0)
         {
             debug_uartPrint("\t[U:Tx]");
-            debug_uartWriteByte(count);
+            debug_uartPrintHexUint16(count);
         }
     }
     return count;

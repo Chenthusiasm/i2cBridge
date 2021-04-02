@@ -377,6 +377,11 @@ int i2cGen2_processRx(void)
             else
                 length = -1;
         }
+        if (length > 0)
+        {
+            debug_uartPrint("\t[I:Rx]");
+            debug_uartPrintHexUint16(length);
+        }
     }
     else
         length = -1;
@@ -419,6 +424,11 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
                 break;
             }
         }
+        if (count > 0)
+        {
+            debug_uartPrint("\t[I:Tx]");
+            debug_uartPrintHexUint16(count);
+        }
     }
     else
         count = -1;
@@ -443,6 +453,11 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
             }
             else
                 status.busBusy = true;
+            if (status.errorOccurred)
+            {
+                debug_uartPrint("\t[I:R]");
+                debug_uartPrintHexUint32(g_lastDriverStatus);
+            }
         }
         else
             status.inputParametersInvalid = true;
@@ -470,7 +485,11 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
             }
             else
                 status.busBusy = true;
-
+            if (status.errorOccurred)
+            {
+                debug_uartPrint("\t[I:W]");
+                debug_uartPrintHexUint32(g_lastDriverStatus);
+            }
         }
         else
             status.inputParametersInvalid = true;
@@ -589,9 +608,10 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
                 }
                 g_lastDriverStatus = driverStatus;
             }
-            else
+            if (status.errorOccurred)
             {
                 debug_uartPrint("\t[I:A]");
+                debug_uartPrintHexUint32(g_lastDriverStatus);
             }
         }
     }
