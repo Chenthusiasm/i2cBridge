@@ -444,6 +444,7 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
     {
         if ((data != NULL) && (size > 0))
         {
+            debug_uartPrint("\t[I:R]");
             if (isBusReady())
             {
                 uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
@@ -454,10 +455,7 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
             else
                 status.busBusy = true;
             if (status.errorOccurred)
-            {
-                debug_uartPrint("\t[I:R]");
                 debug_uartPrintHexUint32(g_lastDriverStatus);
-            }
         }
         else
             status.inputParametersInvalid = true;
@@ -476,6 +474,7 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
     {
         if ((data != NULL) && (size > 0))
         {
+            debug_uartPrint("\t[I:W]");
             if (isBusReady())
             {
                 uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, data, size, COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
@@ -486,10 +485,7 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
             else
                 status.busBusy = true;
             if (status.errorOccurred)
-            {
-                debug_uartPrint("\t[I:W]");
                 debug_uartPrintHexUint32(g_lastDriverStatus);
-            }
         }
         else
             status.inputParametersInvalid = true;
@@ -585,7 +581,8 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
             alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
         else
             alarm_disarm(&alarm);
-            
+        
+        debug_uartPrint("\t[I:A]");
         while (true)
         {
             if (alarm_hasElapsed(&alarm))
@@ -609,10 +606,7 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
                 g_lastDriverStatus = driverStatus;
             }
             if (status.errorOccurred)
-            {
-                debug_uartPrint("\t[I:A]");
                 debug_uartPrintHexUint32(g_lastDriverStatus);
-            }
         }
     }
     else
