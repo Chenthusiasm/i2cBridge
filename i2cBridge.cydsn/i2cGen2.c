@@ -235,7 +235,9 @@ void resetPendingTxEnqueue(void)
 /// @return If the bus is ready for a new read/write transaction.
 static bool isBusReady(void)
 {
-    return ((COMPONENT(SLAVE_I2C, I2CMasterStatus)() & COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_INP)) != 0);
+    uint32_t status = COMPONENT(SLAVE_I2C, I2CMasterStatus)();
+    g_lastDriverStatus = status;
+    return ((status & COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_INP)) == 0);
 }
 
 
