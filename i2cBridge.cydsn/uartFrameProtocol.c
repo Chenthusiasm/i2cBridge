@@ -506,7 +506,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             case BridgeCommand_SlaveAck:
             {
                 debug_uartPrint("\t[U:a]\n");
-                static const uint32_t timeoutMS = (5u);
+                static uint32_t const timeoutMS = (5u);
                 I2cGen2Status i2cStatus;
                 if (size > PacketOffset_BridgeData)
                     i2cStatus = i2cGen2_ack(data[PacketOffset_BridgeData], timeoutMS);
