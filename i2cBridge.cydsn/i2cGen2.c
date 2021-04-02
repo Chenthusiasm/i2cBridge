@@ -17,6 +17,7 @@
 #include <stdio.h>
 
 #include "alarm.h"
+#include "debug.h"
 #include "project.h"
 #include "queue.h"
 #include "utility.h"
@@ -574,8 +575,8 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
                 break;
             }
             
-            // Scratch buffer; used so that the I2C read function has a valid non-
-            // NULL pointer for reading 0 bytes.
+            // Scratch buffer; used so that the I2C read function has a valid
+            // non-NULL pointer for reading 0 bytes.
             uint8_t scratch;
             if (isBusReady())
             {
@@ -587,6 +588,10 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
                         status.nak = true;
                 }
                 g_lastDriverStatus = driverStatus;
+            }
+            else
+            {
+                debug_uartPrint("\t[I:A]");
             }
         }
     }

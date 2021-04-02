@@ -87,12 +87,20 @@
         void debug_uartWriteByte(uint8_t byte);
         void debug_uartWriteArray(uint8_t* pData, uint32_t length);
         void debug_uartPrint(char string[]);
+        void debug_uartPrintHexUint8(uint8_t data);
+        void debug_uartPrintHexUint16(uint16_t data);
+        void debug_uartPrintHexUint32(uint32_t data);
+        void debug_uartPrintHexUint64(uint64_t data);
         
     #else
         
         #define debug_uartWriteByte(a)
         #define debug_uartWriteArray(a, b)
         #define debug_uartPrint(a)
+        #define debug_uartPrintHexUint8(a)
+        #define debug_uartPrintHexUint16(a)
+        #define debug_uartPrintHexUint32(a)
+        #define debug_uartPrintHexUint64(a)
         
     #endif
     

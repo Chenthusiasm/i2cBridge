@@ -93,7 +93,38 @@ void debug_init(void)
     {
         COMPONENT(DEBUG_UART, PutString)(string);
     }
-     
+    
+    
+    void debug_uartPrintHexUint8(uint8_t data)
+    {
+        COMPONENT(DEBUG_UART, PutHexByte)(data);
+    }
+    
+    
+    void debug_uartPrintHexUint16(uint16_t data)
+    {
+        static uint8_t const Shift = 8u;
+        debug_uartPrintHexUint8((uint8_t)(data >> Shift));
+        debug_uartPrintHexUint8((uint8_t)(data));
+    }
+    
+    
+    void debug_uartPrintHexUint32(uint32_t data)
+    {
+        static uint8_t const Shift = 16u;
+        debug_uartPrintHexUint16((uint16_t)(data >> Shift));
+        debug_uartPrintHexUint16((uint16_t)(data));
+    }
+    
+    
+    void debug_uartPrintHexUint64(uint64_t data)
+    {
+        static uint8_t const Shift = 32u;
+        debug_uartPrintHexUint32((uint32_t)(data >> Shift));
+        debug_uartPrintHexUint32((uint32_t)(data));
+    }
+    
+    
 #endif
 
 
