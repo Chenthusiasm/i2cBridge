@@ -24,9 +24,8 @@
     #endif
     #include <stdint.h>
     
-    #include "project.h"
-    
     #include "configProject.h"
+    #include "project.h"
     
     
     // === DEFINES =============================================================
