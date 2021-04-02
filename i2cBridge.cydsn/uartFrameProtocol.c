@@ -24,6 +24,7 @@
 #include "project.h"
 #include "queue.h"
 #include "utility.h"
+#include "version.h"
 
 
 // === DEFINES =================================================================
@@ -117,8 +118,8 @@ typedef enum BridgeCommand_
     /// I2C communication timeout between bridge and I2C slave.
     BridgeCommand_SlaveTimeout          = 'T',
     
-    /// Bridge version information.
-    BridgeCommand_Version               = 'V',
+    /// Bridge version information, legacy implementation.
+    BridgeCommand_LegacyVersion         = 'V',
     
     /// Bridge I2C write to I2C slave.
     BridgeCommand_SlaveWrite            = 'W',
@@ -128,6 +129,9 @@ typedef enum BridgeCommand_
     
     /// Bridge reset.
     BridgeCommand_Reset                 = 'r',
+    
+    /// Bridge version information; updated.
+    BridgeCommand_Version               = 'v',
     
 } BridgeCommand;
 
@@ -386,14 +390,15 @@ static uint16_t __attribute__((unused)) encodeTxData(uint8_t target[], uint16_t 
 }
 
 
-/// Enqueue command and any associated data into the transmit queue.
+/// Enqueue a command response and any associated data into the transmit queue.
 /// @param[in]  command The command associated with the transmit packet.
 /// @param[in]  data    The data to enqueue. If this is NULL, then the data flag
 ///                     will not be set.
 /// @param[in]  size    The size of the data. If the value is 0, then the data
 ///                     flag will not be set.
-/// @return If the command and associated data was successfully enqueued.
-static bool txEnqueueCommand(BridgeCommand command, uint8_t const data[], uint16_t size)
+/// @return If the command responseand associated data was successfully
+///         enqueued.
+static bool txEnqueueCommandResponse(BridgeCommand command, uint8_t const data[], uint16_t size)
 {
     bool status = false;
     if (!queue_isFull(&g_heap->txQueue) && (command != BridgeCommand_None))
@@ -412,7 +417,46 @@ static bool txEnqueueCommand(BridgeCommand command, uint8_t const data[], uint16
             queue_enqueue(&g_heap->txQueue, &dummyData, sizeof(dummyData));
         }
         else
-            queue_enqueue(&g_heap->txQueue, data, size); 
+            queue_enqueue(&g_heap->txQueue, data, size);
+        status = true;
+    }
+    return status;
+}
+
+
+/// Enqueue the legacy implementation of the version request command.
+/// @return If the legacy version response was successfully enqueued.
+static bool txEnqueueLegacyVersion(void)
+{
+    static uint8_t const Version[] =
+    {
+        (uint8_t)VERSION_MINOR,
+        (uint8_t)VERSION_REVISION,
+    };
+    
+    bool status = false;
+    if (!queue_isFull(&g_heap->txQueue))
+    {
+        g_heap->pendingTxEnqueueCommand = BridgeCommand_LegacyVersion;
+        g_heap->pendingTxEnqueueFlags.command = true;
+        g_heap->pendingTxEnqueueFlags.data = true;
+        queue_enqueue(&g_heap->txQueue, Version, sizeof(Version));
+        status = true;
+    }
+    return status;
+}
+
+
+static bool txEnqueueVersion(void)
+{
+    bool status = false;
+    if (!queue_isFull(&g_heap->txQueue) )
+    {
+        g_heap->pendingTxEnqueueCommand = BridgeCommand_Version;
+        g_heap->pendingTxEnqueueFlags.command = true;
+        g_heap->pendingTxEnqueueFlags.data = true;
+        //queue_enqueue(&g_heap->txQueue, data, size);
+        status = true;
     }
     return status;
 }
@@ -435,7 +479,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             case BridgeCommand_Ack:
             {
                 debug_uartPrint("\t[U:A]\n");
-                txEnqueueCommand(BridgeCommand_Ack, NULL, 0);
+                txEnqueueCommandResponse(BridgeCommand_Ack, NULL, 0);
                 break;
             }
             
@@ -461,7 +505,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 debug_uartPrint("\t[U:N]\n");
                 // @TODO Check to see if this makes sense, the host should not
                 // be sending a slave NAK message to the bridge.
-                txEnqueueCommand(BridgeCommand_SlaveNak, NULL, 0);
+                txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
                 break;
             }
             
@@ -475,7 +519,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 else
                 {
                     if (i2cStatus.busBusy)
-                        txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
+                        txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
                     status = false;
                 }
                 break;
@@ -486,13 +530,14 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 debug_uartPrint("\t[U:T]\n");
                 // @TODO Check to see if this makes sense, the host should not
                 // be sending a slave timeout message to the bridge.
-                txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
+                txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
                 break;
             }
             
-            case BridgeCommand_Version:
+            case BridgeCommand_LegacyVersion:
             {
                 debug_uartPrint("\t[U:V]\n");
+                txEnqueueLegacyVersion();
                 break;
             }
             
@@ -513,13 +558,13 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 else
                     i2cStatus = i2cGen2_ackApp(timeoutMS);
                 if (!i2cStatus.errorOccurred)
-                    txEnqueueCommand(BridgeCommand_SlaveAck, NULL, 0);
+                    txEnqueueCommandResponse(BridgeCommand_SlaveAck, NULL, 0);
                 else
                 {
                     if (i2cStatus.busBusy)
-                        txEnqueueCommand(BridgeCommand_SlaveTimeout, NULL, 0);
+                        txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
                     else if (i2cStatus.nak)
-                        txEnqueueCommand(BridgeCommand_SlaveNak, NULL, 0);
+                        txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
                     status = false;
                 }
                 break;
@@ -535,6 +580,13 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             {
                 debug_uartPrint("\t[U:r]\n");
                 CySoftwareReset();
+                break;
+            }
+            
+            case BridgeCommand_Version:
+            {
+                debug_uartPrint("\t[U:v]\n");
+                txEnqueueVersion();
                 break;
             }
             
