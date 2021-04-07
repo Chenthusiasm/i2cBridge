@@ -264,6 +264,37 @@ static uint32_t divideBy10(uint32_t d, uint32_t* r)
     return q;
 }
 
+static uint32_t altDivideBy10(uint32_t d, uint32_t* r)
+{
+    // Constants used to determine if we have a carry bit issue due to the
+    // addition operation in the first line of the approximation.
+    static uint32_t const DividendMaxLimit = 0xaaaaaaaa;
+    static uint32_t const PostAddCarry = 0x80000000;
+
+    uint32_t q;
+
+    // Approximate calcuation of quotient in divide by 10.
+    // q = d / 10 or (q + 1) = d / 10 for all possible uint32_t d.
+    q = ((d >>  1) + d) >> 1;
+    if (d > DividendMaxLimit)
+        q += PostAddCarry;
+    q = ((q >>  4) + q);
+    q = ((q >>  8) + q);
+    q = ((q >> 16) + q) >> 3;
+
+    // Account for q = d / 10 or (q + 1) = d / 10 at this point. Also calculate
+    // the remainder.
+    uint32_t remainder = d - (q * 10u);
+    if (remainder >= G_DecimalDivisor)
+    {
+        *r = remainder - G_DecimalDivisor;
+        ++q;
+    }
+    else
+        *r = remainder;
+    return q;
+}
+
 
 /// Performs a simplified unsigned integer to char string (itoa) conversion.
 /// Base 10 (decimal), 2 (binary), 8 (octal), and 16 (hexadecimal) conversions
@@ -906,9 +937,13 @@ void debug_test(void)
     debug_setPin1(false);
     for (uint32_t i = 0; i < Iterations; ++i)
     {
+        #if 0
         static uint32_t const Divisor = 10u;
         uint32_t q = i / Divisor;
         uint32_t r = i % Divisor;
+        #endif
+        uint32_t r;
+        uint32_t q = altDivideBy10(i, &r);
         if (r == RemainderThreshold)
         {
             slaveIrqPin_Write(0);
