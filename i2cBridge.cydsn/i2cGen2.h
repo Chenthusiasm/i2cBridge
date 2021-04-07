@@ -64,7 +64,7 @@
     /// data is received. Note that if the callback function needs to copy the
     /// received data into its own buffer if the callback needs to perform any
     /// action to the data (like modify the data).
-    typedef bool (*I2CGen2_RxCallback)(uint8_t const*, uint16_t);
+    typedef bool (*I2cGen2_RxCallback)(uint8_t const*, uint16_t);
     
     
     // === FUNCTIONS ===========================================================
@@ -92,7 +92,7 @@
     /// Registers the receive callback function that should be invoked when
     /// data is received.
     /// @param[in]  callback    Pointer to the callback function.
-    void i2cGen2_registerRxCallback(I2CGen2_RxCallback callback);
+    void i2cGen2_registerRxCallback(I2cGen2_RxCallback callback);
     
     /// Registers a new slave address which ensures the write I2C slave device
     /// is addressed when attempting to read when the slaveIRQ line is asserted.
@@ -104,10 +104,14 @@
     void i2cGen2_resetSlaveAddress(void);
     
     /// Process any pending data to be receved.
+    /// @param[in]  timeoutMS   The amount of time the process can occur before
+    ///                         it times out and must finish. If 0, then there's
+    ///                         no timeout and the function blocks until all
+    ///                         pending actions are completed.
     /// @return The number of bytes that were processed. If 0, then no bytes
     ///         were pending to receive. If -1, an error occurred: there was
     ///         data pending but it could not be read because the bus was busy.
-    int i2cGen2_processRx(void);
+    int i2cGen2_processRx(uint32_t timeoutMS);
     
     /// Process any pending transmits in the transmits.
     /// @param[in]  timeoutMS   The amount of time the process can occur before

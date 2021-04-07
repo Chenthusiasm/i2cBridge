@@ -97,17 +97,18 @@ void processInitSlaveTranslator(void)
 /// Processes all tasks associated with the I2C slave translator.
 void processSlaveTranslator(void)
 {
-    uint32_t const UARTProcessRxTimeoutMS = 2u;
-    uint32_t const UARTProcessTxTimeoutMS = 3u;
-    uint32_t const I2CProcessTxTimeoutMS = 5u;
+    uint32_t const UartProcessRxTimeoutMS = 2u;
+    uint32_t const UartProcessTxTimeoutMS = 3u;
+    uint32_t const I2cProcessRxTimeoutMS = 5u;
+    uint32_t const I2cProcessTxTimeoutMS = 5u;
     
-    i2cGen2_processRx();
-    uartFrameProtocol_processRx(UARTProcessRxTimeoutMS);
-    i2cGen2_processRx();
-    i2cGen2_processTxQueue(I2CProcessTxTimeoutMS, true);
-    i2cGen2_processRx();
-    uartFrameProtocol_processTx(UARTProcessTxTimeoutMS);
-    i2cGen2_processRx();
+    i2cGen2_processRx(I2cProcessRxTimeoutMS);
+    uartFrameProtocol_processRx(UartProcessRxTimeoutMS);
+    i2cGen2_processRx(I2cProcessRxTimeoutMS);
+    i2cGen2_processTxQueue(I2cProcessTxTimeoutMS, true);
+    i2cGen2_processRx(I2cProcessRxTimeoutMS);
+    uartFrameProtocol_processTx(UartProcessTxTimeoutMS);
+    i2cGen2_processRx(I2cProcessRxTimeoutMS);
 }
 
 
