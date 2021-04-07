@@ -428,10 +428,15 @@ static bool txEnqueueCommandResponse(BridgeCommand command, uint8_t const data[]
 /// @return If the legacy version response was successfully enqueued.
 static bool txEnqueueLegacyVersion(void)
 {
+    uint32_t const UartBaud = 1000000u;
     static uint8_t const Version[] =
     {
         (uint8_t)VERSION_MINOR,
         (uint8_t)VERSION_REVISION,
+        (uint8_t)((UartBaud >> 24) & 0xff),
+        (uint8_t)((UartBaud >> 16) & 0xff),
+        (uint8_t)((UartBaud >>  8) & 0xff),
+        (uint8_t)((UartBaud >>  0) & 0xff),
     };
     
     bool status = false;
