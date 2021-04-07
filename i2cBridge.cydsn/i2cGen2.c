@@ -174,6 +174,9 @@ static uint8_t g_slaveAddress = SlaveAddress_App;
 /// Flag indicating if the IRQ triggerd and a receive is pending consumption.
 static volatile bool g_rxPending = false;
 
+/// Flag indicating we're in the response buffer is active for the slave app.
+static bool g_slaveAppResponseActive = false;
+
 /// The receive callback function.
 static I2CGen2_RxCallback g_rxCallback = NULL;
 
@@ -264,7 +267,23 @@ static bool isIrqAsserted(void)
 static void resetIrq(void)
 {
     static uint8_t clear[] = { AppBufferOffset_Response, 0 };
-    COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(g_slaveAddress, clear, sizeof(clear), COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
+    g_slaveAppResponseActive = (COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(g_slaveAddress, clear, sizeof(clear), COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER)) ==
+        COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR));
+}
+
+
+/// Changes the slave app to response buffer active state so responses can be
+/// properly read from the slave device.
+/// @return If the slave app is in the response buffer active state.
+static bool changeSlaveAppToResponseBuffer(void)
+{
+    if (g_slaveAppResponseActive)
+    {
+        static uint8_t responseMessage[] = { AppBufferOffset_Response };
+        g_slaveAppResponseActive = (COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(g_slaveAddress, responseMessage, sizeof(responseMessage), COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER)) ==
+            COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR));
+    }
+    return g_slaveAppResponseActive;
 }
 
 
@@ -286,6 +305,7 @@ CY_ISR(slaveIsr)
 void i2cGen2_init(void)
 {
     i2cGen2_resetSlaveAddress();
+    g_slaveAppResponseActive = false;
     
     COMPONENT(SLAVE_I2C, Start)();
     COMPONENT(SLAVE_IRQ, StartEx)(slaveIsr);
@@ -314,6 +334,7 @@ uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size)
         g_heap = &g_tempHeap;
         initTxQueue();
         allocatedSize = i2cGen2_getMemoryRequirement() / sizeof(uint32_t);
+        g_slaveAppResponseActive = false;
     }
     return allocatedSize;
 }
@@ -322,18 +343,21 @@ uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size)
 void i2cGen2_deactivate(void)
 {
     g_heap = NULL;
+    g_slaveAppResponseActive = false;
 }
 
 
 void i2cGen2_setSlaveAddress(uint8_t address)
 {
     g_slaveAddress = address;
+    g_slaveAppResponseActive = false;
 }
 
 
 void i2cGen2_resetSlaveAddress(void)
 {
     g_slaveAddress = SlaveAddress_App;
+    g_slaveAppResponseActive = false;
 }
 
     
@@ -351,18 +375,35 @@ int i2cGen2_processRx(void)
     {
         if (g_rxPending && isIrqAsserted())
         {
+            debug_printf("a");
             if (isBusReady())
             {
-                if (COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, COMPONENT(SLAVE_I2C, I2C_MODE_NO_STOP)))
+                debug_printf("b");
+                if (!g_slaveAppResponseActive)
                 {
+                    debug_printf("c");
+                    changeSlaveAppToResponseBuffer();
+                }
+                
+                CyDelay(2);
+                if (COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, COMPONENT(SLAVE_I2C, I2C_MODE_NO_STOP)) == COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
+                {
+                    debug_printf("d");
                     length += (int)G_AppRxPacketLengthSize;
                     uint8_t dataLength = g_heap->rxBuffer[AppRxPacketOffset_Length];
                     if (isAppPacketLengthValid(dataLength))
                     {
+                        debug_printf("e");
                         if (dataLength > 0)
+                        {
                             COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], dataLength, COMPONENT(SLAVE_I2C, I2C_MODE_REPEAT_START));
+                            debug_printf("f");
+                        }
                         else
+                        {
                             COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
+                            debug_printf("g");
+                        }
                         length += (int)dataLength;
                         if (g_rxCallback != NULL)
                             g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
@@ -371,16 +412,18 @@ int i2cGen2_processRx(void)
                     {
                         COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
                         length = -1;
+                        debug_printf("h", 5);
                     }
                 }
+                else
+                    debug_printf("i");
                 resetIrq();
                 g_rxPending = false;
             }
             else
                 length = -1;
+            debug_printf("\n");
         }
-        if (length > 0)
-            debug_printf("[I:Rx]=%u\n", length);
     }
     else
         length = -1;
@@ -479,6 +522,8 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
                 if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
                     status.driverError = true;
                 g_lastDriverStatus = driverStatus;
+                if (address == g_slaveAddress)
+                    g_slaveAppResponseActive = (data[0] == AppBufferOffset_Response);
             }
             else
                 status.busBusy = true;
