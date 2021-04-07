@@ -884,22 +884,24 @@ void debug_init(void)
 
 void debug_test(void)
 {
-    slaveIrqPin_Write(0);
-    static uint32_t const Iterations = 10000u;
+    CyDelay(100u);
+    static uint32_t const Iterations = 1000000u;
+    static uint32_t const RemainderThreshold = 9u;
+    slaveIrqPin_Write(1);
     debug_setPin1(false);
     for (uint32_t i = 0; i < Iterations; ++i)
     {
         uint32_t r;
         uint32_t q = divideBy10(i, &r);
-        if (r == 4)
+        if (r == RemainderThreshold)
         {
-            slaveIrqPin_Write(1);
             slaveIrqPin_Write(0);
+            slaveIrqPin_Write(1);
         }
     }
     debug_setPin1(true);
-    
-    CyDelay(100u);
+    slaveIrqPin_Write(1);
+    CyDelay(200u);
     
     debug_setPin1(false);
     for (uint32_t i = 0; i < Iterations; ++i)
@@ -907,13 +909,14 @@ void debug_test(void)
         static uint32_t const Divisor = 10u;
         uint32_t q = i / Divisor;
         uint32_t r = i % Divisor;
-        if (r == 4)
+        if (r == RemainderThreshold)
         {
-            slaveIrqPin_Write(1);
             slaveIrqPin_Write(0);
+            slaveIrqPin_Write(1);
         }
     }
     debug_setPin1(true);
+    slaveIrqPin_Write(1);
 }
 
 
