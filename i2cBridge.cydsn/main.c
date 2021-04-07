@@ -63,6 +63,8 @@ int main(void)
     
     init();
     
+    debug_test();
+    
     debug_uartPrint("[LOOP]\n");
     for(int i = 0; ; ++i)
     {

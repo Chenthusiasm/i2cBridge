@@ -880,5 +880,31 @@ void debug_init(void)
     
 #endif
 
+void debug_test(void)
+{
+    debug_setPin1(false);
+    for (uint32_t i = 0; i < 10000; ++i)
+    {
+        uint32_t r;
+        uint32_t q = divideBy10(i, &r);
+        if (r == 4)
+            ;
+    }
+    debug_setPin1(true);
+    
+    CyDelay(100u);
+    
+    debug_setPin1(false);
+    for (uint32_t i = 0; i < 10000; ++i)
+    {
+        static uint32_t const Divisor = 10u;
+        uint32_t q = i / Divisor;
+        uint32_t r = i % Divisor;
+        if (r == 4)
+            ;
+    }
+    debug_setPin1(true);
+}
+
 
 /* [] END OF FILE */

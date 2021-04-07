@@ -730,7 +730,6 @@ static void isr(void)
     uint32_t source = COMPONENT(HOST_UART, GetRxInterruptSource)();
     if ((source & COMPONENT(HOST_UART, INTR_RX_NOT_EMPTY)) != 0)
     {
-        debug_setPin1(false);
         uint32_t data = COMPONENT(HOST_UART, UartGetByte)();
         if (data > 0xff)
         {
@@ -739,7 +738,6 @@ static void isr(void)
         else if (g_heap != NULL)
             processReceivedByte(data);
         COMPONENT(HOST_UART, ClearRxInterruptSource)(COMPONENT(HOST_UART, INTR_RX_NOT_EMPTY));
-        debug_setPin1(true);
     }
     else if ((source & COMPONENT(HOST_UART, INTR_RX_FRAME_ERROR)) != 0)
     {
