@@ -380,10 +380,7 @@ int i2cGen2_processRx(void)
                 length = -1;
         }
         if (length > 0)
-        {
-            debug_uartPrint("\t[I:Rx]");
-            debug_uartPrintHexUint16(length);
-        }
+            debug_printf("[I:Rx]=%u\n", length);
     }
     else
         length = -1;
@@ -427,10 +424,7 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
             }
         }
         if (count > 0)
-        {
-            debug_uartPrint("\t[I:Tx]");
-            debug_uartPrintHexUint16(count);
-        }
+            debug_printf("[I:Tx]=%u\n", count);
     }
     else
         count = -1;
@@ -446,7 +440,7 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
     {
         if ((data != NULL) && (size > 0))
         {
-            debug_uartPrint("\t[I:R]");
+            debug_printf("[I:R]");
             if (isBusReady())
             {
                 uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
@@ -457,7 +451,9 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
             else
                 status.busBusy = true;
             if (status.errorOccurred)
-                debug_uartPrintHexUint32(g_lastDriverStatus);
+                debug_printf("%x\n", g_lastDriverStatus);
+            else
+                debug_printf("\n");
         }
         else
             status.inputParametersInvalid = true;
@@ -476,7 +472,7 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
     {
         if ((data != NULL) && (size > 0))
         {
-            debug_uartPrint("\t[I:W]");
+            debug_printf("[I:W]");
             if (isBusReady())
             {
                 uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, data, size, COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
@@ -487,7 +483,9 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
             else
                 status.busBusy = true;
             if (status.errorOccurred)
-                debug_uartPrintHexUint32(g_lastDriverStatus);
+                debug_printf("%x\n", g_lastDriverStatus);
+            else
+                debug_printf("\n");
         }
         else
             status.inputParametersInvalid = true;
@@ -584,7 +582,7 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
         else
             alarm_disarm(&alarm);
         
-        debug_uartPrint("\t[I:A]");
+        debug_printf("[I:A]");
         while (true)
         {
             if (alarm_hasElapsed(&alarm))
@@ -608,8 +606,9 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
                 g_lastDriverStatus = driverStatus;
             }
             if (status.errorOccurred)
-                debug_uartPrintHexUint32(g_lastDriverStatus);
+                debug_printf("%x", g_lastDriverStatus);
         }
+        debug_printf("\n");
     }
     else
         status.deactivated = true;

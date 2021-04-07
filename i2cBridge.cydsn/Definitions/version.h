@@ -42,7 +42,7 @@
     
     /// Defines any small bug fixes or code rework.
     /// Format: unsigned 16-bit integer, represented as decimal.
-    #define VERSION_REVISION            (1u)
+    #define VERSION_REVISION            (2u)
     
     
     #ifdef __cplusplus

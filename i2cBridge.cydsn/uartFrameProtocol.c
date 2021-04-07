@@ -478,21 +478,21 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
         {
             case BridgeCommand_Ack:
             {
-                debug_uartPrint("\t[U:A]\n");
+                debug_printf("[U:A]\n");
                 txEnqueueCommandResponse(BridgeCommand_Ack, NULL, 0);
                 break;
             }
             
             case BridgeCommand_SlaveError:
             {
-                debug_uartPrint("\t[U:E]\n");
+                debug_printf("[U:E]\n");
                 // @TODO Send last slave device error.
                 break;
             }
             
             case BridgeCommand_SlaveAddress:
             {
-                debug_uartPrint("\t[U:I]\n");
+                debug_printf("[U:I]\n");
                 if (size > PacketOffset_BridgeData)
                     i2cGen2_setSlaveAddress(data[PacketOffset_BridgeData]);
                 else
@@ -502,7 +502,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveNak:
             {
-                debug_uartPrint("\t[U:N]\n");
+                debug_printf("[U:N]\n");
                 // @TODO Check to see if this makes sense, the host should not
                 // be sending a slave NAK message to the bridge.
                 txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
@@ -511,7 +511,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveRead:
             {
-                debug_uartPrint("\t[U:R]\n");
+                debug_printf("[U:R]\n");
                 uint8_t readData[0xff];
                 I2cGen2Status i2cStatus = i2cGen2_read(data[PacketOffset_BridgeData], readData, sizeof(readData));
                 if (!i2cStatus.errorOccurred)
@@ -527,7 +527,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveTimeout:
             {
-                debug_uartPrint("\t[U:T]\n");
+                debug_printf("[U:T]\n");
                 // @TODO Check to see if this makes sense, the host should not
                 // be sending a slave timeout message to the bridge.
                 txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
@@ -536,21 +536,21 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_LegacyVersion:
             {
-                debug_uartPrint("\t[U:V]\n");
+                debug_printf("[U:V]\n");
                 txEnqueueLegacyVersion();
                 break;
             }
             
             case BridgeCommand_SlaveWrite:
             {
-                debug_uartPrint("\t[U:W]\n");
+                debug_printf("[U:W]\n");
                 i2cGen2_txEnqueueWithAddressInData(&data[PacketOffset_BridgeData], size - 1);
                 break;
             }
             
             case BridgeCommand_SlaveAck:
             {
-                debug_uartPrint("\t[U:a]\n");
+                debug_printf("[U:a]\n");
                 static uint32_t const timeoutMS = (5u);
                 I2cGen2Status i2cStatus;
                 if (size > PacketOffset_BridgeData)
@@ -572,27 +572,27 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveUpdate:
             {
-                debug_uartPrint("\t[U:B]\n");
+                debug_printf("[U:B]\n");
                 break;
             }
             
             case BridgeCommand_Reset:
             {
-                debug_uartPrint("\t[U:r]\n");
+                debug_printf("[U:r]\n");
                 CySoftwareReset();
                 break;
             }
             
             case BridgeCommand_Version:
             {
-                debug_uartPrint("\t[U:v]\n");
+                debug_printf("[U:v]\n");
                 txEnqueueVersion();
                 break;
             }
             
             default:
             {
-                debug_uartPrint("\t[U:?]\n");
+                debug_printf("[U:?]\n");
                 // Should not get here.
                 status = false;
                 break;
@@ -837,10 +837,7 @@ uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS)
                     ++count;
         }
         if (count > 0)
-        {
-            debug_uartPrint("\t[U:Rx]");
-            debug_uartPrintHexUint16(count);
-        }
+            debug_printf("[U:Rx]=%u\n", count);
     }
     return count;
 }
@@ -869,10 +866,7 @@ uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
             }
         }
         if (count > 0)
-        {
-            debug_uartPrint("\t[U:Tx]");
-            debug_uartPrintHexUint16(count);
-        }
+            debug_printf("[U:Tx]=%u\n", count);
     }
     return count;
 }
