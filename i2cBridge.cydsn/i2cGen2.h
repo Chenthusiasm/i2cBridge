@@ -28,8 +28,12 @@
     // === TYPE DEFINES ========================================================
     
     /// Structure that holds the status of I2C gen 2 functions.
-    typedef union I2cGen2Status_
-    {
+    typedef union I2cGen2Status
+    {        
+        /// General flag indicating an error occured; if false, no error
+        /// occurred.
+        bool errorOccurred;
+        
         struct
         {
             /// Error flag indicating that the module hasn't been activated and
@@ -53,10 +57,6 @@
             /// Error flag indicating that the input parameters are invalid.
             bool inputParametersInvalid : 1;
         };
-        
-        /// General flag indicating an error occured; if false, no error
-        /// occurred.
-        bool errorOccurred;
         
     } I2cGen2Status;
     

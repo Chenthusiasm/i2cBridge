@@ -118,7 +118,7 @@ typedef
     uitoa_t;
 
 /// Base for to itoa-related functions.
-typedef enum Base_
+typedef enum Base
 {
     /// Base 10.
     Base_Decimal,
@@ -151,7 +151,7 @@ typedef enum Base_
 
 
 /// Results for itoa-related functions.
-typedef struct ItoaResult_
+typedef struct ItoaResult
 {
     /// Pointer to the NULL-terminated string of the conversion.
     char* string;
@@ -163,7 +163,7 @@ typedef struct ItoaResult_
 
 
 /// Format specifier flags.
-typedef union FormatFlags_
+typedef union FormatFlags
 {
     /// Structure that defines the flag.
     struct

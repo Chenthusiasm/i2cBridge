@@ -54,7 +54,7 @@
 // === TYPEDEFINES =============================================================
 
 /// Defines the different states of the protocol state machine.
-typedef enum RxState_
+typedef enum RxState
 {
     /// Outside of a valid data frame, do not process this data.
     RxState_OutOfFrame,
@@ -71,7 +71,7 @@ typedef enum RxState_
 
 /// Defines the different control bytes in the protocol which helps define a
 /// data frame.
-typedef enum ControlByte_
+typedef enum ControlByte
 {
     /// Start of a valid data frame.
     ControlByte_StartFrame              = 0xaa,
@@ -91,7 +91,7 @@ typedef enum ControlByte_
 /// prohibited:
 /// 1.  ª [0xaa, 85 dec]: feminine ordinal character
 /// 2.  U [0x55, 170 dec]: capital letter "U"
-typedef enum BridgeCommand_
+typedef enum BridgeCommand
 {
     /// No command.
     BridgeCommand_None                  = 0x00,
@@ -138,7 +138,7 @@ typedef enum BridgeCommand_
 
 /// Enumeration that defines the offsets of different types of bytes within the
 /// UICO I2C protocol.
-typedef enum PacketOffset_
+typedef enum PacketOffset
 {
     /// Offset in the data frame for the bridge command.
     PacketOffset_BridgeCommand          = 0u,
@@ -149,7 +149,7 @@ typedef enum PacketOffset_
 
 
 /// Type flags that describe the type of packet.
-typedef struct Flags_
+typedef struct Flags
 {
     // Packet contains a command.
     bool command : 1;
@@ -165,7 +165,7 @@ typedef struct Flags_
 /// module is activated and then "deallocated" when the module is deactivated.
 /// This allows the memory to be used by another module. Note that these modules
 /// must be run in a mutual exclusive fashion (one or the other; no overlap).
-typedef struct Heap_
+typedef struct Heap
 {
     /// Decoded receive queue.
     volatile Queue decodedRxQueue;

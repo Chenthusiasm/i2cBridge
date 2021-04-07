@@ -28,7 +28,7 @@
     // === TYPE DEFINES ========================================================
     
     /// Enumerations for the different types of alarms.
-    typedef enum AlarmType_
+    typedef enum AlarmType
     {
         /// The alarm will continuously indicate that it has fired when queried
         /// by the user until it is rearmed.
@@ -43,7 +43,7 @@
     
     
     /// Definition of an Alarm.
-    typedef struct Alarm_
+    typedef struct Alarm
     {
         /// The system time when the alarm was armed in milliseconds.
         uint32_t    startTimeMS;

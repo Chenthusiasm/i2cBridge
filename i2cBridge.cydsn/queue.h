@@ -34,7 +34,7 @@
     
     /// Definition of the individual element in the queue. This helps define
     /// where in the data buffer the element starts and how large it is.
-    typedef struct QueueElement_
+    typedef struct QueueElement
     {
         /// The start offset of the element from the queue's data array.
         uint16_t dataOffset;
@@ -46,7 +46,7 @@
     
     
     /// Definition of the queue object.
-    typedef struct Queue_
+    typedef struct Queue
     {
         /// Data array that holds the raw data of each member of the queue.
         uint8_t* data;

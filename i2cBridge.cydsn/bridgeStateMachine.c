@@ -30,7 +30,7 @@
 // === TYPE DEFINES ============================================================
 
 /// The different states of the state machine.
-typedef enum State_
+typedef enum State
 {
     /// Reset the slave.
     State_SlaveReset,

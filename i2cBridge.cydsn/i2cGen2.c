@@ -49,7 +49,7 @@
 
 /// Defines the type of transfer mode for the read/write transaction on the I2C
 /// bus.
-typedef union TransferMode_
+typedef union TransferMode
 {
     struct
     {
@@ -67,7 +67,7 @@ typedef union TransferMode_
 
 
 /// Pre-defined 7-bit addresses of slave devices on the I2C bus.
-typedef enum SlaveAddress_
+typedef enum SlaveAddress
 {
     /// Default 7-bit I2C address of the main application for UICO generation 2
     /// duraTOUCH MCU's (dT1xx, dT2xx, and dT4xx).
@@ -81,7 +81,7 @@ typedef enum SlaveAddress_
 
 
 /// Definition of the transmit queue data offsets.
-typedef enum TxQueueDataOffset_
+typedef enum TxQueueDataOffset
 {
     /// The I2C address.
     TxQueueDataOffset_Address           = 0u,
@@ -94,7 +94,7 @@ typedef enum TxQueueDataOffset_
 
 /// Definition of the duraTOUCH application I2C communication receive packet
 /// offsets.
-typedef enum AppRxPacketOffset_
+typedef enum AppRxPacketOffset
 {
     /// Command byte offset.
     AppRxPacketOffset_Command           = 0u,
@@ -110,7 +110,7 @@ typedef enum AppRxPacketOffset_
 
 /// Definition of the duraTOUCH application I2C communication transmit packet
 /// offsets.
-typedef enum AppTxPacketOffset_
+typedef enum AppTxPacketOffset
 {
     /// Length byte offset.
     AppTxPacketOffset_BufferOffset      = 0u,
@@ -123,7 +123,7 @@ typedef enum AppTxPacketOffset_
 
 /// Definition of the duraTOUCH application memory buffer offset used for
 /// setting the app buffer offset in tramsit packets.
-typedef enum AppBufferOffset_
+typedef enum AppBufferOffset
 {
     /// Command buffer offset; used to write a command.
     AppBufferOffset_Command             = 0x00,
@@ -136,7 +136,7 @@ typedef enum AppBufferOffset_
 
 /// States used by the app receive state machine to handle the different steps
 /// in processing the responses.
-typedef enum AppRxState_
+typedef enum AppRxState
 {
     /// The initial reset state.
     AppRxState_Reset,
@@ -170,7 +170,7 @@ typedef enum AppRxState_
 /// module is activated and then "deallocated" when the module is deactivated.
 /// This allows the memory to be used by another module. Note that these modules
 /// must be run in a mutual exclusive fashion (one or the other; no overlap).
-typedef struct Heap_
+typedef struct Heap
 {
     /// Transmit queue.
     Queue txQueue;
@@ -365,7 +365,7 @@ static I2cGen2Status write(uint8_t address, uint8_t data[], uint16_t size, Trans
 static I2cGen2Status resetIrq(void)
 {
     uint8_t clear[] = { AppBufferOffset_Response, 0 };
-    TransferMode mode = { false, false };
+    TransferMode mode = { { false, false} };
     I2cGen2Status status = write(g_slaveAddress, clear, sizeof(clear), mode);
     return status;
 }

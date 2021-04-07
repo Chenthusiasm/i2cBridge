@@ -27,7 +27,7 @@
     // === TYPE DEFINES ========================================================
     
     /// Definition of the byte queue.
-    typedef struct ByteQueue_
+    typedef struct ByteQueue
     {
         /// Pointer to array that holds the bytes.
         uint8_t* data;
