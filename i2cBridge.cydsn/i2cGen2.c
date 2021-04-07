@@ -320,11 +320,17 @@ static bool isIrqAsserted(void)
 /// @param[in]  mode    TransferMode settings.
 /// @return Status indicating if an error occured. See the definition of the
 ///         I2cGen2Status union.
-static I2cGen2Status read(uint8_t address, uint8_t* data, uint16_t size, TransferMode mode)
+static I2cGen2Status read(uint8_t address, uint8_t data[], uint16_t size, TransferMode mode)
 {
-    I2cGen2Status status;
-    status.errorOccurred = false;
-    
+    I2cGen2Status status = { false };
+    uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, mode.value);
+    if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
+    {
+        status.driverError = true;
+        if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
+            status.nak = true;
+    }
+    g_lastDriverStatus = driverStatus;
     return status;
 }
 
@@ -337,23 +343,31 @@ static I2cGen2Status read(uint8_t address, uint8_t* data, uint16_t size, Transfe
 /// @param[in]  mode    TransferMode settings.
 /// @return Status indicating if an error occured. See the definition of the
 ///         I2cGen2Status union.
-static I2cGen2Status write(uint8_t address, uint8_t* data, uint16_t size, TransferMode mode)
+static I2cGen2Status write(uint8_t address, uint8_t data[], uint16_t size, TransferMode mode)
 {
-    I2cGen2Status status;
-    status.errorOccurred = false;
-    
+    I2cGen2Status status = { false };
+    uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, data, size, mode.value);
+    if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
+    {
+        status.driverError = true;
+        if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
+            status.nak = true;
+    }
+    g_lastDriverStatus = driverStatus;
     return status;
 }
 
 
 /// Create and sends the packet to the slave to instruct it to reset/clear the
 /// IRQ line.
-static void resetIrq(void)
+/// @return Status indicating if an error occured. See the definition of the
+///         I2cGen2Status union.
+static I2cGen2Status resetIrq(void)
 {
-    static uint8_t clear[] = { AppBufferOffset_Response, 0 };
-    uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(g_slaveAddress, clear, sizeof(clear), COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
-    g_slaveAppResponseActive = (driverStatus == COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR));
-    g_lastDriverStatus = driverStatus;
+    uint8_t clear[] = { AppBufferOffset_Response, 0 };
+    TransferMode mode = { false, false };
+    I2cGen2Status status = write(g_slaveAddress, clear, sizeof(clear), mode);
+    return status;
 }
 
 
@@ -364,7 +378,7 @@ static bool changeSlaveAppToResponseBuffer(void)
 {
     if (g_slaveAppResponseActive)
     {
-        static uint8_t responseMessage[] = { AppBufferOffset_Response };
+        uint8_t responseMessage[] = { AppBufferOffset_Response };
         uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(g_slaveAddress, responseMessage, sizeof(responseMessage), COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
         g_slaveAppResponseActive = (driverStatus == COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR));
         g_lastDriverStatus = driverStatus;
@@ -379,9 +393,7 @@ static bool changeSlaveAppToResponseBuffer(void)
 /// @return The I2cGen2Status processing the current state.
 static I2cGen2Status processAppRxStateMachine(AppRxState* state)
 {
-    I2cGen2Status status;
-    status.errorOccurred = false;
-    
+    I2cGen2Status status = { false };
     static int length = 0;
     
     switch (*state)
@@ -652,8 +664,7 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
 
 I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 {
-    I2cGen2Status status;
-    status.errorOccurred = false;
+    I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
         if ((data != NULL) && (size > 0))
@@ -684,8 +695,7 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 {
-    I2cGen2Status status;
-    status.errorOccurred = false;
+    I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
         if ((data != NULL) && (size > 0))
@@ -722,8 +732,7 @@ I2cGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
     static uint8_t const AddressOffset = 0u;
     static uint8_t const DataOffset = 1u;
     
-    I2cGen2Status status;
-    status.errorOccurred = false;
+    I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
         if ((data != NULL) && (size > MinSize))
@@ -740,8 +749,7 @@ I2cGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 {
-    I2cGen2Status status;
-    status.errorOccurred = false;
+    I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
         if ((data != NULL) && (size > 0))
@@ -766,8 +774,7 @@ I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 {
-    I2cGen2Status status;
-    status.errorOccurred = false;
+    I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
         if ((data != NULL) && (size > 0))
@@ -792,8 +799,7 @@ I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
 {
-    I2cGen2Status status;
-    status.errorOccurred = false;
+    I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
         Alarm alarm;
