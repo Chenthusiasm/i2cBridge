@@ -56,7 +56,7 @@
 
     /// The bit mask to get the remainder when performing division for the itoa
     /// conversion in binary.
-    #define BINARY_MASK                 (1u << G_BinaryShift) - 1u)
+    #define BINARY_MASK                 ((1u << BINARY_SHIFT) - 1u)
 
 #endif // ENABLE_BINARY
 
@@ -68,7 +68,7 @@
     
     /// The bit mask to get the remainder when performing division for the itoa
     /// conversion in binary.
-    #define OCTAL_MASK                  (1u << G_OctalShift) - 1u)
+    #define OCTAL_MASK                  ((1u << OCTAL_SHIFT) - 1u)
     
 #endif // ENABLE_OCTAL
 
@@ -81,7 +81,7 @@
 
 /// The bit mask to get the remainder when performing division for the itoa
 /// conversion in hexadecimal.
-#define HEX_MASK                        (1u << G_HexShift) - 1u)
+#define HEX_MASK                        ((1u << HEX_SHIFT) - 1u)
 
 
 // === TYPE DEFINES ============================================================
@@ -314,8 +314,8 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
             {
                 while (n > 0)
                 {
-                    uint32_t r = n & G_BinaryMask;
-                    n >>= G_BinaryShift;
+                    uint32_t r = n & BINARY_MASK;
+                    n >>= BINARY_SHIFT;
                     buffer[--i] = G_CharTable[r];
                 }
                 if (flags.prefix)
