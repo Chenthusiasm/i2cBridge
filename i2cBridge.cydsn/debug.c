@@ -334,8 +334,8 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
             {
                 while (n > 0)
                 {
-                    uint32_t r = n & G_OctalMask;
-                    n >>= G_OctalShift;
+                    uint32_t r = n & OCTAL_MASK;
+                    n >>= OCTAL_SHIFT;
                     buffer[--i] = G_CharTable[r];
                 }
                 if (flags.prefix)
@@ -354,8 +354,8 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
             {
                 while (n > 0)
                 {
-                    uint32_t r = n & G_HexMask;
-                    n >>= G_HexShift;
+                    uint32_t r = n & HEX_MASK;
+                    n >>= HEX_SHIFT;
                     buffer[--i] = G_CharTable[r];
                 }
                 if (flags.prefix)
@@ -370,8 +370,8 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
             {
                 while (n > 0)
                 {
-                    uint32_t r = n & G_HexMask;
-                    n >>= G_HexShift;
+                    uint32_t r = n & HEX_MASK;
+                    n >>= HEX_SHIFT;
                     buffer[--i] = G_UpperCharTable[r];
                 }
                 if (flags.prefix)
@@ -511,8 +511,8 @@ static ItoaResult simplePtoa(void* pointer, char buffer[], uint8_t size, FormatF
     uitoa_t n = (uitoa_t)pointer;
     while (n > 0)
     {
-        uint32_t r = n & G_HexMask;
-        n >>= G_HexShift;
+        uint32_t r = n & HEX_MASK;
+        n >>= HEX_SHIFT;
         current[offset - 1] = G_CharTable[r];
         --offset;
     }
@@ -884,26 +884,34 @@ void debug_init(void)
 
 void debug_test(void)
 {
+    slaveIrqPin_Write(0);
+    static uint32_t const Iterations = 10000u;
     debug_setPin1(false);
-    for (uint32_t i = 0; i < 10000; ++i)
+    for (uint32_t i = 0; i < Iterations; ++i)
     {
         uint32_t r;
         uint32_t q = divideBy10(i, &r);
         if (r == 4)
-            ;
+        {
+            slaveIrqPin_Write(1);
+            slaveIrqPin_Write(0);
+        }
     }
     debug_setPin1(true);
     
     CyDelay(100u);
     
     debug_setPin1(false);
-    for (uint32_t i = 0; i < 10000; ++i)
+    for (uint32_t i = 0; i < Iterations; ++i)
     {
         static uint32_t const Divisor = 10u;
         uint32_t q = i / Divisor;
         uint32_t r = i % Divisor;
         if (r == 4)
-            ;
+        {
+            slaveIrqPin_Write(1);
+            slaveIrqPin_Write(0);
+        }
     }
     debug_setPin1(true);
 }
