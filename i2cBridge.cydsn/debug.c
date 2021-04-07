@@ -30,7 +30,7 @@
 #define ENABLE_BINARY                   (true)
 
 /// Enable the octal (base 8) formatter.
-#define ENABLE_OCTAL                    (false)
+#define ENABLE_OCTAL                    (true)
 
 /// Enable the hexadecimal (base 16) formatter.
 #define ENABLE_HEX                      (true)
@@ -44,7 +44,44 @@
 /// Name of the debug pin 1 component.
 #define DEBUG_PIN_1                     debugPin1_
 
+/// Alias for the function to invoke which performs the character-specific
+/// action in the printf function.
 #define PUTCHAR(c)                      COMPONENT(DEBUG_UART, PutChar)(c)
+
+#if ENABLE_BINARY
+
+    /// The number of bits to right shift (divide) to perform the itoa
+    /// conversion in binary.
+    #define BINARY_SHIFT                (1u)
+
+    /// The bit mask to get the remainder when performing division for the itoa
+    /// conversion in binary.
+    #define BINARY_MASK                 (1u << G_BinaryShift) - 1u)
+
+#endif // ENABLE_BINARY
+
+#if ENABLE_OCTAL
+    
+    /// The number of bits to right shift (divide) to perform the itoa
+    /// conversion in binary.
+    #define OCTAL_SHIFT                 (3u)
+    
+    /// The bit mask to get the remainder when performing division for the itoa
+    /// conversion in binary.
+    #define OCTAL_MASK                  (1u << G_OctalShift) - 1u)
+    
+#endif // ENABLE_OCTAL
+
+// Do not encapsulate the following defines in #if ENABLE_HEX; these are needed
+// for the pointer to string conversion.
+
+/// The number of bits to right shift (divide) to perform the itoa
+/// conversion in hexadecimal.
+#define HEX_SHIFT                       (4u)
+
+/// The bit mask to get the remainder when performing division for the itoa
+/// conversion in hexadecimal.
+#define HEX_MASK                        (1u << G_HexShift) - 1u)
 
 
 // === TYPE DEFINES ============================================================
@@ -173,41 +210,6 @@ static char const G_CharTable[] = "0123456789abcdef";
 
 /// Integer to character conversion table, uppercase.
 static char const G_UpperCharTable[] = "0123456789ABCDEF";
-
-#if ENABLE_BINARY
-
-/// The number of bits to right shift (divide) to perform the itoa
-/// conversion in binary.
-static uint32_t const G_BinaryShift = 1u;
-
-/// The bit mask to get the remainder when performing division for the itoa
-/// conversion in binary.
-static uint32_t const G_BinaryMask = (1 << G_BinaryShift) - 1;
-
-#endif // ENABLE_BINARY
-
-#if ENABLE_OCTAL
-
-/// The number of bits to right shift (divide) to perform the itoa
-/// conversion in binary.
-static uint32_t const G_OctalShift = 3u;
-
-/// The bit mask to get the remainder when performing division for the itoa
-/// conversion in binary.
-static uint32_t const G_OctalMask = (1 << G_OctalShift) - 1;
-
-#endif // ENABLE_OCTAL
-
-// Do not encapsulate the following defines in #if ENABLE_HEX; these are needed
-// for the pointer to string conversion.
-
-/// The number of bits to right shift (divide) to perform the itoa
-/// conversion in hexadecimal.
-static uint32_t const G_HexShift = 4u;
-
-/// The bit mask to get the remainder when performing division for the itoa
-/// conversion in hexadecimal.
-static uint32_t const G_HexMask = (1 << G_HexShift) - 1;
 
 
 // === PRIVATE FUNCTIONS =======================================================
