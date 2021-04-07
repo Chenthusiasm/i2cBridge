@@ -159,7 +159,6 @@
         
     #endif
     
-    void debug_test(void);
     
     #ifdef __cplusplus
         } // extern "C"

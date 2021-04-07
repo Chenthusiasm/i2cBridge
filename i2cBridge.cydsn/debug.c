@@ -123,21 +123,21 @@ typedef enum Base_
     /// Base 10.
     Base_Decimal,
 
-    #if ENABLE_BINARY
+#if ENABLE_BINARY
 
     /// Base 2.
     Base_Binary,
 
-    #endif // ENABLE_BINARY
+#endif // ENABLE_BINARY
 
-    #if ENABLE_OCTAL
+#if ENABLE_OCTAL
 
     /// Base 8.
     Base_Octal,
 
-    #endif // ENABLE_OCTAL
+#endif // ENABLE_OCTAL
 
-    #if ENABLE_HEX
+#if ENABLE_HEX
 
     /// Base 16 with lowercase alpha characters.
     Base_Hex,
@@ -145,7 +145,7 @@ typedef enum Base_
     /// Base 16 with uppercase alpha characters.
     Base_UpperHex,
 
-    #endif // ENABLE_HEX
+#endif // ENABLE_HEX
 
 } Base;
 
@@ -308,7 +308,7 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
         uint32_t n = value;
         switch (base)
         {
-            #if ENABLE_BINARY
+        #if ENABLE_BINARY
 
             case Base_Binary:
             {
@@ -326,9 +326,9 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                 break;
             }
 
-            #endif // ENABLE_BINARY
+        #endif // ENABLE_BINARY
 
-            #if ENABLE_OCTAL
+        #if ENABLE_OCTAL
 
             case Base_Octal:
             {
@@ -346,9 +346,9 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                 break;
             }
 
-            #endif // ENABLE_OCTAL
+        #endif // ENABLE_OCTAL
 
-            #if ENABLE_HEX
+        #if ENABLE_HEX
 
             case Base_Hex:
             {
@@ -382,7 +382,7 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                 break;
             }
 
-            #endif // ENABLE_HEX
+        #endif // ENABLE_HEX
 
             default:
             {
@@ -390,16 +390,16 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                 {
                     uint32_t r;
 
-                    #if ENABLE_OPTIMIZED_DECIMAL_DIVIDE
+                #if ENABLE_OPTIMIZED_DECIMAL_DIVIDE
 
                     n = divideBy10(n, &r);
 
-                    #else
+                #else
 
                     r = n % G_DecimalDivisor;
                     n /= G_DecimalDivisor;
 
-                    #endif // ENABLE_OPTIMIZED_DECIMAL_DIVIDE
+                #endif // ENABLE_OPTIMIZED_DECIMAL_DIVIDE
 
                     buffer[--i] = G_UpperCharTable[r];
                 }
@@ -648,7 +648,7 @@ void debug_init(void)
         flags.value = 0;
         char c = *format++;
         char buffer[BUFFER_SIZE];
-        ItoaResult result;
+        ItoaResult result = { NULL, 0 };
         while (c != 0)
         {
             if (formatSpecifier)
@@ -694,7 +694,7 @@ void debug_init(void)
                         break;
                     }
 
-                    #if ENABLE_HEX
+                #if ENABLE_HEX
 
                     case 'X':
                     {
@@ -703,9 +703,9 @@ void debug_init(void)
                         break;
                     }
 
-                    #endif // ENABLE_HEX
+                #endif // ENABLE_HEX
 
-                    #if ENABLE_BINARY
+                #if ENABLE_BINARY
 
                     case 'b':
                     {
@@ -714,7 +714,7 @@ void debug_init(void)
                         break;
                     }
 
-                    #endif // ENABLE_BINARY
+                #endif // ENABLE_BINARY
 
                     case 'c':
                     {
@@ -760,7 +760,7 @@ void debug_init(void)
                         break;
                     }
 
-                    #if ENABLE_OCTAL
+                #if ENABLE_OCTAL
 
                     case 'o':
                     {
@@ -769,7 +769,7 @@ void debug_init(void)
                         break;
                     }
 
-                    #endif // ENABLE_OCTAL
+                #endif // ENABLE_OCTAL
 
                     case 'p':
                     {
@@ -824,7 +824,7 @@ void debug_init(void)
                         break;
                     }
 
-                    #if ENABLE_HEX
+                #if ENABLE_HEX
 
                     case 'x':
                     {
@@ -833,7 +833,7 @@ void debug_init(void)
                         break;
                     }
 
-                    #endif // ENABLE_HEX
+                #endif // ENABLE_HEX
 
                     default:
                     {
@@ -881,42 +881,6 @@ void debug_init(void)
     
     
 #endif
-
-void debug_test(void)
-{
-    CyDelay(100u);
-    static uint32_t const Iterations = 1000000u;
-    static uint32_t const RemainderThreshold = 9u;
-    slaveIrqPin_Write(1);
-    debug_setPin1(false);
-    for (uint32_t i = 0; i < Iterations; ++i)
-    {
-        uint32_t r;
-        uint32_t q = divideBy10(i, &r);
-        if (r == RemainderThreshold)
-        {
-            slaveIrqPin_Write(0);
-            slaveIrqPin_Write(1);
-        }
-    }
-    debug_setPin1(true);
-    slaveIrqPin_Write(1);
-    CyDelay(200u);
-    
-    debug_setPin1(false);
-    for (uint32_t i = 0; i < Iterations; ++i)
-    {
-        uint32_t q = i / G_DecimalDivisor;
-        uint32_t r = i % G_DecimalDivisor;
-        if (r == RemainderThreshold)
-        {
-            slaveIrqPin_Write(0);
-            slaveIrqPin_Write(1);
-        }
-    }
-    debug_setPin1(true);
-    slaveIrqPin_Write(1);
-}
 
 
 /* [] END OF FILE */
