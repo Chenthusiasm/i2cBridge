@@ -138,8 +138,8 @@ typedef enum AppBufferOffset
 /// in processing the responses.
 typedef enum AppRxState
 {
-    /// The initial reset state.
-    AppRxState_Reset,
+    /// The initial state.
+    AppRxState_Start,
     
     /// App needs to be switched to the response buffer being active.
     AppRxState_SwitchToResponseBuffer,
@@ -229,6 +229,9 @@ static bool g_slaveAppResponseActive = false;
 
 /// The receive callback function.
 static I2cGen2_RxCallback g_rxCallback = NULL;
+
+/// The error callback function.
+static I2cGen2_ErrorCallback g_errorCallback = NULL;
 
 /// The status of the last driver API call. Refer to the possible error messages
 /// in the generated "I2C Component Name"_I2C.h file.
@@ -416,17 +419,17 @@ static I2cGen2Status resetIrq(void)
 
 /// Changes the slave app to response buffer active state so responses can be
 /// properly read from the slave device.
-/// @return If the slave app is in the response buffer active state.
-static bool changeSlaveAppToResponseBuffer(void)
+/// @return Status indicating if an error occured. See the definition of the
+///         I2cGen2Status union.
+static I2cGen2Status changeSlaveAppToResponseBuffer(void)
 {
-    if (g_slaveAppResponseActive)
-    {
-        uint8_t responseMessage[] = { AppBufferOffset_Response };
-        uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(g_slaveAddress, responseMessage, sizeof(responseMessage), COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
-        g_slaveAppResponseActive = (driverStatus == COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR));
-        g_lastDriverStatus = driverStatus;
-    }
-    return g_slaveAppResponseActive;
+    I2cGen2Status status = { false };
+    uint8_t responseMessage[] = { AppBufferOffset_Response };
+    TransferMode mode = { { false, false } };
+    status = write(g_slaveAddress, responseMessage, sizeof(responseMessage), mode);
+    if (!status.errorOccurred)
+        g_slaveAppResponseActive = true;
+    return status;
 }
 
 
@@ -450,7 +453,7 @@ static int processAppRxStateMachine(uint32_t timeoutMS)
     int length = 0;
     uint8_t payloadLength = 0;
     I2cGen2Status status = { false };
-    AppRxState state = AppRxState_Reset;    
+    AppRxState state = AppRxState_Start;    
     while (state != AppRxState_Complete)
     {
         if (alarm_hasElapsed(&alarm))
@@ -461,7 +464,7 @@ static int processAppRxStateMachine(uint32_t timeoutMS)
         
         switch (state)
         {
-            case AppRxState_Reset:
+            case AppRxState_Start:
             {
                 length = 0;
                 if (g_slaveAppResponseActive)
@@ -474,7 +477,13 @@ static int processAppRxStateMachine(uint32_t timeoutMS)
             case AppRxState_SwitchToResponseBuffer:
             {
                 if (isBusReady())
-                    changeSlaveAppToResponseBuffer();
+                {
+                    status = changeSlaveAppToResponseBuffer();
+                    if (!status.errorOccurred)
+                        state = AppRxState_ReadLength;
+                    else
+                        state = AppRxState_Error;
+                }
                 break;
             }
             
@@ -566,7 +575,8 @@ static int processAppRxStateMachine(uint32_t timeoutMS)
             
             case AppRxState_Error:
             {
-                
+                if (g_errorCallback != NULL)
+                    g_errorCallback(status);
                 break;
             }
             
@@ -653,10 +663,17 @@ void i2cGen2_resetSlaveAddress(void)
 }
 
     
-void i2cGen2_registerRxCallback(I2cGen2_RxCallback pCallback)
+void i2cGen2_registerRxCallback(I2cGen2_RxCallback callback)
 {
-    if (pCallback != NULL)
-        g_rxCallback = pCallback;
+    if (callback != NULL)
+        g_rxCallback = callback;
+}
+
+
+void i2cGen2_registerErrorCallback(I2cGen2_ErrorCallback callback)
+{
+    if (callback != NULL)
+        g_errorCallback = callback;
 }
 
 

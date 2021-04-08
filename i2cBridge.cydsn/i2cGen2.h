@@ -70,6 +70,10 @@
     /// action to the data (like modify the data).
     typedef bool (*I2cGen2_RxCallback)(uint8_t const*, uint16_t);
     
+    /// Definition of the error callback function that should be invoked when
+    /// an error occurs.
+    typedef void (*I2cGen2_ErrorCallback)(I2cGen2Status);
+    
     
     // === FUNCTIONS ===========================================================
     
@@ -95,8 +99,13 @@
     
     /// Registers the receive callback function that should be invoked when
     /// data is received.
-    /// @param[in]  callback    Pointer to the callback function.
+    /// @param[in]  callback    The callback function.
     void i2cGen2_registerRxCallback(I2cGen2_RxCallback callback);
+    
+    /// Registers the error callback function that should be invoked when an
+    /// error occurs.
+    /// @param[in]  callback    The callback function.
+    void i2cGen2_registerErrorCallback(I2cGen2_ErrorCallback callback);
     
     /// Registers a new slave address which ensures the write I2C slave device
     /// is addressed when attempting to read when the slaveIRQ line is asserted.
