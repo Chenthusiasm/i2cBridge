@@ -426,7 +426,7 @@ static I2cGen2Status processAppRxStateMachine(AppRxState* state)
                 {
                     if (g_heap->rxBuffer[AppRxPacketOffset_Length] < G_InvalidRxAppPacketLength)
                     {
-                        length += g_heap->rxBuffer[AppRxPacketOffset_Length];
+                        length += G_AppRxPacketLengthSize;
                         if (length == 0)
                             *state = AppRxState_StopRead;
                         else
@@ -447,7 +447,18 @@ static I2cGen2Status processAppRxStateMachine(AppRxState* state)
         case AppRxState_ReadDataPayload:
         {
             if (isBusReady())
-                COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, COMPONENT(SLAVE_I2C, I2C_MODE_NO_STOP));
+            {
+                TransferMode mode = { { true, false } };
+                uint8_t readLength = g_heap->rxBuffer[AppRxPacketOffset_Length];
+                status = read(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], readLength, mode);
+                if (!status.errorOccurred)
+                {
+                    length += readLength;
+                    *state = AppRxState_ClearIrq;
+                }
+                else
+                    *state = AppRxState_Error;
+            }
             break;
         }
         
