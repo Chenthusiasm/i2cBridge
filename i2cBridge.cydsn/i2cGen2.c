@@ -436,19 +436,21 @@ static bool changeSlaveAppToResponseBuffer(void)
 ///                         times out and must finish. If 0, then there's no
 ///                         timeout and the function blocks until all pending
 ///                         actions are completed.
-/// @return The I2cGen2Status processing the current state.
-static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
+/// @return The number of bytes that were processed. If 0, then no bytes were
+///         pending to receive. If -1, an error occurred: there was data pending
+///         but it could not be read because the bus was busy.
+static int processAppRxStateMachine(uint32_t timeoutMS)
 {
-    I2cGen2Status status = { false };
-    AppRxState state = AppRxState_Reset;
-    
     Alarm alarm;
     if (timeoutMS > 0)
         alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
     else
         alarm_disarm(&alarm);
         
-        
+    int length = 0;
+    uint8_t payloadLength = 0;
+    I2cGen2Status status = { false };
+    AppRxState state = AppRxState_Reset;    
     while (state != AppRxState_Complete)
     {
         if (alarm_hasElapsed(&alarm))
@@ -457,8 +459,6 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             break;
         }
         
-        uint16_t length = 0;
-        uint8_t payloadLength = 0;
         switch (state)
         {
             case AppRxState_Reset:
@@ -574,7 +574,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             }
         }
     }
-    return status;
+    return length;
 }
 
 
@@ -662,7 +662,7 @@ void i2cGen2_registerRxCallback(I2cGen2_RxCallback pCallback)
 int i2cGen2_processRx(uint32_t timeoutMS)
 {
     int length = 0;
-    if (g_heap != NULL)
+    if ((g_heap != NULL) && g_rxPending && isIrqAsserted())
     {
         processAppRxStateMachine(timeoutMS);
     }
