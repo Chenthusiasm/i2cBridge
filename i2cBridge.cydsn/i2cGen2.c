@@ -312,6 +312,28 @@ static bool isIrqAsserted(void)
 }
 
 
+/// Calculates how much to extend a timeout based on having to perform some
+/// additional I2C transactions. This function assumes that the SCL is running
+/// at approximately 100 kHz (bit-rate).
+/// Note that this is an approximation because we perform the calculation in
+/// microseconds but we return the value in milliseconds. Instead of using a
+/// 10^3 (1000) conversion factor, we use a 2^10 (1024) conversion factor and
+/// round up with an adjustment.
+/// @param[in]  transactionSize The size in bytes of the additional transaction.
+/// @return The additional time to add to the timeout in milliseconds.
+static uint32_t findExtendedTimeoutMS(uint16_t transactionSize)
+{
+    static uint32_t const WordSize = 9u;
+    static uint32_t const PeriodUS = 10u;
+    static uint32_t const Shift = 10u;
+    static uint32_t const Adjustment = 1u;
+    
+    uint32_t extendedTimeoutMS = transactionSize * WordSize * PeriodUS;
+    extendedTimeoutMS = (extendedTimeoutMS >> Shift) + Adjustment;
+    return extendedTimeoutMS;
+}
+
+
 /// Read data from a slave device on the I2C bus.
 /// @param[in]  address
 /// @param[out] data    Data buffer to copy the read data to.
@@ -419,7 +441,6 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
 {
     I2cGen2Status status = { false };
     AppRxState state = AppRxState_Reset;
-    uint16_t length = 0;
     
     Alarm alarm;
     if (timeoutMS > 0)
@@ -436,6 +457,8 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             break;
         }
         
+        uint16_t length = 0;
+        uint8_t payloadLength = 0;
         switch (state)
         {
             case AppRxState_Reset:
@@ -463,7 +486,8 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                     status = read(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, mode);
                     if (!status.errorOccurred)
                     {
-                        if (isAppPacketLengthValid(g_heap->rxBuffer[AppRxPacketOffset_Length]))
+                        payloadLength = g_heap->rxBuffer[AppRxPacketOffset_Length];
+                        if (isAppPacketLengthValid(payloadLength))
                         {
                             length += G_AppRxPacketLengthSize;
                             if (length <= 0)
@@ -473,7 +497,10 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                                 state = AppRxState_StopRead;
                             }
                             else
+                            {
+                                alarm_snooze(&alarm, findExtendedTimeoutMS(payloadLength));
                                 state = AppRxState_ReadDataPayload;
+                            }
                         }
                         else
                         {
@@ -492,11 +519,10 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                 if (isBusReady())
                 {
                     TransferMode mode = { { true, false } };
-                    uint8_t readLength = g_heap->rxBuffer[AppRxPacketOffset_Length];
-                    status = read(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], readLength, mode);
+                    status = read(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], payloadLength, mode);
                     if (!status.errorOccurred)
                     {
-                        length += readLength;
+                        length += payloadLength;
                         if (g_rxCallback != NULL)
                             g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
                         state = AppRxState_Complete;
@@ -517,7 +543,6 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                 if (isBusReady())
                 {
                     status = sendStop();
-                    uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
                     if (!status.errorOccurred)
                         state = AppRxState_ClearIrq;
                     else
