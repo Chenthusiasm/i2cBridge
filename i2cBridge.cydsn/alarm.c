@@ -14,6 +14,7 @@
 
 #include "alarm.h"
 
+#include <limits.h>
 #include <stdio.h>
 
 #include "hwSystemTime.h"
@@ -42,8 +43,23 @@ void alarm_arm(Alarm volatile* alarm, uint32_t durationMS, AlarmType type)
 
 void alarm_disarm(Alarm volatile* alarm)
 {
-    alarm->armed = false;
-    alarm->durationMS = 0;
+    if (alarm != NULL)
+    {
+        alarm->armed = false;
+        alarm->durationMS = 0;
+    }
+}
+
+
+void alarm_snooze(Alarm volatile* alarm, uint32_t additionalTimeMS)
+{
+    if (alarm != NULL)
+    {
+        if ((UINT32_MAX - additionalTimeMS) >= alarm->durationMS)
+            alarm->durationMS += additionalTimeMS;
+        else
+            alarm->durationMS = UINT32_MAX;
+    }
 }
 
 
@@ -52,21 +68,24 @@ bool alarm_hasElapsed(Alarm volatile* alarm)
     // Flag indicating if the alarm has elapsed; initialized to false (has not
     // fired yet) and the subsequent code will determine if it has fired (true).
     bool elapsed = false;
-    if ((alarm->durationMS == 0 ) || (GET_TIME_MS() - alarm->startTimeMS >= alarm->durationMS))
+    if (alarm != NULL)
     {
-        if (alarm->type == AlarmType_SingleNotification)
+        if ((alarm->durationMS == 0 ) || (GET_TIME_MS() - alarm->startTimeMS >= alarm->durationMS))
         {
-            if (alarm->armed)
+            if (alarm->type == AlarmType_SingleNotification)
+            {
+                if (alarm->armed)
+                {
+                    elapsed = true;
+                    alarm->armed = false;
+                    alarm->durationMS = 0;
+                }
+            }
+            else
             {
                 elapsed = true;
-                alarm->armed = false;
                 alarm->durationMS = 0;
             }
-        }
-        else
-        {
-            elapsed = true;
-            alarm->durationMS = 0;
         }
     }
     return elapsed;

@@ -74,6 +74,13 @@
     /// @param alarm   The alarm to disarm.
     void alarm_disarm(Alarm volatile* alarm);
     
+    /// Add additional time to the duration to effectively snooze the alarm and
+    /// expire at a later time.
+    /// @param  alarm       The alarm to set.
+    /// @param  additionalTimeMS    The number of milliseconds to add before the
+    ///                             alarm "fires".
+    void alarm_snooze(Alarm volatile* alarm, uint32_t additionalTimeMS);
+    
     /// Check if an alarm has elapsed.
     /// @param  alarm  The alarm to check if it has elapsed.
     /// @return Whether the alarm has elapsed (true) or not (false).

@@ -358,6 +358,27 @@ static I2cGen2Status write(uint8_t address, uint8_t data[], uint16_t size, Trans
 }
 
 
+/// Sends the stop condition on the I2C bus. Only call this if a previous read
+/// or write call was called with the TransferMode.noStop flag was set to true.
+/// @return Status indicating if an error occured. See the definition of the
+///         I2cGen2Status union.
+static I2cGen2Status sendStop(void)
+{
+    I2cGen2Status status = { false };
+    uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
+    if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
+    {
+        status.driverError = true;
+        if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
+            status.nak = true;
+        if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
+            status.busBusy = true;
+    }
+    g_lastDriverStatus = driverStatus;
+    return status;
+}
+
+
 /// Create and sends the packet to the slave to instruct it to reset/clear the
 /// IRQ line.
 /// @return Status indicating if an error occured. See the definition of the
@@ -495,19 +516,12 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             {
                 if (isBusReady())
                 {
+                    status = sendStop();
                     uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
-                    if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
-                    {
-                        status.driverError = true;
-                        if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
-                            status.nak = true;
-                        if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
-                            status.busBusy = true;
-                        state = AppRxState_Error;
-                    }
+                    if (!status.errorOccurred)
+                        state = AppRxState_ClearIrq;
                     else
-                        state = AppRxState_Complete;
-                    g_lastDriverStatus = driverStatus;
+                        state = AppRxState_Error;
                 }
                 break;
             }
