@@ -465,7 +465,21 @@ static I2cGen2Status processAppRxStateMachine(AppRxState* state)
         case AppRxState_StopRead:
         {
             if (isBusReady())
-                COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
+            {
+                uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
+                if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
+                {
+                    status.driverError = true;
+                    if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
+                        status.nak = true;
+                    if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
+                        status.busBusy = true;
+                }
+                else
+                    *state = AppRxState_ClearIrq;
+                g_lastDriverStatus = driverStatus;
+            }
+                
             break;
         }
         
