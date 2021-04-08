@@ -393,8 +393,9 @@ static bool changeSlaveAppToResponseBuffer(void)
 /// @return The I2cGen2Status processing the current state.
 static I2cGen2Status processAppRxStateMachine(AppRxState* state)
 {
-    I2cGen2Status status = { false };
     static int length = 0;
+    I2cGen2Status status = { false };
+    
     
     switch (*state)
     {
@@ -419,8 +420,26 @@ static I2cGen2Status processAppRxStateMachine(AppRxState* state)
         {
             if (isBusReady())
             {
-                COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, COMPONENT(SLAVE_I2C, I2C_MODE_NO_STOP));
-                
+                TransferMode mode = { { false, true } };
+                status = read(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, mode);
+                if (!status.errorOccurred)
+                {
+                    if (g_heap->rxBuffer[AppRxPacketOffset_Length] < G_InvalidRxAppPacketLength)
+                    {
+                        length += g_heap->rxBuffer[AppRxPacketOffset_Length];
+                        if (length == 0)
+                            *state = AppRxState_StopRead;
+                        else
+                            *state = AppRxState_ReadDataPayload;
+                    }
+                    else
+                    {
+                        status.invalidRead = true;
+                        *state = AppRxState_Error;
+                    }
+                }
+                else
+                    *state = AppRxState_Error;
             }
             break;
         }

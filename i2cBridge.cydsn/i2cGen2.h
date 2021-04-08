@@ -51,6 +51,10 @@
             /// not be addressed.
             bool nak : 1;
             
+            /// Flag indicating that during a read from the I2C slave, invalid
+            /// data was received.
+            bool invalidRead : 1;
+            
             /// Error flag indicating that the transmit queue is full.
             bool transmitQueueFull : 1;
             
