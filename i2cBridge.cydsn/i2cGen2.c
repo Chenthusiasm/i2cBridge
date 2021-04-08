@@ -389,23 +389,28 @@ static bool changeSlaveAppToResponseBuffer(void)
 
 /// State machine to process the IRQ indicating that the slave app has data
 /// ready to be received by the host.
-/// @param[in/out]  state   The current state. Will update to the next state.
+/// @param[in]  timeoutMS   The amount of time the process can occur before it
+///                         times out and must finish. If 0, then there's no
+///                         timeout and the function blocks until all pending
+///                         actions are completed.
 /// @return The I2cGen2Status processing the current state.
-static I2cGen2Status processAppRxStateMachine(AppRxState* state)
+static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
 {
-    static int length = 0;
     I2cGen2Status status = { false };
+    AppRxState state = AppRxState_Reset;
+    uint16_t length = 0;
     
     
-    switch (*state)
+    
+    switch (state)
     {
         case AppRxState_Reset:
         {
             length = 0;
             if (g_slaveAppResponseActive)
-                *state = AppRxState_ReadLength;
+                state = AppRxState_ReadLength;
             else
-                *state = AppRxState_SwitchToResponseBuffer;
+                state = AppRxState_SwitchToResponseBuffer;
             break;
         }
         
@@ -424,22 +429,26 @@ static I2cGen2Status processAppRxStateMachine(AppRxState* state)
                 status = read(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, mode);
                 if (!status.errorOccurred)
                 {
-                    if (g_heap->rxBuffer[AppRxPacketOffset_Length] < G_InvalidRxAppPacketLength)
+                    if (isAppPacketLengthValid(g_heap->rxBuffer[AppRxPacketOffset_Length]))
                     {
                         length += G_AppRxPacketLengthSize;
-                        if (length == 0)
-                            *state = AppRxState_StopRead;
+                        if (length <= 0)
+                        {
+                            if (g_rxCallback != NULL)
+                                g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
+                            state = AppRxState_StopRead;
+                        }
                         else
-                            *state = AppRxState_ReadDataPayload;
+                            state = AppRxState_ReadDataPayload;
                     }
                     else
                     {
                         status.invalidRead = true;
-                        *state = AppRxState_Error;
+                        state = AppRxState_Error;
                     }
                 }
                 else
-                    *state = AppRxState_Error;
+                    state = AppRxState_Error;
             }
             break;
         }
@@ -454,11 +463,18 @@ static I2cGen2Status processAppRxStateMachine(AppRxState* state)
                 if (!status.errorOccurred)
                 {
                     length += readLength;
-                    *state = AppRxState_ClearIrq;
+                    if (g_rxCallback != NULL)
+                        g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
+                    state = AppRxState_Complete;
                 }
                 else
-                    *state = AppRxState_Error;
+                    state = AppRxState_Error;
             }
+            break;
+        }
+        
+        case AppRxState_Complete:
+        {
             break;
         }
         
@@ -474,22 +490,25 @@ static I2cGen2Status processAppRxStateMachine(AppRxState* state)
                         status.nak = true;
                     if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
                         status.busBusy = true;
+                    state = AppRxState_Error;
                 }
                 else
-                    *state = AppRxState_ClearIrq;
+                    state = AppRxState_Complete;
                 g_lastDriverStatus = driverStatus;
             }
-                
             break;
         }
         
         case AppRxState_ClearIrq:
         {
-            break;
-        }
-        
-        case AppRxState_Complete:
-        {
+            if (isBusReady())
+            {
+                status = resetIrq();
+                if (!status.errorOccurred)
+                    state = AppRxState_Complete;
+                else
+                    state = AppRxState_Error;
+            }
             break;
         }
         
@@ -504,55 +523,6 @@ static I2cGen2Status processAppRxStateMachine(AppRxState* state)
     }
     return status;
 }
-
-//            debug_printf("a");
-//            if (isBusReady())
-//            {
-//                debug_printf("b");
-//                if (!g_slaveAppResponseActive)
-//                {
-//                    debug_printf("c");
-//                    changeSlaveAppToResponseBuffer();
-//                }
-//                
-//                CyDelay(2);
-//                if (COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, COMPONENT(SLAVE_I2C, I2C_MODE_NO_STOP)) == COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
-//                {
-//                    debug_printf("d");
-//                    length += (int)G_AppRxPacketLengthSize;
-//                    uint8_t dataLength = g_heap->rxBuffer[AppRxPacketOffset_Length];
-//                    if (isAppPacketLengthValid(dataLength))
-//                    {
-//                        debug_printf("e");
-//                        if (dataLength > 0)
-//                        {
-//                            COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], dataLength, COMPONENT(SLAVE_I2C, I2C_MODE_REPEAT_START));
-//                            debug_printf("f");
-//                        }
-//                        else
-//                        {
-//                            COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
-//                            debug_printf("g");
-//                        }
-//                        length += (int)dataLength;
-//                        if (g_rxCallback != NULL)
-//                            g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
-//                    }
-//                    else
-//                    {
-//                        COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
-//                        length = -1;
-//                        debug_printf("h", 5);
-//                    }
-//                }
-//                else
-//                    debug_printf("i");
-//                resetIrq();
-//                g_rxPending = false;
-//            }
-//            else
-//                length = -1;
-//            debug_printf("\n");
 
 
 // === ISR =====================================================================
@@ -641,20 +611,7 @@ int i2cGen2_processRx(uint32_t timeoutMS)
     int length = 0;
     if (g_heap != NULL)
     {
-        Alarm alarm;
-        if (timeoutMS > 0)
-            alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
-        else
-            alarm_disarm(&alarm);
-            
-        while (g_rxPending && isIrqAsserted())
-        {
-            if (alarm_hasElapsed(&alarm))
-            {
-                length = -1;
-            }
-
-        }
+        processAppRxStateMachine(timeoutMS);
     }
     else
         length = -1;
