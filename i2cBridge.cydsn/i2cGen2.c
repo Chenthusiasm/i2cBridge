@@ -400,125 +400,139 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
     AppRxState state = AppRxState_Reset;
     uint16_t length = 0;
     
-    
-    
-    switch (state)
+    Alarm alarm;
+    if (timeoutMS > 0)
+        alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+    else
+        alarm_disarm(&alarm);
+        
+        
+    while (state != AppRxState_Complete)
     {
-        case AppRxState_Reset:
+        if (alarm_hasElapsed(&alarm))
         {
-            length = 0;
-            if (g_slaveAppResponseActive)
-                state = AppRxState_ReadLength;
-            else
-                state = AppRxState_SwitchToResponseBuffer;
+            status.busBusy = true;
             break;
         }
         
-        case AppRxState_SwitchToResponseBuffer:
+        switch (state)
         {
-            if (isBusReady())
-                changeSlaveAppToResponseBuffer();
-            break;
-        }
-        
-        case AppRxState_ReadLength:
-        {
-            if (isBusReady())
+            case AppRxState_Reset:
             {
-                TransferMode mode = { { false, true } };
-                status = read(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, mode);
-                if (!status.errorOccurred)
+                length = 0;
+                if (g_slaveAppResponseActive)
+                    state = AppRxState_ReadLength;
+                else
+                    state = AppRxState_SwitchToResponseBuffer;
+                break;
+            }
+            
+            case AppRxState_SwitchToResponseBuffer:
+            {
+                if (isBusReady())
+                    changeSlaveAppToResponseBuffer();
+                break;
+            }
+            
+            case AppRxState_ReadLength:
+            {
+                if (isBusReady())
                 {
-                    if (isAppPacketLengthValid(g_heap->rxBuffer[AppRxPacketOffset_Length]))
+                    TransferMode mode = { { false, true } };
+                    status = read(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, mode);
+                    if (!status.errorOccurred)
                     {
-                        length += G_AppRxPacketLengthSize;
-                        if (length <= 0)
+                        if (isAppPacketLengthValid(g_heap->rxBuffer[AppRxPacketOffset_Length]))
                         {
-                            if (g_rxCallback != NULL)
-                                g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
-                            state = AppRxState_StopRead;
+                            length += G_AppRxPacketLengthSize;
+                            if (length <= 0)
+                            {
+                                if (g_rxCallback != NULL)
+                                    g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
+                                state = AppRxState_StopRead;
+                            }
+                            else
+                                state = AppRxState_ReadDataPayload;
                         }
                         else
-                            state = AppRxState_ReadDataPayload;
+                        {
+                            status.invalidRead = true;
+                            state = AppRxState_Error;
+                        }
                     }
                     else
+                        state = AppRxState_Error;
+                }
+                break;
+            }
+            
+            case AppRxState_ReadDataPayload:
+            {
+                if (isBusReady())
+                {
+                    TransferMode mode = { { true, false } };
+                    uint8_t readLength = g_heap->rxBuffer[AppRxPacketOffset_Length];
+                    status = read(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], readLength, mode);
+                    if (!status.errorOccurred)
                     {
-                        status.invalidRead = true;
+                        length += readLength;
+                        if (g_rxCallback != NULL)
+                            g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
+                        state = AppRxState_Complete;
+                    }
+                    else
+                        state = AppRxState_Error;
+                }
+                break;
+            }
+            
+            case AppRxState_Complete:
+            {
+                break;
+            }
+            
+            case AppRxState_StopRead:
+            {
+                if (isBusReady())
+                {
+                    uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
+                    if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
+                    {
+                        status.driverError = true;
+                        if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
+                            status.nak = true;
+                        if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
+                            status.busBusy = true;
                         state = AppRxState_Error;
                     }
+                    else
+                        state = AppRxState_Complete;
+                    g_lastDriverStatus = driverStatus;
                 }
-                else
-                    state = AppRxState_Error;
+                break;
             }
-            break;
-        }
-        
-        case AppRxState_ReadDataPayload:
-        {
-            if (isBusReady())
+            
+            case AppRxState_ClearIrq:
             {
-                TransferMode mode = { { true, false } };
-                uint8_t readLength = g_heap->rxBuffer[AppRxPacketOffset_Length];
-                status = read(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], readLength, mode);
-                if (!status.errorOccurred)
+                if (isBusReady())
                 {
-                    length += readLength;
-                    if (g_rxCallback != NULL)
-                        g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
-                    state = AppRxState_Complete;
+                    status = resetIrq();
+                    if (!status.errorOccurred)
+                        state = AppRxState_Complete;
+                    else
+                        state = AppRxState_Error;
                 }
-                else
-                    state = AppRxState_Error;
+                break;
             }
-            break;
-        }
-        
-        case AppRxState_Complete:
-        {
-            break;
-        }
-        
-        case AppRxState_StopRead:
-        {
-            if (isBusReady())
+            
+            case AppRxState_Error:
             {
-                uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
-                if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
-                {
-                    status.driverError = true;
-                    if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
-                        status.nak = true;
-                    if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
-                        status.busBusy = true;
-                    state = AppRxState_Error;
-                }
-                else
-                    state = AppRxState_Complete;
-                g_lastDriverStatus = driverStatus;
+                break;
             }
-            break;
-        }
-        
-        case AppRxState_ClearIrq:
-        {
-            if (isBusReady())
+            
+            default:
             {
-                status = resetIrq();
-                if (!status.errorOccurred)
-                    state = AppRxState_Complete;
-                else
-                    state = AppRxState_Error;
             }
-            break;
-        }
-        
-        case AppRxState_Error:
-        {
-            break;
-        }
-        
-        default:
-        {
         }
     }
     return status;
