@@ -44,8 +44,8 @@
             bool driverError : 1;
             
             /// Error flag indicating the bus was busy and the I2C transaction
-            /// couldn't be completed; a timeout occurred.
-            bool busBusy : 1;
+            /// couldn't be completed; the I2C transaction timed out.
+            bool timedOut : 1;
             
             /// Error flag indicating a NAK occurred and the slave device could
             /// not be addressed.

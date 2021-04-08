@@ -394,7 +394,7 @@ static I2cGen2Status sendStop(void)
         if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
             status.nak = true;
         if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
-            status.busBusy = true;
+            status.timedOut = true;
     }
     g_lastDriverStatus = driverStatus;
     return status;
@@ -455,7 +455,7 @@ static int processAppRxStateMachine(uint32_t timeoutMS)
     {
         if (alarm_hasElapsed(&alarm))
         {
-            status.busBusy = true;
+            status.timedOut = true;
             break;
         }
         
@@ -566,6 +566,7 @@ static int processAppRxStateMachine(uint32_t timeoutMS)
             
             case AppRxState_Error:
             {
+                
                 break;
             }
             
@@ -732,7 +733,7 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
                 g_lastDriverStatus = driverStatus;
             }
             else
-                status.busBusy = true;
+                status.timedOut = true;
             if (status.errorOccurred)
                 debug_printf("%x\n", g_lastDriverStatus);
             else
@@ -765,7 +766,7 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
                     g_slaveAppResponseActive = (data[0] == AppBufferOffset_Response);
             }
             else
-                status.busBusy = true;
+                status.timedOut = true;
             if (status.errorOccurred)
                 debug_printf("%x\n", g_lastDriverStatus);
             else
@@ -867,7 +868,7 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
         {
             if (alarm_hasElapsed(&alarm))
             {
-                status.busBusy = true;
+                status.timedOut = true;
                 break;
             }
             

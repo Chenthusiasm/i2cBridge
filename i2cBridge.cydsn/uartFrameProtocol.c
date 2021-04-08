@@ -523,7 +523,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                     uartFrameProtocol_txEnqueueData(data, size);
                 else
                 {
-                    if (i2cStatus.busBusy)
+                    if (i2cStatus.timedOut)
                         txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
                     status = false;
                 }
@@ -566,7 +566,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                     txEnqueueCommandResponse(BridgeCommand_SlaveAck, NULL, 0);
                 else
                 {
-                    if (i2cStatus.busBusy)
+                    if (i2cStatus.timedOut)
                         txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
                     else if (i2cStatus.nak)
                         txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
