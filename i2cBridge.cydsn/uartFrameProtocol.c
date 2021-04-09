@@ -524,12 +524,13 @@ static bool txEnqueueUartError(void)
 {
     uint8_t data[] =
     {
+        ErrorType_Uart,
     };
     
     bool result = false;
     if (!queue_isFull(&g_heap->txQueue))
     {
-        g_heap->pendingTxEnqueueCommand = BridgeCommand_Version;
+        g_heap->pendingTxEnqueueCommand = BridgeCommand_LegacyVersion;
         g_heap->pendingTxEnqueueFlags.command = true;
         g_heap->pendingTxEnqueueFlags.data = true;
         queue_enqueue(&g_heap->txQueue, data, sizeof(data));
@@ -549,7 +550,7 @@ static bool txEnqueueI2cError(I2cGen2Status status, uint16_t callsite)
     uint32_t driverStatus = i2cGen2_getLastDriverStatus();
     uint8_t data[] =
     {
-        2u,
+        ErrorType_I2c,
         status.errorOccurred,
         HI_BYTE_16_BIT(callsite),
         LO_BYTE_16_BIT(callsite),
@@ -598,6 +599,31 @@ static void processI2cErrors(I2cGen2Status status, uint32_t __attribute__((unuse
 }
 
 
+
+static bool processErrorCommand(uint8_t* data, uint16_t size)
+{
+    if (size > 0)
+        g_enableErrorMode = (data[0] > 0);
+    
+    uint8_t response[] =
+    {
+        ErrorType_Status,
+        g_enableErrorMode,
+    };
+    
+    bool status = false;
+    if (!queue_isFull(&g_heap->txQueue))
+    {
+        g_heap->pendingTxEnqueueCommand = BridgeCommand_Error;
+        g_heap->pendingTxEnqueueFlags.command = true;
+        g_heap->pendingTxEnqueueFlags.data = true;
+        queue_enqueue(&g_heap->txQueue, response, sizeof(response));
+        status = true;
+    }
+    return status;
+}
+
+
 /// Processes the decoded UART receive packet (where the frame and escape
 /// characters are removed).
 /// @param[in]  data    The decoded received packet.
@@ -620,7 +646,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_Error:
             {
-                // @TODO Error processing
+                processErrorCommand(&data[PacketOffset_BridgeData], size - 1);
                 break;
             }
             
