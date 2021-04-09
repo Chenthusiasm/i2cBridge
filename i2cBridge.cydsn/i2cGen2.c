@@ -582,6 +582,20 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
 }
 
 
+/// Checks to see if an I2C-related error occurred. If an error occurred and an
+/// error callback function has been registered, the error callback function
+/// will be invoked.
+/// @param[in]  status      Status indicating if an error occured. See the
+///                         definition of the I2cGen2Status union.
+/// @param[in]  callsite    Unique callsite ID to distinguish different
+///                         functions that had an I2C error.
+static void processError(I2cGen2Status status, uint32_t callsite)
+{
+    if (status.errorOccurred && (g_errorCallback != NULL))
+        g_errorCallback(status, callsite);
+}
+
+
 // === ISR =====================================================================
 
 /// ISR for the slaveIRQ (for the slaveIRQPin). The IRQ is asserted when there's
@@ -672,6 +686,8 @@ void i2cGen2_registerErrorCallback(I2cGen2_ErrorCallback callback)
 
 bool i2cGen2_processRx(uint32_t timeoutMS)
 {
+    static uint32_t Callsite = 0x00000100;
+    
     bool result = false;
     I2cGen2Status status = { false };
     if ((g_heap != NULL) && g_rxPending)
@@ -693,17 +709,15 @@ bool i2cGen2_processRx(uint32_t timeoutMS)
     }
     else
         status.deactivated = true;
-    if (status.errorOccurred)
-    {
-        if (g_errorCallback != NULL)
-            g_errorCallback(status);
-    }
+    processError(status, Callsite);
     return result;
 }
 
 
 int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
 {
+    static uint32_t Callsite = 0x00000200;
+    
     int count = 0;
     I2cGen2Status status = { false };
     if (g_heap != NULL)
@@ -738,31 +752,26 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
                 break;
             }
         }
-        if (count > 0)
-            debug_printf("[I:Tx]=%u\n", count);
     }
     else
     {
         status.deactivated = true;
         count = -1;
     }
-    if (status.errorOccurred)
-    {
-        if (g_errorCallback != NULL)
-            g_errorCallback(status);
-    }
+    processError(status, Callsite);
     return count;
 }
 
 
 I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 {
+    static uint32_t const Callsite = 0x00000300;
+    
     I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
         if ((data != NULL) && (size > 0))
         {
-            debug_printf("[I:R]");
             if (isBusReady())
             {
                 TransferMode mode = { { false, false } };
@@ -770,29 +779,26 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
             }
             else
                 status.timedOut = true;
-            if (status.errorOccurred)
-            {
-                if (g_errorCallback != NULL)
-                    g_errorCallback(status);
-            }
         }
         else
             status.inputParametersInvalid = true;
     }
     else
         status.deactivated = true;
+    processError(status, Callsite);
     return status;
 }
 
 
 I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 {
+    static uint32_t const Callsite = 0x00000400;
+    
     I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
         if ((data != NULL) && (size > 0))
         {
-            debug_printf("[I:W]");
             if (isBusReady())
             {
                 TransferMode mode = { { false, false } };
@@ -800,44 +806,53 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
             }
             else
                 status.timedOut = true;
-            if (status.errorOccurred)
-            {
-                if (g_errorCallback != NULL)
-                    g_errorCallback(status);
-            }
         }
         else
             status.inputParametersInvalid = true;
     }
     else
         status.deactivated = true;
+    processError(status, Callsite);
     return status;
 }
 
 
 I2cGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
 {
+    // Note: the error processing works differently in this function because it
+    // calls i2cGen2_write which has its own error processing; only process
+    // errors if i2cGen2_write is not invoked.
+    
+    static uint32_t const Callsite = 0x00000500;
     static uint8_t const MinSize = 2u;
     static uint8_t const AddressOffset = 0u;
     static uint8_t const DataOffset = 1u;
     
     I2cGen2Status status = { false };
+    bool invokedWrite = false;
     if (g_heap != NULL)
     {
         if ((data != NULL) && (size > MinSize))
         {
             size--;
             status = i2cGen2_write(data[AddressOffset], &data[DataOffset], size);
+            invokedWrite = true;
         }
+        else
+            status.inputParametersInvalid = true;
     }
     else
         status.deactivated = true;
+    if (invokedWrite)
+        processError(status, Callsite);
     return status;
 }
 
 
 I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 {
+    static uint32_t const Callsite = 0x00000600;
+    
     I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
@@ -857,12 +872,15 @@ I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
     }
     else
         status.deactivated = true;
+    processError(status, Callsite);
     return status;
 }
 
 
 I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 {
+    static uint32_t const Callsite = 0x00000700;
+    
     I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
@@ -882,12 +900,15 @@ I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
     }
     else
         status.deactivated = true;
+    processError(status, Callsite);
     return status;
 }
 
 
 I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
 {
+    static uint32_t const Callsite = 0x00000800;
+    
     I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
@@ -897,7 +918,6 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
         else
             alarm_disarm(&alarm);
         
-        debug_printf("[I:A]");
         while (true)
         {
             if (alarm_hasElapsed(&alarm))
@@ -911,22 +931,14 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
             uint8_t scratch;
             if (isBusReady())
             {
-                uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, &scratch, 0, COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
-                if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
-                {
-                    status.driverError = true;
-                    if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
-                        status.nak = true;
-                }
-                g_lastDriverStatus = driverStatus;
+                TransferMode mode = { { false, false } };
+                status = read(address, &scratch, 0, mode);
             }
-            if (status.errorOccurred)
-                debug_printf("%x", g_lastDriverStatus);
         }
-        debug_printf("\n");
     }
     else
         status.deactivated = true;
+    processError(status, Callsite);
     return status;
 }
 

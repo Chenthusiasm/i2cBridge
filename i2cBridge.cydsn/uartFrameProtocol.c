@@ -696,10 +696,12 @@ static uint16_t __attribute__((unused)) processReceivedData(uint8_t const source
 
 /// Processes errors from the I2C gen 2 module, specifically prep an error
 /// message to send to the host.
-/// @param[in]  status  Status indicating if an error occured during the I2c
-///                     transaction. See the definition of the I2cGen2Status
-///                     union.
-static void processI2cErrors(I2cGen2Status status)
+/// @param[in]  status      Status indicating if an error occured during the I2c
+///                         transaction. See the definition of the I2cGen2Status
+///                         union.
+/// @param[in]  callsite    Unique callsite ID to distinguish different
+///                         functions that had an I2C error.
+static void processI2cErrors(I2cGen2Status status, uint32_t __attribute__((unused)) callsite)
 {
     if (status.deactivated)
         ;
