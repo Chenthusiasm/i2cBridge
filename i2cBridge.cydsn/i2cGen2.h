@@ -116,15 +116,14 @@
     /// the IRQ line is asserted and a slave read is to be performed.
     void i2cGen2_resetSlaveAddress(void);
     
-    /// Process any pending data to be receved.
+    /// Process any pending data to be received.
     /// @param[in]  timeoutMS   The amount of time the process can occur before
     ///                         it times out and must finish. If 0, then there's
     ///                         no timeout and the function blocks until all
     ///                         pending actions are completed.
-    /// @return The number of bytes that were processed. If 0, then no bytes
-    ///         were pending to receive. If -1, an error occurred: there was
-    ///         data pending but it could not be read because the bus was busy.
-    int i2cGen2_processRx(uint32_t timeoutMS);
+    /// @return If pending data was successfully received and processed. If
+    ///         nothing is pending, the function will also return false.
+    bool i2cGen2_processRx(uint32_t timeoutMS);
     
     /// Process any pending transmits in the transmits.
     /// @param[in]  timeoutMS   The amount of time the process can occur before

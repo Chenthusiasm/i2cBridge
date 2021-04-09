@@ -439,11 +439,12 @@ static I2cGen2Status changeSlaveAppToResponseBuffer(void)
 ///                         times out and must finish. If 0, then there's no
 ///                         timeout and the function blocks until all pending
 ///                         actions are completed.
-/// @return The number of bytes that were processed. If 0, then no bytes were
-///         pending to receive. If -1, an error occurred: there was data pending
-///         but it could not be read because the bus was busy.
-static int processAppRxStateMachine(uint32_t timeoutMS)
+/// @return Status indicating if an error occured. See the definition of the
+///         I2cGen2Status union.
+static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
 {
+    I2cGen2Status status = { false };
+    
     Alarm alarm;
     if (timeoutMS > 0)
         alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
@@ -452,14 +453,15 @@ static int processAppRxStateMachine(uint32_t timeoutMS)
         
     int length = 0;
     uint8_t payloadLength = 0;
-    I2cGen2Status status = { false };
     AppRxState state = AppRxState_Start;    
     while (state != AppRxState_Complete)
     {
         if (alarm_hasElapsed(&alarm))
         {
             status.timedOut = true;
-            break;
+            state = AppRxState_Error;
+            // Don't break out of the loop; go through the error state
+            // processing to handle the error message and complete afterwards.
         }
         
         switch (state)
@@ -542,11 +544,6 @@ static int processAppRxStateMachine(uint32_t timeoutMS)
                 break;
             }
             
-            case AppRxState_Complete:
-            {
-                break;
-            }
-            
             case AppRxState_StopRead:
             {
                 if (isBusReady())
@@ -577,15 +574,17 @@ static int processAppRxStateMachine(uint32_t timeoutMS)
             {
                 if (g_errorCallback != NULL)
                     g_errorCallback(status);
+                state = AppRxState_Complete;
                 break;
             }
             
             default:
             {
+                // Should technically never get here.
             }
         }
     }
-    return length;
+    return status;
 }
 
 
@@ -677,16 +676,27 @@ void i2cGen2_registerErrorCallback(I2cGen2_ErrorCallback callback)
 }
 
 
-int i2cGen2_processRx(uint32_t timeoutMS)
+bool i2cGen2_processRx(uint32_t timeoutMS)
 {
-    int length = 0;
-    if ((g_heap != NULL) && g_rxPending && isIrqAsserted())
+    bool result = false;
+    if ((g_heap != NULL) && g_rxPending)
     {
-        processAppRxStateMachine(timeoutMS);
+        if (isIrqAsserted())
+        {
+            I2cGen2Status status = processAppRxStateMachine(timeoutMS);
+            if (!status.errorOccurred)
+            {
+                g_rxPending = false;
+                result = true;
+            }
+            // If an error occurred; do not clear the g_rxPending flag so that
+            // another attempt can be made to process a pending receive at a
+            // later time.
+        }
+        else
+            g_rxPending = false;
     }
-    else
-        length = -1;
-    return length;
+    return result;
 }
 
 
