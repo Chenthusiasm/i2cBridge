@@ -599,8 +599,12 @@ static void processI2cErrors(I2cGen2Status status, uint32_t __attribute__((unuse
 }
 
 
-
-static bool processErrorCommand(uint8_t* data, uint16_t size)
+/// Processes the error command from the host and enqueues the appropriate
+/// response.
+/// @param[in]  data    The data payload from the error command.
+/// @param[in]  size    The size of the data payload.
+/// @return If the appropriate response was successfully enqueued.
+static bool processErrorCommand(uint8_t const* data, uint16_t size)
 {
     if (size > 0)
         g_enableErrorMode = (data[0] > 0);
