@@ -260,7 +260,7 @@ static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NUL
 
 /// Flag indicating that error mode is enabled. Error mode is when all errors
 /// are reported via the BridgeCommand_Error command.
-static bool g_enableErrorMode = false;
+static bool g_errorModeEnabled = false;
 
 
 // === PRIVATE FUNCTIONS =======================================================
@@ -580,22 +580,27 @@ static bool txEnqueueI2cError(I2cGen2Status status, uint16_t callsite)
 ///                         union.
 /// @param[in]  callsite    Unique callsite ID to distinguish different
 ///                         functions that triggered the error.
-static void processI2cErrors(I2cGen2Status status, uint32_t __attribute__((unused)) callsite)
+static void processI2cErrors(I2cGen2Status status, uint16_t callsite)
 {
-    if (status.deactivated)
-        ;
-    if (status.driverError)
-        ;
-    if (status.timedOut)
-        txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
-    if (status.nak)
-        txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
-    if (status.invalidRead)
-        ;
-    if (status.transmitQueueFull)
-        ;
-    if (status.inputParametersInvalid)
-        ;
+    if (g_errorModeEnabled)
+        txEnqueueI2cError(status, callsite);
+    else
+    {
+        if (status.deactivated)
+            ;
+        if (status.driverError)
+            ;
+        if (status.timedOut)
+            txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
+        if (status.nak)
+            txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
+        if (status.invalidRead)
+            ;
+        if (status.transmitQueueFull)
+            ;
+        if (status.inputParametersInvalid)
+            ;
+    }
 }
 
 
@@ -607,12 +612,12 @@ static void processI2cErrors(I2cGen2Status status, uint32_t __attribute__((unuse
 static bool processErrorCommand(uint8_t const* data, uint16_t size)
 {
     if (size > 0)
-        g_enableErrorMode = (data[0] > 0);
+        g_errorModeEnabled = (data[0] > 0);
     
     uint8_t response[] =
     {
         ErrorType_Status,
-        g_enableErrorMode,
+        g_errorModeEnabled,
     };
     
     bool status = false;

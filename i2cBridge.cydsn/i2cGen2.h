@@ -72,7 +72,7 @@
     
     /// Definition of the error callback function that should be invoked when
     /// an error occurs.
-    typedef void (*I2cGen2_ErrorCallback)(I2cGen2Status, uint32_t);
+    typedef void (*I2cGen2_ErrorCallback)(I2cGen2Status, uint16_t);
     
     
     // === FUNCTIONS ===========================================================

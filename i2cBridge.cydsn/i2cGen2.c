@@ -589,7 +589,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
 ///                         definition of the I2cGen2Status union.
 /// @param[in]  callsite    Unique callsite ID to distinguish different
 ///                         functions that had an I2C error.
-static void processError(I2cGen2Status status, uint32_t callsite)
+static void processError(I2cGen2Status status, uint16_t callsite)
 {
     if (status.errorOccurred && (g_errorCallback != NULL))
         g_errorCallback(status, callsite);
@@ -692,7 +692,7 @@ void i2cGen2_registerErrorCallback(I2cGen2_ErrorCallback callback)
 
 bool i2cGen2_processRx(uint32_t timeoutMS)
 {
-    static uint32_t Callsite = 0x00000100;
+    static uint16_t Callsite = 0x0100;
     
     bool result = false;
     I2cGen2Status status = { false };
@@ -722,7 +722,7 @@ bool i2cGen2_processRx(uint32_t timeoutMS)
 
 int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
 {
-    static uint32_t Callsite = 0x00000200;
+    static uint16_t Callsite = 0x0200;
     
     int count = 0;
     I2cGen2Status status = { false };
@@ -771,7 +771,7 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
 
 I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 {
-    static uint32_t const Callsite = 0x00000300;
+    static uint16_t const Callsite = 0x0300;
     
     I2cGen2Status status = { false };
     if (g_heap != NULL)
@@ -798,7 +798,7 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 {
-    static uint32_t const Callsite = 0x00000400;
+    static uint16_t const Callsite = 0x0400;
     
     I2cGen2Status status = { false };
     if (g_heap != NULL)
@@ -829,7 +829,7 @@ I2cGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
     // calls i2cGen2_write which has its own error processing; only process
     // errors if i2cGen2_write is not invoked.
     
-    static uint32_t const Callsite = 0x00000500;
+    static uint16_t const Callsite = 0x0500;
     static uint8_t const MinSize = 2u;
     static uint8_t const AddressOffset = 0u;
     static uint8_t const DataOffset = 1u;
@@ -857,7 +857,7 @@ I2cGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 {
-    static uint32_t const Callsite = 0x00000600;
+    static uint16_t const Callsite = 0x0600;
     
     I2cGen2Status status = { false };
     if (g_heap != NULL)
@@ -885,7 +885,7 @@ I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 {
-    static uint32_t const Callsite = 0x00000700;
+    static uint16_t const Callsite = 0x0700;
     
     I2cGen2Status status = { false };
     if (g_heap != NULL)
@@ -913,7 +913,7 @@ I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
 {
-    static uint32_t const Callsite = 0x00000800;
+    static uint16_t const Callsite = 0x0800;
     
     I2cGen2Status status = { false };
     if (g_heap != NULL)
