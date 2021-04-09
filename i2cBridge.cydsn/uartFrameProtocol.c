@@ -694,6 +694,30 @@ static uint16_t __attribute__((unused)) processReceivedData(uint8_t const source
 }
 
 
+/// Processes errors from the I2C gen 2 module, specifically prep an error
+/// message to send to the host.
+/// @param[in]  status  Status indicating if an error occured during the I2c
+///                     transaction. See the definition of the I2cGen2Status
+///                     union.
+static void processI2cErrors(I2cGen2Status status)
+{
+    if (status.deactivated)
+        ;
+    if (status.driverError)
+        ;
+    if (status.timedOut)
+        txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
+    if (status.nak)
+        txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
+    if (status.invalidRead)
+        ;
+    if (status.transmitQueueFull)
+        ;
+    if (status.inputParametersInvalid)
+        ;
+}
+
+
 /// Initializes the basic receive variables
 static void initRx(void)
 {
@@ -724,6 +748,14 @@ static void initTxQueue()
     g_heap->txQueue.maxSize = TX_QUEUE_MAX_SIZE;
     queue_empty(&g_heap->txQueue);
     resetPendingTxEnqueue();
+}
+
+
+/// Register the callback functions for I2C-related events.
+static void registerI2cCallbacks(void)
+{
+    i2cGen2_registerRxCallback(uartFrameProtocol_txEnqueueData);
+    i2cGen2_registerErrorCallback(processI2cErrors);
 }
 
 
@@ -787,6 +819,7 @@ uint16_t uartFrameProtocol_activate(uint32_t* memory, uint16_t size)
         initRx();
         initDecodedRxQueue();
         initTxQueue();
+        registerI2cCallbacks();
         allocatedSize = uartFrameProtocol_getMemoryRequirement() / sizeof(uint32_t);
     }
     return allocatedSize;
