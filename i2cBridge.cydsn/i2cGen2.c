@@ -754,17 +754,16 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
             debug_printf("[I:R]");
             if (isBusReady())
             {
-                uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
-                if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
-                    status.driverError = true;
-                g_lastDriverStatus = driverStatus;
+                TransferMode mode = { { false, false } };
+                status = read(address, data, size, mode);
             }
             else
                 status.timedOut = true;
             if (status.errorOccurred)
-                debug_printf("%x\n", g_lastDriverStatus);
-            else
-                debug_printf("\n");
+            {
+                if (g_errorCallback != NULL)
+                    g_errorCallback(status);
+            }
         }
         else
             status.inputParametersInvalid = true;
