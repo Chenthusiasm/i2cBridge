@@ -38,6 +38,12 @@
     /// Token past for Cypress components.
     #define COMPONENT(a, b)         PASTE__(a, b)
     
+    /// Get the high byte from a 16-bit data type.
+    #define HI_BYTE_16(x)                        ((x >> 8u) & 0xff)
+    
+    /// Get the low byte from a 16-bit data type.
+    #define LO_BYTE_16(x)                        ((x >> 0u) & 0xff)
+    
     
     #ifdef __cplusplus
         } // extern "C"

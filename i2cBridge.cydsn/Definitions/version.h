@@ -42,7 +42,16 @@
     
     /// Defines any small bug fixes or code rework.
     /// Format: unsigned 16-bit integer, represented as decimal.
-    #define VERSION_REVISION            (3u)
+    #define VERSION_UPDATE              (3u)
+    
+    /// Defines the legacy variation of the version; major release. The legacy
+    /// major version is hard-coded to 254 (0xfe).
+    /// DO NOT MODIFY.
+    #define VERSION_LEGACY_MAJOR        (0xfe)
+    
+    /// Defines the legacy variation of the version; minor release. The le
+    /// DO NOT MODIFY.
+    #define VERSION_LEGACY_MINOR        (VERSION_UPDATE)
     
     
     #ifdef __cplusplus

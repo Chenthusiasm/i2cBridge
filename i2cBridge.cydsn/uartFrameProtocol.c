@@ -431,8 +431,8 @@ static bool txEnqueueLegacyVersion(void)
     uint32_t const UartBaud = 1000000u;
     static uint8_t const Version[] =
     {
-        (uint8_t)VERSION_MINOR,
-        (uint8_t)VERSION_REVISION,
+        (uint8_t)VERSION_LEGACY_MAJOR,
+        (uint8_t)VERSION_LEGACY_MINOR,
         (uint8_t)((UartBaud >> 24) & 0xff),
         (uint8_t)((UartBaud >> 16) & 0xff),
         (uint8_t)((UartBaud >>  8) & 0xff),
@@ -454,16 +454,52 @@ static bool txEnqueueLegacyVersion(void)
 
 static bool txEnqueueVersion(void)
 {
+    static uint8_t const Version[] =
+    {
+        (uint8_t)HI_BYTE_16(VERSION_MAJOR),
+        (uint8_t)LO_BYTE_16(VERSION_MAJOR),
+        (uint8_t)HI_BYTE_16(VERSION_MINOR),
+        (uint8_t)LO_BYTE_16(VERSION_MINOR),
+        (uint8_t)HI_BYTE_16(VERSION_UPDATE),
+        (uint8_t)LO_BYTE_16(VERSION_UPDATE),
+    };
+    
     bool status = false;
     if (!queue_isFull(&g_heap->txQueue) )
     {
         g_heap->pendingTxEnqueueCommand = BridgeCommand_Version;
         g_heap->pendingTxEnqueueFlags.command = true;
         g_heap->pendingTxEnqueueFlags.data = true;
-        //queue_enqueue(&g_heap->txQueue, data, size);
+        queue_enqueue(&g_heap->txQueue, Version, sizeof(Version));
         status = true;
     }
     return status;
+}
+
+
+/// Processes errors from the I2C gen 2 module, specifically prep an error
+/// message to send to the host.
+/// @param[in]  status      Status indicating if an error occured during the I2c
+///                         transaction. See the definition of the I2cGen2Status
+///                         union.
+/// @param[in]  callsite    Unique callsite ID to distinguish different
+///                         functions that had an I2C error.
+static void processI2cErrors(I2cGen2Status status, uint32_t __attribute__((unused)) callsite)
+{
+    if (status.deactivated)
+        ;
+    if (status.driverError)
+        ;
+    if (status.timedOut)
+        txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
+    if (status.nak)
+        txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
+    if (status.invalidRead)
+        ;
+    if (status.transmitQueueFull)
+        ;
+    if (status.inputParametersInvalid)
+        ;
 }
 
 
@@ -691,32 +727,6 @@ static uint16_t __attribute__((unused)) processReceivedData(uint8_t const source
         processReceivedByte(data);
     }
     return size;
-}
-
-
-/// Processes errors from the I2C gen 2 module, specifically prep an error
-/// message to send to the host.
-/// @param[in]  status      Status indicating if an error occured during the I2c
-///                         transaction. See the definition of the I2cGen2Status
-///                         union.
-/// @param[in]  callsite    Unique callsite ID to distinguish different
-///                         functions that had an I2C error.
-static void processI2cErrors(I2cGen2Status status, uint32_t __attribute__((unused)) callsite)
-{
-    if (status.deactivated)
-        ;
-    if (status.driverError)
-        ;
-    if (status.timedOut)
-        txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
-    if (status.nak)
-        txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
-    if (status.invalidRead)
-        ;
-    if (status.transmitQueueFull)
-        ;
-    if (status.inputParametersInvalid)
-        ;
 }
 
 
