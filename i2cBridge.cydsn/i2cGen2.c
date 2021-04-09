@@ -371,14 +371,22 @@ static I2cGen2Status read(uint8_t address, uint8_t data[], uint16_t size, Transf
 static I2cGen2Status write(uint8_t address, uint8_t data[], uint16_t size, TransferMode mode)
 {
     I2cGen2Status status = { false };
-    uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, data, size, mode.value);
-    if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
+    if ((data != NULL) && (size > 0))
     {
-        status.driverError = true;
-        if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
-            status.nak = true;
+        uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, data, size, mode.value);
+        if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
+        {
+            status.driverError = true;
+            if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
+                status.nak = true;
+        }
+        else
+        {
+            if ((address == g_slaveAddress) && (data[TxQueueDataOffset_Address] > AppBufferOffset_Response))
+                g_slaveAppResponseActive = true;
+        }
+        g_lastDriverStatus = driverStatus;
     }
-    g_lastDriverStatus = driverStatus;
     return status;
 }
 
@@ -427,8 +435,8 @@ static I2cGen2Status changeSlaveAppToResponseBuffer(void)
     uint8_t responseMessage[] = { AppBufferOffset_Response };
     TransferMode mode = { { false, false } };
     status = write(g_slaveAddress, responseMessage, sizeof(responseMessage), mode);
-    if (!status.errorOccurred)
-        g_slaveAppResponseActive = true;
+    // The write function will change the flag to reflect if the app was
+    // switched to the response buffer.
     return status;
 }
 
@@ -784,12 +792,8 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
             debug_printf("[I:W]");
             if (isBusReady())
             {
-                uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, data, size, COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER));
-                if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
-                    status.driverError = true;
-                g_lastDriverStatus = driverStatus;
-                if (address == g_slaveAddress)
-                    g_slaveAppResponseActive = (data[0] == AppBufferOffset_Response);
+                TransferMode mode = { { false, false } };
+                status = write(address, data, size, mode);
             }
             else
                 status.timedOut = true;
