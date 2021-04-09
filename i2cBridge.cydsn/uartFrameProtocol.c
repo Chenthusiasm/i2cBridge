@@ -452,20 +452,22 @@ static bool txEnqueueLegacyVersion(void)
 }
 
 
+/// Enqueue the current implementation of the version request command.
+/// @return If the version response was successfully enqueued.
 static bool txEnqueueVersion(void)
 {
     static uint8_t const Version[] =
     {
-        (uint8_t)HI_BYTE_16(VERSION_MAJOR),
-        (uint8_t)LO_BYTE_16(VERSION_MAJOR),
-        (uint8_t)HI_BYTE_16(VERSION_MINOR),
-        (uint8_t)LO_BYTE_16(VERSION_MINOR),
-        (uint8_t)HI_BYTE_16(VERSION_UPDATE),
-        (uint8_t)LO_BYTE_16(VERSION_UPDATE),
+        HI_BYTE_16_BIT(VERSION_MAJOR),
+        LO_BYTE_16_BIT(VERSION_MAJOR),
+        HI_BYTE_16_BIT(VERSION_MINOR),
+        LO_BYTE_16_BIT(VERSION_MINOR),
+        HI_BYTE_16_BIT(VERSION_UPDATE),
+        LO_BYTE_16_BIT(VERSION_UPDATE),
     };
     
     bool status = false;
-    if (!queue_isFull(&g_heap->txQueue) )
+    if (!queue_isFull(&g_heap->txQueue))
     {
         g_heap->pendingTxEnqueueCommand = BridgeCommand_Version;
         g_heap->pendingTxEnqueueFlags.command = true;
@@ -477,13 +479,62 @@ static bool txEnqueueVersion(void)
 }
 
 
+/// Enqueue the UART-specific error response.
+/// @return If the error response was successfully enqueued.
+static bool txEnqueueUartError(void)
+{
+    uint8_t data[] =
+    {
+    };
+    
+    bool result = false;
+    if (!queue_isFull(&g_heap->txQueue))
+    {
+        g_heap->pendingTxEnqueueCommand = BridgeCommand_Version;
+        g_heap->pendingTxEnqueueFlags.command = true;
+        g_heap->pendingTxEnqueueFlags.data = true;
+        queue_enqueue(&g_heap->txQueue, data, sizeof(data));
+        result = true;
+    }
+    return result;
+}
+
+
+/// Enqueue the I2C-specific error response.
+/// @param[in]  status
+/// @param[in]  callsite    Unique callsite ID to distinguish different
+///                         functions that triggered the error.
+/// @return If the error response was successfully enqueued.
+static bool txEnqueueI2cError(I2cGen2Status status, uint16_t callsite)
+{
+    uint8_t data[] =
+    {
+        2u,
+        status.errorOccurred,
+        HI_BYTE_16_BIT(callsite),
+        LO_BYTE_16_BIT(callsite),
+    };
+    
+    bool result = false;
+    if (!queue_isFull(&g_heap->txQueue))
+    {
+        g_heap->pendingTxEnqueueCommand = BridgeCommand_Version;
+        g_heap->pendingTxEnqueueFlags.command = true;
+        g_heap->pendingTxEnqueueFlags.data = true;
+        queue_enqueue(&g_heap->txQueue, data, sizeof(data));
+        result = true;
+    }
+    return result;
+}
+
+
 /// Processes errors from the I2C gen 2 module, specifically prep an error
 /// message to send to the host.
 /// @param[in]  status      Status indicating if an error occured during the I2c
 ///                         transaction. See the definition of the I2cGen2Status
 ///                         union.
 /// @param[in]  callsite    Unique callsite ID to distinguish different
-///                         functions that had an I2C error.
+///                         functions that triggered the error.
 static void processI2cErrors(I2cGen2Status status, uint32_t __attribute__((unused)) callsite)
 {
     if (status.deactivated)
