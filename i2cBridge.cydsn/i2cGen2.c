@@ -374,16 +374,16 @@ static I2cGen2Status write(uint8_t address, uint8_t data[], uint16_t size, Trans
     if ((data != NULL) && (size > 0))
     {
         uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, data, size, mode.value);
-        if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
+        if (driverStatus == COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
+        {
+            if (address == g_slaveAddress)
+                g_slaveAppResponseActive = (data[TxQueueDataOffset_Address] >= AppBufferOffset_Response);
+        }
+        else
         {
             status.driverError = true;
             if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
                 status.nak = true;
-        }
-        else
-        {
-            if ((address == g_slaveAddress) && (data[TxQueueDataOffset_Address] > AppBufferOffset_Response))
-                g_slaveAppResponseActive = true;
         }
         g_lastDriverStatus = driverStatus;
     }
