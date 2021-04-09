@@ -103,8 +103,8 @@ typedef enum BridgeCommand
     /// kept for backwards compatibility.
     BridgeCommand_SlaveUpdate           = 'B',
     
-    /// I2C slave error.
-    BridgeCommand_SlaveError            = 'E',
+    /// Global error mode and error reporting.
+    BridgeCommand_Error                 = 'E',
     
     /// Access the I2C slave address.
     BridgeCommand_SlaveAddress          = 'I',
@@ -137,7 +137,7 @@ typedef enum BridgeCommand
 
 
 /// Enumeration that defines the offsets of different types of bytes within the
-/// UICO I2C protocol.
+/// UICO UART frame protocol data payload.
 typedef enum PacketOffset
 {
     /// Offset in the data frame for the bridge command.
@@ -145,6 +145,7 @@ typedef enum PacketOffset
     
     /// Offset in the data frame for the data payload.
     PacketOffset_BridgeData             = 1u,
+    
 } PacketOffset;
 
 
@@ -158,6 +159,40 @@ typedef struct Flags
     bool data : 1;
     
 } Flags;
+
+
+/// Enumeration that defines the different error type messages.
+typedef enum ErrorType
+{
+    /// Status of the global error reporting.
+    ErrorType_Status                    = 0u,
+    
+    /// Overall system-level error in the bridge.
+    ErrorType_System                    = 1u,
+    
+    /// Error in the updater function.
+    ErrorType_Updater                   = 2u,
+    
+    /// Error in the UART.
+    ErrorType_Uart                      = 3u,
+    
+    /// Error in the I2C interface.
+    ErrorType_I2c                       = 4u,
+    
+} ErrorType;
+
+
+/// Enumeration that defines the offsets of different types of bytes within the
+/// error packet.
+typedef enum ErrorPacketOffset
+{
+    /// The ErrorType.
+    ErrorPacketOffset_Type              = 0u,
+    
+    /// The data payload associated with the ErrorType.
+    ErrorPacketOffset_Data              = 1u,
+    
+} ErrorPacketOffset;
 
 
 /// Data structure that defines memory used by the module in a similar fashion
@@ -222,6 +257,10 @@ static UartFrameProtocol_RxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
 /// Callback function that is invoked when data is received but the receive
 /// buffer is not large enough to store it so the data overflowed.
 static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NULL;
+
+/// Flag indicating that error mode is enabled. Error mode is when all errors
+/// are reported via the BridgeCommand_Error command.
+static bool g_enableErrorMode = false;
 
 
 // === PRIVATE FUNCTIONS =======================================================
@@ -507,12 +546,17 @@ static bool txEnqueueUartError(void)
 /// @return If the error response was successfully enqueued.
 static bool txEnqueueI2cError(I2cGen2Status status, uint16_t callsite)
 {
+    uint32_t driverStatus = i2cGen2_getLastDriverStatus();
     uint8_t data[] =
     {
         2u,
         status.errorOccurred,
         HI_BYTE_16_BIT(callsite),
         LO_BYTE_16_BIT(callsite),
+        BYTE_3_32_BIT(driverStatus),
+        BYTE_2_32_BIT(driverStatus),
+        BYTE_1_32_BIT(driverStatus),
+        BYTE_0_32_BIT(driverStatus),
     };
     
     bool result = false;
@@ -570,21 +614,18 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
         {
             case BridgeCommand_Ack:
             {
-                debug_printf("[U:A]\n");
                 txEnqueueCommandResponse(BridgeCommand_Ack, NULL, 0);
                 break;
             }
             
-            case BridgeCommand_SlaveError:
+            case BridgeCommand_Error:
             {
-                debug_printf("[U:E]\n");
-                // @TODO Send last slave device error.
+                // @TODO Error processing
                 break;
             }
             
             case BridgeCommand_SlaveAddress:
             {
-                debug_printf("[U:I]\n");
                 if (size > PacketOffset_BridgeData)
                     i2cGen2_setSlaveAddress(data[PacketOffset_BridgeData]);
                 else
@@ -594,7 +635,6 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveNak:
             {
-                debug_printf("[U:N]\n");
                 // @TODO Check to see if this makes sense, the host should not
                 // be sending a slave NAK message to the bridge.
                 txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
@@ -603,7 +643,6 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveRead:
             {
-                debug_printf("[U:R]\n");
                 uint8_t readData[0xff];
                 I2cGen2Status i2cStatus = i2cGen2_read(data[PacketOffset_BridgeData], readData, sizeof(readData));
                 if (!i2cStatus.errorOccurred)
@@ -619,7 +658,6 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveTimeout:
             {
-                debug_printf("[U:T]\n");
                 // @TODO Check to see if this makes sense, the host should not
                 // be sending a slave timeout message to the bridge.
                 txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
@@ -628,21 +666,18 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_LegacyVersion:
             {
-                debug_printf("[U:V]\n");
                 txEnqueueLegacyVersion();
                 break;
             }
             
             case BridgeCommand_SlaveWrite:
             {
-                debug_printf("[U:W]\n");
                 i2cGen2_txEnqueueWithAddressInData(&data[PacketOffset_BridgeData], size - 1);
                 break;
             }
             
             case BridgeCommand_SlaveAck:
             {
-                debug_printf("[U:a]\n");
                 static uint32_t const timeoutMS = (5u);
                 I2cGen2Status i2cStatus;
                 if (size > PacketOffset_BridgeData)
@@ -664,32 +699,29 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveUpdate:
             {
-                debug_printf("[U:B]\n");
                 break;
             }
             
             case BridgeCommand_Reset:
             {
-                debug_printf("[U:r]\n");
                 CySoftwareReset();
                 break;
             }
             
             case BridgeCommand_Version:
             {
-                debug_printf("[U:v]\n");
                 txEnqueueVersion();
                 break;
             }
             
             default:
             {
-                debug_printf("[U:?]\n");
                 // Should not get here.
                 status = false;
                 break;
             }
         }
+        debug_printf("[U:%c]\n", command);
     }
     return status;
 }

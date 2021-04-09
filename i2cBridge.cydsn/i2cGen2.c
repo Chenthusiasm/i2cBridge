@@ -669,6 +669,12 @@ void i2cGen2_resetSlaveAddress(void)
     g_slaveAppResponseActive = false;
 }
 
+
+uint32_t i2cGen2_getLastDriverStatus(void)
+{
+    return g_lastDriverStatus;
+}
+
     
 void i2cGen2_registerRxCallback(I2cGen2_RxCallback callback)
 {

@@ -116,6 +116,11 @@
     /// the IRQ line is asserted and a slave read is to be performed.
     void i2cGen2_resetSlaveAddress(void);
     
+    /// Accessor to get the driver status from the last low level I2C driver
+    /// transaction.
+    /// @return The most recent driver status.
+    uint32_t i2cGen2_getLastDriverStatus(void);
+    
     /// Process any pending data to be received.
     /// @param[in]  timeoutMS   The amount of time the process can occur before
     ///                         it times out and must finish. If 0, then there's
