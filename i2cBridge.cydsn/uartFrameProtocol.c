@@ -552,12 +552,12 @@ static bool txEnqueueI2cError(I2cGen2Status status, uint16_t callsite)
     {
         ErrorType_I2c,
         status.errorOccurred,
-        HI_BYTE_16_BIT(callsite),
-        LO_BYTE_16_BIT(callsite),
         BYTE_3_32_BIT(driverStatus),
         BYTE_2_32_BIT(driverStatus),
         BYTE_1_32_BIT(driverStatus),
         BYTE_0_32_BIT(driverStatus),
+        HI_BYTE_16_BIT(callsite),
+        LO_BYTE_16_BIT(callsite),
     };
     
     bool result = false;
