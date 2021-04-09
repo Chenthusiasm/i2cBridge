@@ -159,9 +159,6 @@ typedef enum AppRxState
     /// Receive completed.
     AppRxState_Complete,
     
-    /// An error occured and the transaction couldn't be completed.
-    AppRxState_Error,
-    
 } AppRxState;
 
 
@@ -387,6 +384,8 @@ static I2cGen2Status write(uint8_t address, uint8_t data[], uint16_t size, Trans
         }
         g_lastDriverStatus = driverStatus;
     }
+    else
+        status.inputParametersInvalid = true;
     return status;
 }
 
@@ -419,7 +418,7 @@ static I2cGen2Status sendStop(void)
 static I2cGen2Status resetIrq(void)
 {
     uint8_t clear[] = { AppBufferOffset_Response, 0 };
-    TransferMode mode = { { false, false} };
+    TransferMode mode = { { false, false } };
     I2cGen2Status status = write(g_slaveAddress, clear, sizeof(clear), mode);
     return status;
 }
@@ -467,9 +466,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
         if (alarm_hasElapsed(&alarm))
         {
             status.timedOut = true;
-            state = AppRxState_Error;
-            // Don't break out of the loop; go through the error state
-            // processing to handle the error message and complete afterwards.
+            break;
         }
         
         switch (state)
@@ -492,7 +489,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                     if (!status.errorOccurred)
                         state = AppRxState_ReadLength;
                     else
-                        state = AppRxState_Error;
+                        state = AppRxState_Complete;
                 }
                 break;
             }
@@ -524,11 +521,11 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                         else
                         {
                             status.invalidRead = true;
-                            state = AppRxState_Error;
+                            state = AppRxState_Complete;
                         }
                     }
                     else
-                        state = AppRxState_Error;
+                        state = AppRxState_Complete;
                 }
                 break;
             }
@@ -544,10 +541,10 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                         length += payloadLength;
                         if (g_rxCallback != NULL)
                             g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
-                        state = AppRxState_Complete;
+                        state = AppRxState_ClearIrq;
                     }
                     else
-                        state = AppRxState_Error;
+                        state = AppRxState_Complete;
                 }
                 break;
             }
@@ -560,7 +557,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                     if (!status.errorOccurred)
                         state = AppRxState_ClearIrq;
                     else
-                        state = AppRxState_Error;
+                        state = AppRxState_Complete;
                 }
                 break;
             }
@@ -570,25 +567,14 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                 if (isBusReady())
                 {
                     status = resetIrq();
-                    if (!status.errorOccurred)
-                        state = AppRxState_Complete;
-                    else
-                        state = AppRxState_Error;
+                    state = AppRxState_Complete;
                 }
-                break;
-            }
-            
-            case AppRxState_Error:
-            {
-                if (g_errorCallback != NULL)
-                    g_errorCallback(status);
-                state = AppRxState_Complete;
                 break;
             }
             
             default:
             {
-                // Should technically never get here.
+                // Should never get here.
             }
         }
     }
@@ -687,11 +673,12 @@ void i2cGen2_registerErrorCallback(I2cGen2_ErrorCallback callback)
 bool i2cGen2_processRx(uint32_t timeoutMS)
 {
     bool result = false;
+    I2cGen2Status status = { false };
     if ((g_heap != NULL) && g_rxPending)
     {
         if (isIrqAsserted())
         {
-            I2cGen2Status status = processAppRxStateMachine(timeoutMS);
+            status = processAppRxStateMachine(timeoutMS);
             if (!status.errorOccurred)
             {
                 g_rxPending = false;
@@ -704,6 +691,13 @@ bool i2cGen2_processRx(uint32_t timeoutMS)
         else
             g_rxPending = false;
     }
+    else
+        status.deactivated = true;
+    if (status.errorOccurred)
+    {
+        if (g_errorCallback != NULL)
+            g_errorCallback(status);
+    }
     return result;
 }
 
@@ -711,6 +705,7 @@ bool i2cGen2_processRx(uint32_t timeoutMS)
 int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
 {
     int count = 0;
+    I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
         Alarm alarm;
@@ -747,7 +742,15 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
             debug_printf("[I:Tx]=%u\n", count);
     }
     else
+    {
+        status.deactivated = true;
         count = -1;
+    }
+    if (status.errorOccurred)
+    {
+        if (g_errorCallback != NULL)
+            g_errorCallback(status);
+    }
     return count;
 }
 
@@ -798,9 +801,10 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
             else
                 status.timedOut = true;
             if (status.errorOccurred)
-                debug_printf("%x\n", g_lastDriverStatus);
-            else
-                debug_printf("\n");
+            {
+                if (g_errorCallback != NULL)
+                    g_errorCallback(status);
+            }
         }
         else
             status.inputParametersInvalid = true;
