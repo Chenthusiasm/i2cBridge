@@ -53,7 +53,7 @@ void alarm_disarm(Alarm volatile* alarm)
 
 void alarm_snooze(Alarm volatile* alarm, uint32_t additionalTimeMS)
 {
-    if (alarm != NULL)
+    if ((alarm != NULL) && alarm->armed)
     {
         if ((UINT32_MAX - additionalTimeMS) >= alarm->durationMS)
             alarm->durationMS += additionalTimeMS;
@@ -68,24 +68,14 @@ bool alarm_hasElapsed(Alarm volatile* alarm)
     // Flag indicating if the alarm has elapsed; initialized to false (has not
     // fired yet) and the subsequent code will determine if it has fired (true).
     bool elapsed = false;
-    if (alarm != NULL)
+    if ((alarm != NULL) && alarm->armed)
     {
         if ((alarm->durationMS == 0 ) || (GET_TIME_MS() - alarm->startTimeMS >= alarm->durationMS))
         {
             if (alarm->type == AlarmType_SingleNotification)
-            {
-                if (alarm->armed)
-                {
-                    elapsed = true;
-                    alarm->armed = false;
-                    alarm->durationMS = 0;
-                }
-            }
-            else
-            {
-                elapsed = true;
-                alarm->durationMS = 0;
-            }
+                alarm->armed = false;
+            alarm->durationMS = 0;
+            elapsed = true;
         }
     }
     return elapsed;

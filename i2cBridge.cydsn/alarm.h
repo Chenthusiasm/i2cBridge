@@ -84,7 +84,8 @@
     /// Check if an alarm has elapsed.
     /// @param  alarm  The alarm to check if it has elapsed.
     /// @return Whether the alarm has elapsed (true) or not (false).
-    /// @note This function call will disarm the alarm if it has triggered.
+    /// @note   This function call will disarm a SingleNotification alarm if it
+    ///         has elapsed.
     bool alarm_hasElapsed(Alarm volatile* alarm);
     
     

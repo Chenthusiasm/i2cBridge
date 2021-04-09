@@ -713,7 +713,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveAck:
             {
-                static uint32_t const timeoutMS = (5u);
+                static uint32_t const timeoutMS = 2u;
                 I2cGen2Status i2cStatus;
                 if (size > PacketOffset_BridgeData)
                     i2cStatus = i2cGen2_ack(data[PacketOffset_BridgeData], timeoutMS);
@@ -992,12 +992,15 @@ uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS)
     {
         Alarm alarm;
         if (timeoutMS > 0)
-            alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+            alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
         else
             alarm_disarm(&alarm);
             
-        while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_heap->decodedRxQueue))
+        while (!queue_isEmpty(&g_heap->decodedRxQueue))
         {
+            if (alarm.armed && alarm_hasElapsed(&alarm))
+                break;
+            
             uint8_t* data;
             uint16_t size = queue_dequeue(&g_heap->decodedRxQueue, &data);
             if (size > 0)
@@ -1018,12 +1021,15 @@ uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
     {
         Alarm alarm;
         if (timeoutMS > 0)
-            alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+            alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
         else
             alarm_disarm(&alarm);
             
-        while (!alarm_hasElapsed(&alarm) && !queue_isEmpty(&g_heap->txQueue))
+        while (!queue_isEmpty(&g_heap->txQueue))
         {
+            if (alarm.armed && alarm_hasElapsed(&alarm))
+                break;
+            
             uint8_t* data;
             uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
             if (size > 0)

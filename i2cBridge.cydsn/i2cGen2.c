@@ -454,7 +454,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
     
     Alarm alarm;
     if (timeoutMS > 0)
-        alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+        alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
     else
         alarm_disarm(&alarm);
         
@@ -463,7 +463,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
     AppRxState state = AppRxState_Start;    
     while (state != AppRxState_Complete)
     {
-        if (alarm_hasElapsed(&alarm))
+        if (alarm.armed && alarm_hasElapsed(&alarm))
         {
             status.timedOut = true;
             break;
@@ -730,14 +730,14 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
     {
         Alarm alarm;
         if (timeoutMS > 0)
-            alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
+            alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
         else
             alarm_disarm(&alarm);
             
         int count = 0;
         while (!queue_isEmpty(&g_heap->txQueue))
         {
-            if (alarm_hasElapsed(&alarm))
+            if (alarm.armed && alarm_hasElapsed(&alarm))
             {
                 count = -1;
                 break;
@@ -914,19 +914,19 @@ I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
 {
     static uint16_t const Callsite = 0x0800;
+    static uint32_t const DefaultAckTimeout = 2u;
     
     I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
         Alarm alarm;
-        if (timeoutMS > 0)
-            alarm_arm(&alarm, timeoutMS, AlarmType_SingleNotification);
-        else
-            alarm_disarm(&alarm);
+        if (timeoutMS <= 0)
+            timeoutMS = DefaultAckTimeout;
+        alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
         
         while (true)
         {
-            if (alarm_hasElapsed(&alarm))
+            if (alarm.armed && alarm_hasElapsed(&alarm))
             {
                 status.timedOut = true;
                 break;
