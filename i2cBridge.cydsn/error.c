@@ -143,7 +143,7 @@ static ErrorMode g_mode = ErrorMode_Legacy;
 
 /// Counter that tracks the number of times each ErrorType occurred (with the
 /// exception of ErrorType_Status because this is a general status).
-static uint16_t g_errorCount[] =
+static count_t g_errorCount[] =
 {
     0,
     0,
@@ -168,7 +168,7 @@ void error_setMode(ErrorMode mode)
 
 void error_tally(ErrorType type)
 {
-    if ((type != ErrorType_Mode) && (type != ErrorType_Status))
+    if ((type != ErrorType_Mode) && (type != ErrorType_Stats))
         g_errorCount[type]++;
 }
 
