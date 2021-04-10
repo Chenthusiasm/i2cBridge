@@ -34,15 +34,21 @@
         /// UART frame protocol commands.
         ErrorMode_Legacy,
         
-        /// Unified error mode.
-        ErorrMode_Unified,
+        /// Global error mode.
+        ErorrMode_Global,
         
     } ErrorMode;
     
     
     // === FUNCTIONS ===========================================================
     
+    /// Accessor to get the current error mode.
+    /// @return The current error mode.
+    ErrorMode error_getMode(void);
     
+    /// Accessor to set the current error mode.
+    /// @param[in]  mode    The error mode to set.
+    void error_setMode(ErrorMode mode);
     
     
     #ifdef __cplusplus

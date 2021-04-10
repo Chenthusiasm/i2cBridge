@@ -18,7 +18,21 @@
 // === DEFINES =================================================================
 
 
+// === GLOBALS =================================================================
+
+static ErrorMode g_mode = ErrorMode_Legacy;
+
 // === PUBLIC FUNCTIONS ========================================================
+
+ErrorMode error_getMode(void)
+{
+    return g_mode;
+}
+
+void error_setMode(ErrorMode mode)
+{
+    g_mode = mode;
+}
 
 
 /* [] END OF FILE */
