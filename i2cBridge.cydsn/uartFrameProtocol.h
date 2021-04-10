@@ -25,7 +25,7 @@
     #include <stdint.h>
     
     
-    // === TYPEDEFINES =========================================================
+    // === TYPE DEFINES ========================================================
     
     /// Definition of the receive callback function that should be invoked when
     /// data is received out of frame (therefore, don't process it in the

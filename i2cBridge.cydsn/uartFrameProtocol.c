@@ -31,28 +31,24 @@
 // === DEFINES =================================================================
 
 /// Name of the host UART component.
-#define HOST_UART                           hostUart_
-
-/// The amount of time between receipts of bytes before we automatically reset
-/// the receive state machine.
-#define RX_RESET_TIMEOUT_MS                 (2000u)
+#define HOST_UART                       hostUart_
 
 /// The max size of the receive queue (the max number of queue elements).
-#define RX_QUEUE_MAX_SIZE                   (8u)
+#define RX_QUEUE_MAX_SIZE               (8u)
 
 /// The size of the data array that holds the queue element data in the receive
 /// queue.
-#define RX_QUEUE_DATA_SIZE                  (600u)
+#define RX_QUEUE_DATA_SIZE              (600u)
 
 /// The max size of the transmit queue (the max number of queue elements).
-#define TX_QUEUE_MAX_SIZE                   (8u)
+#define TX_QUEUE_MAX_SIZE               (8u)
 
 /// The size of the data array that holds the queue element data in the transmit
 /// queue.
-#define TX_QUEUE_DATA_SIZE                  (800u)
+#define TX_QUEUE_DATA_SIZE              (800u)
 
 
-// === TYPEDEFINES =============================================================
+// === TYPE DEFINES ============================================================
 
 /// Defines the different states of the protocol state machine.
 typedef enum RxState
@@ -162,19 +158,6 @@ typedef struct Flags
 } Flags;
 
 
-/// Enumeration that defines the offsets of different types of bytes within the
-/// error packet.
-typedef enum ErrorPacketOffset
-{
-    /// The ErrorType.
-    ErrorPacketOffset_Type              = 0u,
-    
-    /// The data payload associated with the ErrorType.
-    ErrorPacketOffset_Data              = 1u,
-    
-} ErrorPacketOffset;
-
-
 /// Data structure that defines memory used by the module in a similar fashion
 /// to a heap. Globals are contained in this structure that are used when the
 /// module is activated and then "deallocated" when the module is deactivated.
@@ -218,6 +201,16 @@ typedef struct Heap
     uint8_t txQueueData[TX_QUEUE_DATA_SIZE];
     
 } Heap;
+
+
+// === CONSTANTS ===============================================================
+
+/// Size (in bytes) for scratch buffers.
+static uint8_t const ScratchSize = 16u;
+
+/// The amount of time between receipts of bytes before we automatically reset
+/// the receive state machine.
+static uint16_t const RxResetTimeoutMS = 2000u;
 
 
 // === GLOBALS =================================================================
@@ -496,21 +489,21 @@ static bool txEnqueueVersion(void)
 
 /// Enqueue the UART-specific error response.
 /// @return If the error response was successfully enqueued.
-static bool txEnqueueUartError(void)
+static bool txEnqueueUartError(uint16_t callsite)
 {
-    uint8_t data[] =
-    {
-        ErrorType_Uart,
-    };
-    
     bool result = false;
     if (!queue_isFull(&g_heap->txQueue))
     {
-        g_heap->pendingTxEnqueueCommand = BridgeCommand_LegacyVersion;
-        g_heap->pendingTxEnqueueFlags.command = true;
-        g_heap->pendingTxEnqueueFlags.data = true;
-        queue_enqueue(&g_heap->txQueue, data, sizeof(data));
-        result = true;
+        uint8_t scratch[ScratchSize];
+        int size = error_makeUartErrorMessage(scratch, sizeof(scratch), 0, callsite);
+        if (size > 0)
+        {
+            g_heap->pendingTxEnqueueCommand = BridgeCommand_Error;
+            g_heap->pendingTxEnqueueFlags.command = true;
+            g_heap->pendingTxEnqueueFlags.data = true;
+            queue_enqueue(&g_heap->txQueue, scratch, sizeof(size));
+            result = true;
+        }
     }
     return result;
 }
@@ -523,27 +516,19 @@ static bool txEnqueueUartError(void)
 /// @return If the error response was successfully enqueued.
 static bool txEnqueueI2cError(I2cGen2Status status, uint16_t callsite)
 {
-    uint32_t driverStatus = i2cGen2_getLastDriverStatus();
-    uint8_t data[] =
-    {
-        ErrorType_I2c,
-        status.errorOccurred,
-        BYTE_3_32_BIT(driverStatus),
-        BYTE_2_32_BIT(driverStatus),
-        BYTE_1_32_BIT(driverStatus),
-        BYTE_0_32_BIT(driverStatus),
-        HI_BYTE_16_BIT(callsite),
-        LO_BYTE_16_BIT(callsite),
-    };
-    
     bool result = false;
     if (!queue_isFull(&g_heap->txQueue))
     {
-        g_heap->pendingTxEnqueueCommand = BridgeCommand_Version;
-        g_heap->pendingTxEnqueueFlags.command = true;
-        g_heap->pendingTxEnqueueFlags.data = true;
-        queue_enqueue(&g_heap->txQueue, data, sizeof(data));
-        result = true;
+        uint8_t scratch[ScratchSize];
+        int size = error_makeI2cErrorMessage(scratch, sizeof(scratch), status, callsite);
+        if (size > 0)
+        {
+            g_heap->pendingTxEnqueueCommand = BridgeCommand_Error;
+            g_heap->pendingTxEnqueueFlags.command = true;
+            g_heap->pendingTxEnqueueFlags.data = true;
+            queue_enqueue(&g_heap->txQueue, scratch, size);
+            result = true;
+        }
     }
     return result;
 }
@@ -558,6 +543,7 @@ static bool txEnqueueI2cError(I2cGen2Status status, uint16_t callsite)
 ///                         functions that triggered the error.
 static void processI2cErrors(I2cGen2Status status, uint16_t callsite)
 {
+    
     if (error_getMode() == ErrorMode_Global)
         txEnqueueI2cError(status, callsite);
     else
@@ -577,6 +563,7 @@ static void processI2cErrors(I2cGen2Status status, uint16_t callsite)
         if (status.inputParametersInvalid)
             ;
     }
+    error_tally(ErrorType_I2c);
 }
 
 
