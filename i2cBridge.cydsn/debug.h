@@ -143,8 +143,7 @@
         ///                     arguments.
         /// @param[in]  ...     The variadiac argument list representing the
         ///                     list of format specifiers with associated flags.
-        /// @return The length of the formatted string.
-        int debug_printf(char const* format, ...);
+        void debug_printf(char const* format, ...);
         
     #else
         
@@ -155,7 +154,7 @@
         #define debug_uartPrintHexUint16(a)
         #define debug_uartPrintHexUint32(a)
         #define debug_uartPrintHexUint64(a)
-        #define debug_printf(...)       (0)
+        #define debug_printf(a, ...)
         
     #endif
     

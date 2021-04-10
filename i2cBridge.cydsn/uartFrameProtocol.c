@@ -577,20 +577,19 @@ static bool processErrorCommand(uint8_t const* data, uint16_t size)
     if (size > 0)
         error_setMode((data[0] != 0) ? (ErrorMode_Global) : (ErrorMode_Legacy));
     
-    uint8_t response[] =
-    {
-        ErrorType_Mode,
-        (error_getMode() == ErrorMode_Global),
-    };
-    
     bool status = false;
     if (!queue_isFull(&g_heap->txQueue))
     {
-        g_heap->pendingTxEnqueueCommand = BridgeCommand_Error;
-        g_heap->pendingTxEnqueueFlags.command = true;
-        g_heap->pendingTxEnqueueFlags.data = true;
-        queue_enqueue(&g_heap->txQueue, response, sizeof(response));
-        status = true;
+        uint8_t scratch[ScratchSize];
+        int size = error_makeModeMessage(scratch, sizeof(scratch));
+        if (size > 0)
+        {
+            g_heap->pendingTxEnqueueCommand = BridgeCommand_Error;
+            g_heap->pendingTxEnqueueFlags.command = true;
+            g_heap->pendingTxEnqueueFlags.data = true;
+            queue_enqueue(&g_heap->txQueue, scratch, size);
+            status = true;
+        }
     }
     return status;
 }

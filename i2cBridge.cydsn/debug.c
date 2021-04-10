@@ -202,342 +202,352 @@ typedef union FormatFlags
 
 // === CONSTANTS ===============================================================
 
-/// The divisor for decimal divison.
-static uint32_t const G_DecimalDivisor = 10u;
+#if ACTIVE_DEBUG_UART
 
-/// Integer to character conversion table, lowercase (default).
-static char const G_CharTable[] = "0123456789abcdef";
+    /// The divisor for decimal divison.
+    static uint32_t const G_DecimalDivisor = 10u;
 
-/// Integer to character conversion table, uppercase.
-static char const G_UpperCharTable[] = "0123456789ABCDEF";
+    /// Integer to character conversion table, lowercase (default).
+    static char const G_CharTable[] = "0123456789abcdef";
+
+    /// Integer to character conversion table, uppercase.
+    static char const G_UpperCharTable[] = "0123456789ABCDEF";
+
+#endif // ACTIVE_DEBUG_UART
 
 
 // === PRIVATE FUNCTIONS =======================================================
 
-/// Simple function to find the length of a string.
-/// @param[in]  string  The string to find the length of.
-/// @return The length of the string in bytes.
-static size_t stringLength(char const* string)
-{
-    char const* const start = string;
-    while (*string != 0)
-        ++string;
-    return (string - start);
-}
-
-
-/// An optimized usigned integer divide by 10 that doesn't use the potentially
-/// costly division or multiply operators in order to get the quotient and
-/// remainder. Only supports up to 32-bit unsigned integers.
-/// See http://homepage.divms.uiowa.edu/~jones/bcd/divide.html
-/// @param[in]  d   The dividend (number to divide by 10).
-/// @param[out] r   The remainder of the divide by 10.
-/// @return The quotient as a result of dividing the dividend by 10.
-static uint32_t divideBy10(uint32_t d, uint32_t* r)
-{
-    // Constants used to determine if we have a carry bit issue due to the
-    // addition operation in the first line of the approximation.
-    static uint32_t const DividendMaxLimit = 0xaaaaaaaa;
-    static uint32_t const PostAddCarry = 0x80000000;
-
-    uint32_t q;
-
-    // Approximate calcuation of quotient in divide by 10.
-    // q = d / 10 or (q + 1) = d / 10 for all possible uint32_t d.
-    q = ((d >>  1) + d) >> 1;
-    if (d > DividendMaxLimit)
-        q += PostAddCarry;
-    q = ((q >>  4) + q);
-    q = ((q >>  8) + q);
-    q = ((q >> 16) + q) >> 3;
-
-    // Account for q = d / 10 or (q + 1) = d / 10 at this point. Also calculate
-    // the remainder.
-    uint32_t remainder = d - (q * G_DecimalDivisor);
-    if (remainder >= G_DecimalDivisor)
+#if ACTIVE_DEBUG_UART
+        
+    /// Simple function to find the length of a string.
+    /// @param[in]  string  The string to find the length of.
+    /// @return The length of the string in bytes.
+    static size_t stringLength(char const* string)
     {
-        *r = remainder - G_DecimalDivisor;
-        ++q;
+        char const* const start = string;
+        while (*string != 0)
+            ++string;
+        return (string - start);
     }
-    else
-        *r = remainder;
-    return q;
-}
 
 
-/// Performs a simplified unsigned integer to char string (itoa) conversion.
-/// Base 10 (decimal), 2 (binary), 8 (octal), and 16 (hexadecimal) conversions
-/// are permitted. Up to 32-bit integer support only; int64_t and uint64_t do
-/// not function properly.
-/// @param[in]  value   The integer to convert.
-/// @param[in]  buffer  The buffer to store the converted string.
-/// @param[in]  size    The size of the buffer; must account for null
-///                     termination.
-/// @param[in]  base    The base for the converted number. See Base enum.
-/// @param[in]  flags   The format specifier flags.
-/// @return The itoa result which contains the converted string and number of
-///         characters in the converted string.
-static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base base, FormatFlags flags)
-{
-    static char const BinaryPrefix[] = "0b";
-    static char const OctalPrefix[] = "0";
-    static char const HexPrefix[] = "0x";
-    static char const UpperHexPrefix[] = "0X";
-    static char const PositivePrefix[] = "+";
-    static char const NegativePrefix[] = "-";
-
-    // Prepare variables.
-    uint8_t prefixWidth = 0;
-    char const* prefix = NULL;
-    uint8_t i = size;
-    buffer[--i] = 0;
-
-    // Process the number.
-    // 0 needs to be handled in a unique way, otherwise it won't get processed.
-    if (value == 0)
+    /// An optimized usigned integer divide by 10 that doesn't use the
+    /// potentially costly division or multiply operators in order to get the
+    /// quotient and
+    /// remainder. Only supports up to 32-bit unsigned integers.
+    /// See http://homepage.divms.uiowa.edu/~jones/bcd/divide.html
+    /// @param[in]  d   The dividend (number to divide by 10).
+    /// @param[out] r   The remainder of the divide by 10.
+    /// @return The quotient as a result of dividing the dividend by 10.
+    static uint32_t divideBy10(uint32_t d, uint32_t* r)
     {
-        buffer[--i] = '0';
-        if (flags.sign && base == (Base_Decimal))
+        // Constants used to determine if we have a carry bit issue due to the
+        // addition operation in the first line of the approximation.
+        static uint32_t const DividendMaxLimit = 0xaaaaaaaa;
+        static uint32_t const PostAddCarry = 0x80000000;
+
+        uint32_t q;
+
+        // Approximate calcuation of quotient in divide by 10.
+        // q = d / 10 or (q + 1) = d / 10 for all possible uint32_t d.
+        q = ((d >>  1) + d) >> 1;
+        if (d > DividendMaxLimit)
+            q += PostAddCarry;
+        q = ((q >>  4) + q);
+        q = ((q >>  8) + q);
+        q = ((q >> 16) + q) >> 3;
+
+        // Account for q = d / 10 or (q + 1) = d / 10 at this point. Also calculate
+        // the remainder.
+        uint32_t remainder = d - (q * G_DecimalDivisor);
+        if (remainder >= G_DecimalDivisor)
         {
-            prefixWidth += sizeof(PositivePrefix) - 1u;
-            prefix = PositivePrefix;
+            *r = remainder - G_DecimalDivisor;
+            ++q;
         }
+        else
+            *r = remainder;
+        return q;
     }
-    else
+
+
+    /// Performs a simplified unsigned integer to char string (itoa) conversion.
+    /// Base 10 (decimal), 2 (binary), 8 (octal), and 16 (hexadecimal)
+    /// conversions are permitted. Up to 32-bit integer support only; int64_t
+    /// and uint64_t do not function properly.
+    /// @param[in]  value   The integer to convert.
+    /// @param[in]  buffer  The buffer to store the converted string.
+    /// @param[in]  size    The size of the buffer; must account for null
+    ///                     termination.
+    /// @param[in]  base    The base for the converted number. See Base enum.
+    /// @param[in]  flags   The format specifier flags.
+    /// @return The itoa result which contains the converted string and number
+    ///         of characters in the converted string.
+    static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base base, FormatFlags flags)
     {
-        uint32_t n = value;
-        switch (base)
+        static char const BinaryPrefix[] = "0b";
+        static char const OctalPrefix[] = "0";
+        static char const HexPrefix[] = "0x";
+        static char const UpperHexPrefix[] = "0X";
+        static char const PositivePrefix[] = "+";
+        static char const NegativePrefix[] = "-";
+
+        // Prepare variables.
+        uint8_t prefixWidth = 0;
+        char const* prefix = NULL;
+        uint8_t i = size;
+        buffer[--i] = 0;
+
+        // Process the number.
+        // 0 needs to be handled in a unique way, otherwise it won't get processed.
+        if (value == 0)
         {
-        #if ENABLE_BINARY
-
-            case Base_Binary:
+            buffer[--i] = '0';
+            if (flags.sign && base == (Base_Decimal))
             {
-                while (n > 0)
-                {
-                    uint32_t r = n & BINARY_MASK;
-                    n >>= BINARY_SHIFT;
-                    buffer[--i] = G_CharTable[r];
-                }
-                if (flags.prefix)
-                {
-                    prefixWidth += sizeof(BinaryPrefix) - 1u;
-                    prefix = BinaryPrefix;
-                }
-                break;
-            }
-
-        #endif // ENABLE_BINARY
-
-        #if ENABLE_OCTAL
-
-            case Base_Octal:
-            {
-                while (n > 0)
-                {
-                    uint32_t r = n & OCTAL_MASK;
-                    n >>= OCTAL_SHIFT;
-                    buffer[--i] = G_CharTable[r];
-                }
-                if (flags.prefix)
-                {
-                    prefixWidth += sizeof(OctalPrefix) - 1u;
-                    prefix = OctalPrefix;
-                }
-                break;
-            }
-
-        #endif // ENABLE_OCTAL
-
-        #if ENABLE_HEX
-
-            case Base_Hex:
-            {
-                while (n > 0)
-                {
-                    uint32_t r = n & HEX_MASK;
-                    n >>= HEX_SHIFT;
-                    buffer[--i] = G_CharTable[r];
-                }
-                if (flags.prefix)
-                {
-                    prefixWidth += sizeof(HexPrefix) - 1u;
-                    prefix = HexPrefix;
-                }
-                break;
-            }
-
-            case Base_UpperHex:
-            {
-                while (n > 0)
-                {
-                    uint32_t r = n & HEX_MASK;
-                    n >>= HEX_SHIFT;
-                    buffer[--i] = G_UpperCharTable[r];
-                }
-                if (flags.prefix)
-                {
-                    prefixWidth += sizeof(UpperHexPrefix) - 1u;
-                    prefix = UpperHexPrefix;
-                }
-                break;
-            }
-
-        #endif // ENABLE_HEX
-
-            default:
-            {
-                while (n > 0)
-                {
-                    uint32_t r;
-
-                #if ENABLE_OPTIMIZED_DECIMAL_DIVIDE
-
-                    n = divideBy10(n, &r);
-
-                #else
-
-                    r = n % G_DecimalDivisor;
-                    n /= G_DecimalDivisor;
-
-                #endif // ENABLE_OPTIMIZED_DECIMAL_DIVIDE
-
-                    buffer[--i] = G_UpperCharTable[r];
-                }
-                if (flags.negative)
-                {
-                    prefixWidth += sizeof(NegativePrefix) - 1u;
-                    prefix = NegativePrefix;
-                }
-                else if (flags.sign)
-                {
-                    prefixWidth += sizeof(PositivePrefix) - 1u;
-                    prefix = PositivePrefix;
-                }
+                prefixWidth += sizeof(PositivePrefix) - 1u;
+                prefix = PositivePrefix;
             }
         }
-    }
-
-    // Prepare variables.
-    char* current = buffer;
-    uint8_t numberWidth = size - (i + 1u);
-    uint8_t padWidth = 0;
-    if ((numberWidth + prefixWidth) < flags.width)
-        padWidth = flags.width - (numberWidth + prefixWidth);
-    ItoaResult result = { current, prefixWidth + padWidth + numberWidth };
-
-    // Process left/right-justification, padding, and prefix.
-    if (flags.left)
-    {
-        uint8_t j;
-        for (j = 0; j < prefixWidth; ++j)
-            current[j] = prefix[j];
-        current += j;
-        for (j = 0; j < numberWidth; ++j)
-            current[j] = buffer[i + j];
-        current += j;
-        for (j = 0; j < padWidth; ++j)
-            current[j] = ' ';
-        current += j;
-        current[j] = 0;
-    }
-    else
-    {
-        current = &buffer[i];
-        uint8_t j;
-        if ((padWidth > 0) && flags.zeroPad)
+        else
         {
-            for (j = padWidth; j > 0; --j)
-                *(--current) = '0';
+            uint32_t n = value;
+            switch (base)
+            {
+            #if ENABLE_BINARY
+
+                case Base_Binary:
+                {
+                    while (n > 0)
+                    {
+                        uint32_t r = n & BINARY_MASK;
+                        n >>= BINARY_SHIFT;
+                        buffer[--i] = G_CharTable[r];
+                    }
+                    if (flags.prefix)
+                    {
+                        prefixWidth += sizeof(BinaryPrefix) - 1u;
+                        prefix = BinaryPrefix;
+                    }
+                    break;
+                }
+
+            #endif // ENABLE_BINARY
+
+            #if ENABLE_OCTAL
+
+                case Base_Octal:
+                {
+                    while (n > 0)
+                    {
+                        uint32_t r = n & OCTAL_MASK;
+                        n >>= OCTAL_SHIFT;
+                        buffer[--i] = G_CharTable[r];
+                    }
+                    if (flags.prefix)
+                    {
+                        prefixWidth += sizeof(OctalPrefix) - 1u;
+                        prefix = OctalPrefix;
+                    }
+                    break;
+                }
+
+            #endif // ENABLE_OCTAL
+
+            #if ENABLE_HEX
+
+                case Base_Hex:
+                {
+                    while (n > 0)
+                    {
+                        uint32_t r = n & HEX_MASK;
+                        n >>= HEX_SHIFT;
+                        buffer[--i] = G_CharTable[r];
+                    }
+                    if (flags.prefix)
+                    {
+                        prefixWidth += sizeof(HexPrefix) - 1u;
+                        prefix = HexPrefix;
+                    }
+                    break;
+                }
+
+                case Base_UpperHex:
+                {
+                    while (n > 0)
+                    {
+                        uint32_t r = n & HEX_MASK;
+                        n >>= HEX_SHIFT;
+                        buffer[--i] = G_UpperCharTable[r];
+                    }
+                    if (flags.prefix)
+                    {
+                        prefixWidth += sizeof(UpperHexPrefix) - 1u;
+                        prefix = UpperHexPrefix;
+                    }
+                    break;
+                }
+
+            #endif // ENABLE_HEX
+
+                default:
+                {
+                    while (n > 0)
+                    {
+                        uint32_t r;
+
+                    #if ENABLE_OPTIMIZED_DECIMAL_DIVIDE
+
+                        n = divideBy10(n, &r);
+
+                    #else
+
+                        r = n % G_DecimalDivisor;
+                        n /= G_DecimalDivisor;
+
+                    #endif // ENABLE_OPTIMIZED_DECIMAL_DIVIDE
+
+                        buffer[--i] = G_UpperCharTable[r];
+                    }
+                    if (flags.negative)
+                    {
+                        prefixWidth += sizeof(NegativePrefix) - 1u;
+                        prefix = NegativePrefix;
+                    }
+                    else if (flags.sign)
+                    {
+                        prefixWidth += sizeof(PositivePrefix) - 1u;
+                        prefix = PositivePrefix;
+                    }
+                }
+            }
         }
-        for (j = prefixWidth; j > 0; --j)
-            *(--current) = prefix[j - 1];
-        if ((padWidth > 0) && !flags.zeroPad)
+
+        // Prepare variables.
+        char* current = buffer;
+        uint8_t numberWidth = size - (i + 1u);
+        uint8_t padWidth = 0;
+        if ((numberWidth + prefixWidth) < flags.width)
+            padWidth = flags.width - (numberWidth + prefixWidth);
+        ItoaResult result = { current, prefixWidth + padWidth + numberWidth };
+
+        // Process left/right-justification, padding, and prefix.
+        if (flags.left)
         {
-            for (j = padWidth; j > 0; --j)
-                *(--current) = ' ';
+            uint8_t j;
+            for (j = 0; j < prefixWidth; ++j)
+                current[j] = prefix[j];
+            current += j;
+            for (j = 0; j < numberWidth; ++j)
+                current[j] = buffer[i + j];
+            current += j;
+            for (j = 0; j < padWidth; ++j)
+                current[j] = ' ';
+            current += j;
+            current[j] = 0;
         }
-        result.string = current;
+        else
+        {
+            current = &buffer[i];
+            uint8_t j;
+            if ((padWidth > 0) && flags.zeroPad)
+            {
+                for (j = padWidth; j > 0; --j)
+                    *(--current) = '0';
+            }
+            for (j = prefixWidth; j > 0; --j)
+                *(--current) = prefix[j - 1];
+            if ((padWidth > 0) && !flags.zeroPad)
+            {
+                for (j = padWidth; j > 0; --j)
+                    *(--current) = ' ';
+            }
+            result.string = current;
+        }
+        return result;
     }
-    return result;
-}
 
 
-/// Performs a simplified pointer to hexadecimal char string (itoa) conversion.
-/// Supports up to 64-bit pointers.
-/// @param[in]  value   The integer to convert.
-/// @param[in]  buffer  The buffer to store the converted string.
-/// @param[in]  size    The size of the buffer; must account for null
-///                     termination.
-/// @param[in]  base    The base for the converted number. See Base enum.
-/// @param[in]  flags   The format specifier flags.
-/// @return The itoa result which contains the converted string and number of
-///         characters in the converted string.
-static ItoaResult simplePtoa(void* pointer, char buffer[], uint8_t size, FormatFlags flags)
-{
-    char const Prefix[] = "0x";
-    uint8_t const PrefixWidth = sizeof(Prefix) - 1u;
-    uint8_t const PointerWidth = sizeof(void*) * 2u;
-
-    // Prepare variables.
-    uint8_t width = PointerWidth;
-    width += (flags.prefix) ? (PrefixWidth) : (0u);
-    uint8_t padWidth = 0;
-    if (width < flags.width)
-        padWidth = flags.width - width;
-    if (width + padWidth >= size)
+    /// Performs a simplified pointer to hexadecimal char string (itoa)
+    /// conversion.
+    /// Supports up to 64-bit pointers.
+    /// @param[in]  value   The integer to convert.
+    /// @param[in]  buffer  The buffer to store the converted string.
+    /// @param[in]  size    The size of the buffer; must account for null
+    ///                     termination.
+    /// @param[in]  base    The base for the converted number. See Base enum.
+    /// @param[in]  flags   The format specifier flags.
+    /// @return The itoa result which contains the converted string and number
+    ///         of characters in the converted string.
+    static ItoaResult simplePtoa(void* pointer, char buffer[], uint8_t size,FormatFlags flags)
     {
-        if (size > width)
-            padWidth = (size - 1u) - width;
+        char const Prefix[] = "0x";
+        uint8_t const PrefixWidth = sizeof(Prefix) - 1u;
+        uint8_t const PointerWidth = sizeof(void*) * 2u;
+
+        // Prepare variables.
+        uint8_t width = PointerWidth;
+        width += (flags.prefix) ? (PrefixWidth) : (0u);
+        uint8_t padWidth = 0;
+        if (width < flags.width)
+            padWidth = flags.width - width;
+        if (width + padWidth >= size)
+        {
+            if (size > width)
+                padWidth = (size - 1u) - width;
+        }
+        char* current = buffer;
+
+        // Process standard justification padding if width exceeds minimum pointer
+        // width.
+        if (!flags.left && padWidth > 0)
+        {
+            for (uint8_t i = 0; i < padWidth; ++i)
+                *current++ = ' ';
+        }
+
+        // Process the prefix if enabled.
+        if (flags.prefix)
+        {
+            for (uint8_t i = 0; i < PrefixWidth; ++i)
+                *current++ = Prefix[i];
+        }
+
+        // Process the pointer. This is done in reverse.
+        uint8_t offset = PointerWidth;
+        uitoa_t n = (uitoa_t)pointer;
+        while (n > 0)
+        {
+            uint32_t r = n & HEX_MASK;
+            n >>= HEX_SHIFT;
+            current[offset - 1] = G_CharTable[r];
+            --offset;
+        }
+
+        // Process 0-padding.
+        while (offset > 0)
+        {
+            current[offset - 1] = '0';
+            --offset;
+        }
+        current += PointerWidth;
+
+        // Process left-justified padding if width exceeds minimum pointer width.
+        if (flags.left && padWidth > 0)
+        {
+            for (uint8_t i = 0; i < padWidth; ++i)
+                *current++ = ' ';
+        }
+
+        // Null-terminate.
+        *current = 0;
+
+        ItoaResult result = { (char*)buffer, width + padWidth };
+        return result;
     }
-    char* current = buffer;
-
-    // Process standard justification padding if width exceeds minimum pointer
-    // width.
-    if (!flags.left && padWidth > 0)
-    {
-        for (uint8_t i = 0; i < padWidth; ++i)
-            *current++ = ' ';
-    }
-
-    // Process the prefix if enabled.
-    if (flags.prefix)
-    {
-        for (uint8_t i = 0; i < PrefixWidth; ++i)
-            *current++ = Prefix[i];
-    }
-
-    // Process the pointer. This is done in reverse.
-    uint8_t offset = PointerWidth;
-    uitoa_t n = (uitoa_t)pointer;
-    while (n > 0)
-    {
-        uint32_t r = n & HEX_MASK;
-        n >>= HEX_SHIFT;
-        current[offset - 1] = G_CharTable[r];
-        --offset;
-    }
-
-    // Process 0-padding.
-    while (offset > 0)
-    {
-        current[offset - 1] = '0';
-        --offset;
-    }
-    current += PointerWidth;
-
-    // Process left-justified padding if width exceeds minimum pointer width.
-    if (flags.left && padWidth > 0)
-    {
-        for (uint8_t i = 0; i < padWidth; ++i)
-            *current++ = ' ';
-    }
-
-    // Null-terminate.
-    *current = 0;
-
-    ItoaResult result = { (char*)buffer, width + padWidth };
-    return result;
-}
+    
+#endif // ACTIVE_DEBUG_UART
 
 
 // === PUBLIC FUNCTIONS ========================================================
@@ -876,7 +886,9 @@ void debug_init(void)
 
         #undef MAX_WIDTH
         #undef BUFFER_SIZE
-        return n;
+        // Uncomment the following line if the function needs to return the
+        // number of characters that were printed.
+        //return n;
     }
     
     
