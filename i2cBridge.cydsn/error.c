@@ -20,7 +20,9 @@
 
 // === GLOBALS =================================================================
 
+/// Indicates the current error mode. Default: legacy.
 static ErrorMode g_mode = ErrorMode_Legacy;
+
 
 // === PUBLIC FUNCTIONS ========================================================
 

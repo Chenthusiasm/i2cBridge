@@ -35,7 +35,7 @@
         ErrorMode_Legacy,
         
         /// Global error mode.
-        ErorrMode_Global,
+        ErrorMode_Global,
         
     } ErrorMode;
     

@@ -238,10 +238,6 @@ static UartFrameProtocol_RxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
 /// buffer is not large enough to store it so the data overflowed.
 static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NULL;
 
-/// Flag indicating that error mode is enabled. Error mode is when all errors
-/// are reported via the BridgeCommand_Error command.
-static bool g_errorModeEnabled = false;
-
 
 // === PRIVATE FUNCTIONS =======================================================
 
@@ -562,7 +558,7 @@ static bool txEnqueueI2cError(I2cGen2Status status, uint16_t callsite)
 ///                         functions that triggered the error.
 static void processI2cErrors(I2cGen2Status status, uint16_t callsite)
 {
-    if (g_errorModeEnabled)
+    if (error_getMode() == ErrorMode_Global)
         txEnqueueI2cError(status, callsite);
     else
     {
@@ -592,12 +588,12 @@ static void processI2cErrors(I2cGen2Status status, uint16_t callsite)
 static bool processErrorCommand(uint8_t const* data, uint16_t size)
 {
     if (size > 0)
-        g_errorModeEnabled = (data[0] > 0);
+        error_setMode((data[0] != 0) ? (ErrorMode_Global) : (ErrorMode_Legacy));
     
     uint8_t response[] =
     {
         ErrorType_Status,
-        g_errorModeEnabled,
+        (error_getMode() == ErrorMode_Global),
     };
     
     bool status = false;
