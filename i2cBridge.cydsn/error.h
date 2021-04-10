@@ -99,13 +99,12 @@
     /// @param[out] buffer          The buffer to put the I2C error message.
     /// @param[in]  size            The size of the buffer.
     /// @param[in]  i2cStatus       The I2C status.
-    /// @param[in]  driverStatus    The I2C driver status mask.
     /// @param[in]  callsite        The callsite ID.
     /// @param[in]  cli             Flag indicating if the message is meant for
     ///                             the command line interface (CLI).
     /// @return The size of the data payload. If -1, the buffer size was too
     ///         small.
-    int error_makeI2cError(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint32_t driverStatus, uint16_t callsite, bool cli);
+    int error_makeI2cError(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint16_t callsite, bool cli);
     
     /// Generates the UART error data payload.
     /// @param[out] buffer          The buffer to put the I2C error message.

@@ -14,8 +14,23 @@
 
 #include "error.h"
 
+#include <string.h>
+
+#include "utility.h"
+
 
 // === DEFINES =================================================================
+
+
+// === TYPE DEFINES ============================================================
+
+typedef struct I2cError
+{
+    uint8_t type;
+    uint8_t status;
+    uint8_t driverStatus[4];
+    uint8_t callsite[2];
+} I2cError;
 
 
 // === GLOBALS =================================================================
@@ -52,10 +67,37 @@ int error_makeUpdaterError(uint8_t buffer[], uint16_t size, uint8_t updaterStatu
 }
 
 
-int error_makeI2cError(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint32_t driverStatus, uint16_t callsite, bool cli)
+int error_makeI2cError(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint16_t callsite, bool cli)
 {
-    int status = -1;
-    return status;
+    int dataSize = -1;
+    uint32_t driverStatus = i2cGen2_getLastDriverStatus();
+    if (cli)
+    {
+    }
+    else
+    {
+        if (size >= sizeof(I2cError))
+        {
+            I2cError error =
+            {
+                ErrorType_I2c,
+                i2cStatus.errorOccurred,
+                {
+                    BYTE_3_32_BIT(driverStatus),
+                    BYTE_2_32_BIT(driverStatus),
+                    BYTE_1_32_BIT(driverStatus),
+                    BYTE_0_32_BIT(driverStatus),
+                },
+                {
+                    HI_BYTE_16_BIT(callsite),
+                    LO_BYTE_16_BIT(callsite),
+                },
+            };
+            memcpy(buffer, &error, sizeof(error));
+            dataSize = sizeof(error);
+        }
+    }
+    return dataSize;
 }
 
 
