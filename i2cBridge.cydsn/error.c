@@ -44,6 +44,12 @@ typedef struct I2cError
 } I2cError;
 
 
+// === CONSTANTS ===============================================================
+
+/// Message format for the CLI I2C error.
+char const* CliI2cErrorFormat = "[Err|I2C]: %02x:$08x @ %04x\r\n";
+
+
 // === GLOBALS =================================================================
 
 /// Indicates the current error mode. Default: legacy.
