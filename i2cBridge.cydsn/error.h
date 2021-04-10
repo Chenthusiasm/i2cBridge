@@ -60,8 +60,11 @@
         /// Error in the I2C interface.
         ErrorType_I2c,
         
-        /// Status of the global error reporting.
-        ErrorType_Status,
+        /// Mode of the error system.
+        ErrorType_Mode,
+        
+        /// Statistics of the global error reporting.
+        ErrorType_Stats,
         
     } ErrorType;
     

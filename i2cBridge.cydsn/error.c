@@ -28,6 +28,10 @@
 
 // === TYPE DEFINES ============================================================
 
+/// Counter type; used to tally error counts.
+typedef uint16_t count_t;
+
+
 /// General structure for I2C errors.
 /// Note: these are all defined as uint8_t or uint8_t arrays to ensure a packed
 /// structure.
@@ -49,26 +53,40 @@ typedef struct I2cError
 } I2cError;
 
 
-/// General structure for the error system status.
+/// General structure for the error system's current mode.
 /// Note: these are all defined as uint8_t or uint8_t arrays to ensure a packed
 /// structure.
-typedef struct Status
+typedef struct Mode
 {
     /// Error type.
     uint8_t type;
     
     /// Current error mode.
     uint8_t mode;
+} Mode;
+
+
+/// General structure for the error system statistics.
+/// Note: these are all defined as uint8_t or uint8_t arrays to ensure a packed
+/// structure.
+typedef struct Stats
+{
+    /// Error type.
+    uint8_t type;
     
-    uint8_t systemCount[2];
+    /// System error count.
+    uint8_t systemCount[sizeof(count_t)];
     
-    uint8_t updaterCount[2];
+    /// Updater error count.
+    uint8_t updaterCount[sizeof(count_t)];
     
-    uint8_t uartCount[2];
+    /// UART protocol error count.
+    uint8_t uartCount[sizeof(count_t)];
     
-    uint8_t i2cCount[2];
+    /// I2C protocol error count.
+    uint8_t i2cCount[sizeof(count_t)];
     
-} Status;
+} Stats;
 
 
 /// CLI meta data: used to assist in generating CLI error messages.
@@ -101,11 +119,18 @@ MetaData const CliMetaData[] =
         NUM_HEX_CHAR(sizeof(I2cError)),
     },
     
-    // ErrorType_Status.
+    // ErrorType_Mode.
+    {
+        "Mode",
+        "[%s|%s] %02x\r\n",
+        NUM_HEX_CHAR(sizeof(Mode)),
+    },
+    
+    // ErrorType_Stats.
     {
         "Stat",
         "[%s|%s] %02x\r\n",
-        NUM_HEX_CHAR(sizeof(I2cError)),
+        NUM_HEX_CHAR(sizeof(Stats)),
     },
 };
 
@@ -143,7 +168,7 @@ void error_setMode(ErrorMode mode)
 
 void error_tally(ErrorType type)
 {
-    if (type != ErrorType_Status)
+    if ((type != ErrorType_Mode) && (type != ErrorType_Status))
         g_errorCount[type]++;
 }
 
