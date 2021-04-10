@@ -48,20 +48,20 @@
     /// Enumeration that defines the different error type messages.
     typedef enum ErrorType
     {
-        /// Status of the global error reporting.
-        ErrorType_Status                    = 0u,
-        
         /// Overall system-level error in the bridge.
-        ErrorType_System                    = 1u,
+        ErrorType_System,
         
         /// Error in the updater function.
-        ErrorType_Updater                   = 2u,
+        ErrorType_Updater,
         
         /// Error in the UART.
-        ErrorType_Uart                      = 3u,
+        ErrorType_Uart,
         
         /// Error in the I2C interface.
-        ErrorType_I2c                       = 4u,
+        ErrorType_I2c,
+        
+        /// Status of the global error reporting.
+        ErrorType_Status,
         
     } ErrorType;
     
@@ -75,6 +75,10 @@
     /// Accessor to set the current error mode.
     /// @param[in]  mode    The error mode to set.
     void error_setMode(ErrorMode mode);
+    
+    /// Tally/count the error for tracking purposes.
+    /// @param[in]  type    The error type to tally.
+    void error_tally(ErrorType type);
     
     /// Generates the system error data payload.
     /// @param[out] buffer          The buffer to put the I2C error message.

@@ -21,11 +21,16 @@
 
 // === DEFINES =================================================================
 
+/// Calculate the number of ASCII hex characters needed to display numbers that
+/// are represented by x bytes.
+#define NUM_HEX_CHAR(x)                 (x * 2u)
+
 
 // === TYPE DEFINES ============================================================
 
-/// General structure for I2C errors. These are all defined as uint8_t or
-/// uint8_t arrays to ensure a packed structure.
+/// General structure for I2C errors.
+/// Note: these are all defined as uint8_t or uint8_t arrays to ensure a packed
+/// structure.
 typedef struct I2cError
 {
     /// Error type.
@@ -44,16 +49,82 @@ typedef struct I2cError
 } I2cError;
 
 
+/// General structure for the error system status.
+/// Note: these are all defined as uint8_t or uint8_t arrays to ensure a packed
+/// structure.
+typedef struct Status
+{
+    /// Error type.
+    uint8_t type;
+    
+    /// Current error mode.
+    uint8_t mode;
+    
+    uint8_t systemCount[2];
+    
+    uint8_t updaterCount[2];
+    
+    uint8_t uartCount[2];
+    
+    uint8_t i2cCount[2];
+    
+} Status;
+
+
+/// CLI meta data: used to assist in generating CLI error messages.
+typedef struct MetaData
+{
+    /// ID/name of the error type.
+    char* id;
+    
+    /// Message format.
+    char* format;
+    
+    /// Number of ASCII hex characters needed to display the numeric fields.
+    uint8_t hexCharCount;
+    
+} MetaData;
+
+
 // === CONSTANTS ===============================================================
 
-/// Message format for the CLI I2C error.
-char const* CliI2cErrorFormat = "[Err|I2C]: %02x:$08x @ %04x\r\n";
+/// CLI error header.
+char const* CliErrorHeader = "Err";
+
+/// CLI meta data for the different error types.
+MetaData const CliMetaData[] =
+{
+    // ErrorType_I2c.
+    {
+        "I2C",
+        "[%s|%s] %02x.$08x @%04x\r\n",
+        NUM_HEX_CHAR(sizeof(I2cError)),
+    },
+    
+    // ErrorType_Status.
+    {
+        "Stat",
+        "[%s|%s] %02x\r\n",
+        NUM_HEX_CHAR(sizeof(I2cError)),
+    },
+};
 
 
 // === GLOBALS =================================================================
 
 /// Indicates the current error mode. Default: legacy.
 static ErrorMode g_mode = ErrorMode_Legacy;
+
+
+/// Counter that tracks the number of times each ErrorType occurred (with the
+/// exception of ErrorType_Status because this is a general status).
+static uint16_t g_errorCount[] =
+{
+    0,
+    0,
+    0,
+    0,
+};
 
 
 // === PUBLIC FUNCTIONS ========================================================
@@ -67,6 +138,13 @@ ErrorMode error_getMode(void)
 void error_setMode(ErrorMode mode)
 {
     g_mode = mode;
+}
+
+
+void error_tally(ErrorType type)
+{
+    if (type != ErrorType_Status)
+        g_errorCount[type]++;
 }
 
 
