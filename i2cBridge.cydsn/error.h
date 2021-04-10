@@ -39,6 +39,9 @@
         /// Global error mode.
         ErrorMode_Global,
         
+        /// Command line interface (CLI) mode.
+        ErrorMode_Cli,
+        
     } ErrorMode;
     
     
@@ -78,44 +81,36 @@
     /// @param[in]  size            The size of the buffer.
     /// @param[in]  systemStatus    The system status.
     /// @param[in]  callsite        The callsite ID.
-    /// @param[in]  cli             Flag indicating if the message is meant for
-    ///                             the command line interface (CLI).
     /// @return The size of the data payload. If -1, the buffer size was too
     ///         small.
-    int error_makeSystemError(uint8_t buffer[], uint16_t size, uint8_t systemStatus, uint16_t callsite, bool cli);
+    int error_makeSystemError(uint8_t buffer[], uint16_t size, uint8_t systemStatus, uint16_t callsite);
     
     /// Generates the system error data payload.
     /// @param[out] buffer          The buffer to put the I2C error message.
     /// @param[in]  size            The size of the buffer.
     /// @param[in]  updaterStatus   The updater status.
     /// @param[in]  callsite        The callsite ID.
-    /// @param[in]  cli             Flag indicating if the message is meant for
-    ///                             the command line interface (CLI).
     /// @return The size of the data payload. If -1, the buffer size was too
     ///         small.
-    int error_makeUpdaterError(uint8_t buffer[], uint16_t size, uint8_t updaterStatus, uint16_t callsite, bool cli);
+    int error_makeUpdaterError(uint8_t buffer[], uint16_t size, uint8_t updaterStatus, uint16_t callsite);
     
     /// Generates the I2C error data payload.
     /// @param[out] buffer          The buffer to put the I2C error message.
     /// @param[in]  size            The size of the buffer.
     /// @param[in]  i2cStatus       The I2C status.
     /// @param[in]  callsite        The callsite ID.
-    /// @param[in]  cli             Flag indicating if the message is meant for
-    ///                             the command line interface (CLI).
     /// @return The size of the data payload. If -1, the buffer size was too
     ///         small.
-    int error_makeI2cError(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint16_t callsite, bool cli);
+    int error_makeI2cError(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint16_t callsite);
     
     /// Generates the UART error data payload.
     /// @param[out] buffer          The buffer to put the I2C error message.
     /// @param[in]  size            The size of the buffer.
     /// @param[in]  uartStatus      The UART status.
     /// @param[in]  callsite        The callsite ID.
-    /// @param[in]  cli             Flag indicating if the message is meant for
-    ///                             the command line interface (CLI).
     /// @return The size of the data payload. If -1, the buffer size was too
     ///         small.
-    int error_makeUartError(uint8_t buffer[], uint16_t size, uint8_t uartStatus, uint16_t callsite, bool cli);
+    int error_makeUartError(uint8_t buffer[], uint16_t size, uint8_t uartStatus, uint16_t callsite);
     
     
     #ifdef __cplusplus
