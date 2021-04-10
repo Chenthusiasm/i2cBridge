@@ -248,7 +248,7 @@ void error_tally(ErrorType type)
 }
 
 
-int error_makeSystemError(uint8_t buffer[], uint16_t size, uint8_t systemStatus, uint16_t callsite)
+int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, uint8_t systemStatus, uint16_t callsite)
 {
     int dataSize = -1;
     if (g_mode == ErrorMode_Global)
@@ -276,7 +276,7 @@ int error_makeSystemError(uint8_t buffer[], uint16_t size, uint8_t systemStatus,
 }
 
 
-int error_makeUpdaterError(uint8_t buffer[], uint16_t size, uint8_t updaterStatus, uint16_t callsite)
+int error_makeUpdaterErrorMessage(uint8_t buffer[], uint16_t size, uint8_t updaterStatus, uint16_t callsite)
 {
     int dataSize = -1;
     if (g_mode == ErrorMode_Global)
@@ -304,7 +304,7 @@ int error_makeUpdaterError(uint8_t buffer[], uint16_t size, uint8_t updaterStatu
 }
 
 
-int error_makeI2cError(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint16_t callsite)
+int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint16_t callsite)
 {
     int dataSize = -1;
     uint32_t driverStatus = i2cGen2_getLastDriverStatus();
@@ -339,7 +339,7 @@ int error_makeI2cError(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus,
 }
 
 
-int error_makeUartError(uint8_t buffer[], uint16_t size, uint8_t uartStatus, uint16_t callsite)
+int error_makeUartErrorMessage(uint8_t buffer[], uint16_t size, uint8_t uartStatus, uint16_t callsite)
 {
     int dataSize = -1;
     if (g_mode == ErrorMode_Global)
@@ -357,6 +357,69 @@ int error_makeUartError(uint8_t buffer[], uint16_t size, uint8_t uartStatus, uin
             };
             memcpy(buffer, &error, sizeof(error));
             dataSize = sizeof(error);
+        }
+    }
+    else if (g_mode == ErrorMode_Cli)
+    {
+        // @TODO: implement.
+    }
+    return dataSize;
+}
+
+
+int error_makeModeMessage(uint8_t buffer[], uint16_t size)
+{
+        int dataSize = -1;
+    if (g_mode == ErrorMode_Global)
+    {
+        if (size >= sizeof(Mode))
+        {
+            Mode data =
+            {
+                ErrorType_Mode,
+                g_mode,
+            };
+            memcpy(buffer, &data, sizeof(data));
+            dataSize = sizeof(data);
+        }
+    }
+    else if (g_mode == ErrorMode_Cli)
+    {
+        // @TODO: implement.
+    }
+    return dataSize;
+}
+
+
+int error_makeStatsMessage(uint8_t buffer[], uint16_t size)
+{
+    int dataSize = -1;
+    if (g_mode == ErrorMode_Global)
+    {
+        if (size >= sizeof(Stats))
+        {
+            Stats data =
+            {
+                ErrorType_System,
+                {
+                    HI_BYTE_16_BIT(g_errorCount[ErrorType_System]),
+                    LO_BYTE_16_BIT(g_errorCount[ErrorType_System]),
+                },
+                {
+                    HI_BYTE_16_BIT(g_errorCount[ErrorType_Updater]),
+                    LO_BYTE_16_BIT(g_errorCount[ErrorType_Updater]),
+                },
+                {
+                    HI_BYTE_16_BIT(g_errorCount[ErrorType_Uart]),
+                    LO_BYTE_16_BIT(g_errorCount[ErrorType_Uart]),
+                },
+                {
+                    HI_BYTE_16_BIT(g_errorCount[ErrorType_I2c]),
+                    LO_BYTE_16_BIT(g_errorCount[ErrorType_I2c]),
+                },
+            };
+            memcpy(buffer, &data, sizeof(data));
+            dataSize = sizeof(data);
         }
     }
     else if (g_mode == ErrorMode_Cli)

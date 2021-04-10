@@ -83,41 +83,55 @@
     /// @param[in]  type    The error type to tally.
     void error_tally(ErrorType type);
     
-    /// Generates the system error data payload.
+    /// Generates the system error message.
     /// @param[out] buffer          The buffer to put the I2C error message.
     /// @param[in]  size            The size of the buffer.
     /// @param[in]  systemStatus    The system status.
     /// @param[in]  callsite        The callsite ID.
     /// @return The size of the data payload. If -1, the buffer size was too
     ///         small.
-    int error_makeSystemError(uint8_t buffer[], uint16_t size, uint8_t systemStatus, uint16_t callsite);
+    int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, uint8_t systemStatus, uint16_t callsite);
     
-    /// Generates the system error data payload.
+    /// Generates the system error message.
     /// @param[out] buffer          The buffer to put the I2C error message.
     /// @param[in]  size            The size of the buffer.
     /// @param[in]  updaterStatus   The updater status.
     /// @param[in]  callsite        The callsite ID.
     /// @return The size of the data payload. If -1, the buffer size was too
     ///         small.
-    int error_makeUpdaterError(uint8_t buffer[], uint16_t size, uint8_t updaterStatus, uint16_t callsite);
+    int error_makeUpdaterErrorMessage(uint8_t buffer[], uint16_t size, uint8_t updaterStatus, uint16_t callsite);
     
-    /// Generates the I2C error data payload.
+    /// Generates the I2C error message.
     /// @param[out] buffer          The buffer to put the I2C error message.
     /// @param[in]  size            The size of the buffer.
     /// @param[in]  i2cStatus       The I2C status.
     /// @param[in]  callsite        The callsite ID.
     /// @return The size of the data payload. If -1, the buffer size was too
     ///         small.
-    int error_makeI2cError(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint16_t callsite);
+    int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint16_t callsite);
     
-    /// Generates the UART error data payload.
+    /// Generates the UART error message.
     /// @param[out] buffer          The buffer to put the I2C error message.
     /// @param[in]  size            The size of the buffer.
     /// @param[in]  uartStatus      The UART status.
     /// @param[in]  callsite        The callsite ID.
     /// @return The size of the data payload. If -1, the buffer size was too
     ///         small.
-    int error_makeUartError(uint8_t buffer[], uint16_t size, uint8_t uartStatus, uint16_t callsite);
+    int error_makeUartErrorMessage(uint8_t buffer[], uint16_t size, uint8_t uartStatus, uint16_t callsite);
+    
+    /// Generates the error mode message.
+    /// @param[out] buffer          The buffer to put the I2C error message.
+    /// @param[in]  size            The size of the buffer.
+    /// @return The size of the data payload. If -1, the buffer size was too
+    ///         small.
+    int error_makeModeMessage(uint8_t buffer[], uint16_t size);
+    
+    /// Generates the error stats message.
+    /// @param[out] buffer          The buffer to put the I2C error message.
+    /// @param[in]  size            The size of the buffer.
+    /// @return The size of the data payload. If -1, the buffer size was too
+    ///         small.
+    int error_makeStatMessage(uint8_t buffer[], uint16_t size);
     
     
     #ifdef __cplusplus
