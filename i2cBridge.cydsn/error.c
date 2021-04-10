@@ -369,7 +369,7 @@ int error_makeUartErrorMessage(uint8_t buffer[], uint16_t size, uint8_t uartStat
 
 int error_makeModeMessage(uint8_t buffer[], uint16_t size)
 {
-        int dataSize = -1;
+    int dataSize = -1;
     if (g_mode == ErrorMode_Global)
     {
         if (size >= sizeof(Mode))
