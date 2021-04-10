@@ -19,6 +19,7 @@
 
 #include "alarm.h"
 #include "debug.h"
+#include "error.h"
 #include "hwSystemTime.h"
 #include "i2cGen2.h"
 #include "project.h"
@@ -159,27 +160,6 @@ typedef struct Flags
     bool data : 1;
     
 } Flags;
-
-
-/// Enumeration that defines the different error type messages.
-typedef enum ErrorType
-{
-    /// Status of the global error reporting.
-    ErrorType_Status                    = 0u,
-    
-    /// Overall system-level error in the bridge.
-    ErrorType_System                    = 1u,
-    
-    /// Error in the updater function.
-    ErrorType_Updater                   = 2u,
-    
-    /// Error in the UART.
-    ErrorType_Uart                      = 3u,
-    
-    /// Error in the I2C interface.
-    ErrorType_I2c                       = 4u,
-    
-} ErrorType;
 
 
 /// Enumeration that defines the offsets of different types of bytes within the
