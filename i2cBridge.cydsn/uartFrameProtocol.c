@@ -592,7 +592,7 @@ static bool processErrorCommand(uint8_t const* data, uint16_t size)
     
     uint8_t response[] =
     {
-        ErrorType_Status,
+        ErrorType_Mode,
         (error_getMode() == ErrorMode_Global),
     };
     

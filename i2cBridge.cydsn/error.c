@@ -32,6 +32,60 @@
 typedef uint16_t count_t;
 
 
+/// General structure for System errors.
+/// Note: these are all defined as uint8_t or uint8_t arrays to ensure a packed
+/// structure.
+typedef struct SystemError
+{
+    /// Error type.
+    uint8_t type;
+    
+    /// Status mask.
+    uint8_t status;
+    
+    /// The unique callsite ID that describes the function that triggered the
+    /// error.
+    uint8_t callsite[2];
+    
+} SystemError;
+
+
+/// General structure for Updater errors.
+/// Note: these are all defined as uint8_t or uint8_t arrays to ensure a packed
+/// structure.
+typedef struct UpdaterError
+{
+    /// Error type.
+    uint8_t type;
+    
+    /// Status mask.
+    uint8_t status;
+    
+    /// The unique callsite ID that describes the function that triggered the
+    /// error.
+    uint8_t callsite[2];
+    
+} UpdaterError;
+
+
+/// General structure for UART errors.
+/// Note: these are all defined as uint8_t or uint8_t arrays to ensure a packed
+/// structure.
+typedef struct UartError
+{
+    /// Error type.
+    uint8_t type;
+    
+    /// Status mask.
+    uint8_t status;
+    
+    /// The unique callsite ID that describes the function that triggered the
+    /// error.
+    uint8_t callsite[2];
+    
+} UartError;
+
+
 /// General structure for I2C errors.
 /// Note: these are all defined as uint8_t or uint8_t arrays to ensure a packed
 /// structure.
@@ -112,6 +166,27 @@ char const* CliErrorHeader = "Err";
 /// CLI meta data for the different error types.
 MetaData const CliMetaData[] =
 {
+    // ErrorType_System.
+    {
+        "Sys",
+        "[%s|%s] %02x @%04x\r\n",
+        NUM_HEX_CHAR(sizeof(SystemError)),
+    },
+    
+    // ErrorType_Updater.
+    {
+        "Up",
+        "[%s|%s] %02x @%04x\r\n",
+        NUM_HEX_CHAR(sizeof(UpdaterError)),
+    },
+    
+    // ErrorType_System.
+    {
+        "UART",
+        "[%s|%s] %02x @%04x\r\n",
+        NUM_HEX_CHAR(sizeof(UartError)),
+    },
+    
     // ErrorType_I2c.
     {
         "I2C",
@@ -129,7 +204,7 @@ MetaData const CliMetaData[] =
     // ErrorType_Stats.
     {
         "Stat",
-        "[%s|%s] %02x\r\n",
+        "[%s|%s] %04x.%04x.%04x.%04x\r\n",
         NUM_HEX_CHAR(sizeof(Stats)),
     },
 };
@@ -168,34 +243,64 @@ void error_setMode(ErrorMode mode)
 
 void error_tally(ErrorType type)
 {
-    if ((type != ErrorType_Mode) && (type != ErrorType_Stats))
+    if (type < ErrorType_Mode)
         g_errorCount[type]++;
 }
 
 
 int error_makeSystemError(uint8_t buffer[], uint16_t size, uint8_t systemStatus, uint16_t callsite)
 {
-    int status = -1;
+    int dataSize = -1;
     if (g_mode == ErrorMode_Global)
     {
+        if (size >= sizeof(SystemError))
+        {
+            SystemError error =
+            {
+                ErrorType_System,
+                systemStatus,
+                {
+                    HI_BYTE_16_BIT(callsite),
+                    LO_BYTE_16_BIT(callsite),
+                },
+            };
+            memcpy(buffer, &error, sizeof(error));
+            dataSize = sizeof(error);
+        }
     }
     else if (g_mode == ErrorMode_Cli)
     {
+        // @TODO: implement.
     }
-    return status;
+    return dataSize;
 }
 
 
 int error_makeUpdaterError(uint8_t buffer[], uint16_t size, uint8_t updaterStatus, uint16_t callsite)
 {
-    int status = -1;
+    int dataSize = -1;
     if (g_mode == ErrorMode_Global)
     {
+        if (size >= sizeof(UpdaterError))
+        {
+            UpdaterError error =
+            {
+                ErrorType_Updater,
+                updaterStatus,
+                {
+                    HI_BYTE_16_BIT(callsite),
+                    LO_BYTE_16_BIT(callsite),
+                },
+            };
+            memcpy(buffer, &error, sizeof(error));
+            dataSize = sizeof(error);
+        }
     }
     else if (g_mode == ErrorMode_Cli)
     {
+        // @TODO: implement.
     }
-    return status;
+    return dataSize;
 }
 
 
@@ -228,6 +333,7 @@ int error_makeI2cError(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus,
     }
     else if (g_mode == ErrorMode_Cli)
     {
+        // @TODO: implement.
     }
     return dataSize;
 }
@@ -235,14 +341,29 @@ int error_makeI2cError(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus,
 
 int error_makeUartError(uint8_t buffer[], uint16_t size, uint8_t uartStatus, uint16_t callsite)
 {
-    int status = -1;
+    int dataSize = -1;
     if (g_mode == ErrorMode_Global)
     {
+        if (size >= sizeof(UartError))
+        {
+            UartError error =
+            {
+                ErrorType_Uart,
+                uartStatus,
+                {
+                    HI_BYTE_16_BIT(callsite),
+                    LO_BYTE_16_BIT(callsite),
+                },
+            };
+            memcpy(buffer, &error, sizeof(error));
+            dataSize = sizeof(error);
+        }
     }
     else if (g_mode == ErrorMode_Cli)
     {
+        // @TODO: implement.
     }
-    return status;
+    return dataSize;
 }
 
 
