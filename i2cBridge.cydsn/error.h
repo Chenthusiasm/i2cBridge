@@ -1,0 +1,54 @@
+/* ========================================
+ *
+ * UICO, 2021
+ * All Rights Reserved
+ * UNPUBLISHED, LICENSED SOFTWARE.
+ *
+ * CONFIDENTIAL AND PROPRIETARY INFORMATION
+ * WHICH IS THE PROPERTY OF your company.
+ *
+ * ========================================
+*/
+
+#ifndef ERROR_H
+    #define ERROR_H
+
+    #ifdef __cplusplus
+        extern "C" {
+    #endif
+    
+    // === DEPENDENCIES ========================================================
+    
+    #ifndef __cplusplus
+        #include <stdbool.h>
+    #endif
+    #include <stdint.h>
+    
+    
+    // === TYPE DEFINES ========================================================
+    
+    /// Enumerations for the different types of alarms.
+    typedef enum ErrorMode
+    {
+        /// The legacy error mode where errors are separated out in different
+        /// UART frame protocol commands.
+        ErrorMode_Legacy,
+        
+        /// Unified error mode.
+        ErorrMode_Unified,
+        
+    } ErrorMode;
+    
+    
+    // === FUNCTIONS ===========================================================
+    
+    
+    
+    
+    #ifdef __cplusplus
+    } // extern "C"
+    #endif
+    
+#endif // ERROR_H
+
+/* [] END OF FILE */
