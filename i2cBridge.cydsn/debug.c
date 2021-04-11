@@ -663,6 +663,7 @@ void debug_init(void)
         debug_uartPrintHexUint32((uint32_t)(data));
     }
     
+    #if 0
     void debug_printf(char const* format, ...)
     {
         #define MAX_WIDTH                   ((sizeof(uint32_t) * 8u) + 2u)
@@ -909,6 +910,21 @@ void debug_init(void)
         // number of characters that were printed.
         //return n;
     }
+    
+    #else
+        
+        #include "smallPrintf.h"
+        static void putChar(char c)
+        {
+            PUTCHAR(c);
+        }
+        
+        void debug_printf(char const* format, ...)
+        {
+            va_list args;
+            smallPrintf(putChar, format, args);
+        }
+    #endif
     
     
 #endif

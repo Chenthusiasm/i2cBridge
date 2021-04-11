@@ -25,16 +25,16 @@
 
 /// Enable the optimized decimal divide and modulo; this doesn't use the
 /// standard divide and modulo operators.
-#define ENABLE_OPTIMIZED_DECIMAL_DIVIDE (false)
+#define ENABLE_OPTIMIZED_DECIMAL_DIVIDE (true)
 
 /// Enable the binary (base 2) formatter.
-#define ENABLE_BINARY                   (false)
+#define ENABLE_BINARY                   (true)
 
 /// Enable the octal (base 8) formatter.
-#define ENABLE_OCTAL                    (false)
+#define ENABLE_OCTAL                    (true)
 
 /// Enable the hexadecimal (base 16) formatter.
-#define ENABLE_HEX                      (false)
+#define ENABLE_HEX                      (true)
 
 #if ENABLE_BINARY
 
