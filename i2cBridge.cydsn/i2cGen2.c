@@ -25,6 +25,11 @@
 
 // === DEFINES =================================================================
 
+/// Enable/disable the optimized read which uses no stops and restarts in the
+/// I2C transactions to hold onto the bus and potentially reduce I2C byte
+/// transactions.
+#define ENABLE_OPTIMIZED_RX             (false)
+
 /// Name of the slave I2C component.
 #define SLAVE_I2C                       slaveI2c_
 
@@ -204,7 +209,7 @@ typedef struct Heap
 
 /// The number of bytes to read in order to find the number of bytes in the
 /// receive data payload.
-static uint8_t const G_AppRxPacketLengthSize = AppRxPacketOffset_Length + 1;
+static uint8_t const G_AppRxPacketLengthSize = AppRxPacketOffset_Length + 1u;
 
 /// The value of the length byte which indicates the packet is invalid.
 static uint8_t const G_InvalidRxAppPacketLength = 0xff;
@@ -535,8 +540,12 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             {
                 if (isBusReady())
                 {
-                    //TransferMode mode = { { false, true } };
-                    TransferMode mode = { { false, false } };
+                    #if ENABLE_OPTIMIZED_RX
+                        TransferMode mode = { { false, true } };
+                    #else
+                        TransferMode mode = { { false, false } };
+                    #endif // ENABLE_OPTIMIZED_RX
+                    
                     status = read(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, mode);
                     if (!status.errorOccurred)
                     {
@@ -570,14 +579,25 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             
             case AppRxState_ReadDataPayload:
             {
-                debug_uartWriteByte(3);
                 if (isBusReady())
                 {
-                    TransferMode mode = { { false, false } };
-                    status = read(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], payloadLength, mode);
+                    #if ENABLE_OPTIMIZED_RX
+                        TransferMode mode = { { false, true } };
+                        uint8_t* pointer = &g_heap->rxBuffer[AppRxPacketOffset_Data];
+                        uint16_t readSize = payloadLength;
+                    #else
+                        TransferMode mode = { { false, false } };
+                        uint8_t* pointer = g_heap->rxBuffer;
+                        uint16_t readSize = length + payloadLength;
+                    #endif // ENABLE_OPTIMIZED_RX
+                    
+                    debug_uartWriteByte(length);
+                    debug_uartWriteByte(payloadLength);
+                    debug_uartWriteByte(readSize);
+                    status = read(g_slaveAddress, pointer, readSize, mode);
                     if (!status.errorOccurred)
                     {
-                        length += payloadLength;
+                        length = readSize;
                         if (g_rxCallback != NULL)
                             g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
                         state = AppRxState_ClearIrq;
