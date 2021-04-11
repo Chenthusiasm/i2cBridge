@@ -214,6 +214,17 @@ static uint8_t const G_InvalidRxAppPacketLength = 0xff;
 /// in milliseconds.
 static uint32_t const G_DefaultSendStopTimeoutMS = 5u;
 
+/// Message to write to the I2C slave to clear the IRQ. This can also be used
+/// to switch to the response buffer.
+static uint8_t const G_ClearIrqMessage[] = { AppBufferOffset_Response, 0 };
+
+/// Size of the clear slave IRQ message in bytes.
+static uint8_t const G_ClearIrqSize = sizeof(G_ClearIrqMessage);
+
+/// Size of the switch to response buffer message in bytes; this uses the clear
+/// slave IRQ message.
+static uint8_t const G_ResponseBufferSize = sizeof(G_ClearIrqMessage) - 1u;
+
 
 // === GLOBALS =================================================================
 
@@ -403,12 +414,14 @@ static I2cGen2Status read(uint8_t address, uint8_t data[], uint16_t size, Transf
 /// @param[in]  mode    TransferMode settings.
 /// @return Status indicating if an error occured. See the definition of the
 ///         I2cGen2Status union.
-static I2cGen2Status write(uint8_t address, uint8_t data[], uint16_t size, TransferMode mode)
+static I2cGen2Status write(uint8_t address, uint8_t const data[], uint16_t size, TransferMode mode)
 {
     I2cGen2Status status;
     if ((data != NULL) && (size > 0))
     {
-        mreturn_t result = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, data, size, mode.value);
+        // Note: remove the const typing in order to utilize the low-level
+        // driver function.
+        mreturn_t result = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, (uint8_t*)data, size, mode.value);
         status = updateDriverStatus(mode, result);
         if (!status.errorOccurred)
         {
@@ -432,6 +445,8 @@ static I2cGen2Status sendStop(void)
     static TransferMode const mode = { { false, false } };
     mreturn_t result = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
     I2cGen2Status status = updateDriverStatus(mode, result);
+    if (!status.errorOccurred)
+        g_slaveNoStop = false;
     return status;
 }
 
@@ -442,9 +457,8 @@ static I2cGen2Status sendStop(void)
 ///         I2cGen2Status union.
 static I2cGen2Status resetIrq(void)
 {
-    uint8_t clear[] = { AppBufferOffset_Response, 0 };
     TransferMode mode = { { false, false } };
-    I2cGen2Status status = write(g_slaveAddress, clear, sizeof(clear), mode);
+    I2cGen2Status status = write(g_slaveAddress, G_ClearIrqMessage, G_ClearIrqSize, mode);
     return status;
 }
 
@@ -455,10 +469,8 @@ static I2cGen2Status resetIrq(void)
 ///         I2cGen2Status union.
 static I2cGen2Status changeSlaveAppToResponseBuffer(void)
 {
-    I2cGen2Status status = { false };
-    uint8_t responseMessage[] = { AppBufferOffset_Response };
     TransferMode mode = { { false, false } };
-    status = write(g_slaveAddress, responseMessage, sizeof(responseMessage), mode);
+    I2cGen2Status status = write(g_slaveAddress, G_ClearIrqMessage, G_ResponseBufferSize, mode);
     // The write function will change the flag to reflect if the app was
     // switched to the response buffer.
     return status;
@@ -523,7 +535,8 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             {
                 if (isBusReady())
                 {
-                    TransferMode mode = { { false, true } };
+                    //TransferMode mode = { { false, true } };
+                    TransferMode mode = { { false, false } };
                     status = read(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, mode);
                     if (!status.errorOccurred)
                     {
@@ -557,9 +570,10 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             
             case AppRxState_ReadDataPayload:
             {
+                debug_uartWriteByte(3);
                 if (isBusReady())
                 {
-                    TransferMode mode = { { true, false } };
+                    TransferMode mode = { { false, false } };
                     status = read(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], payloadLength, mode);
                     if (!status.errorOccurred)
                     {
