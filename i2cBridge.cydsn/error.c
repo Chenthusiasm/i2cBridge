@@ -316,7 +316,7 @@ int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cGen2Status i2c
             I2cError error =
             {
                 ErrorType_I2c,
-                i2cStatus.errorOccurred,
+                i2cStatus.value,
                 {
                     HI_BYTE_16_BIT(driverStatus),
                     LO_BYTE_16_BIT(driverStatus),

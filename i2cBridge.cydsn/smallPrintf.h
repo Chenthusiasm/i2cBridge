@@ -19,6 +19,7 @@
     
     // === DEPENDENCIES ========================================================
     
+    #include <stdarg.h>
     #include <stdint.h>
     
     
@@ -81,7 +82,7 @@
     ///                     arguments.
     /// @param[in]  ...     The variadiac argument list representing the list of
     ///                     format specifiers with associated flags.
-    int smallPrintf(PutChar putChar, char const* format, ...);
+    int smallPrintf(PutChar putChar, char const* format, va_list args);
     
     
     #ifdef __cplusplus

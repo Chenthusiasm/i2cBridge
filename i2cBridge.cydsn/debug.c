@@ -145,7 +145,9 @@ void debug_init(void)
     void debug_printf(char const* format, ...)
     {
         va_list args;
+        va_start(args, format);
         smallPrintf(putChar, format, args);
+        va_end(args);
     }
     
     

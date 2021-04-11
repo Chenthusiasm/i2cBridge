@@ -34,6 +34,10 @@
         /// occurred.
         bool errorOccurred;
         
+        /// 8-bit representation of the status. Use this to get the bit mask
+        /// created by the following anonymous struct of 1-bit flags.
+        uint8_t value;
+        
         struct
         {
             /// Error flag indicating that the module hasn't been activated and

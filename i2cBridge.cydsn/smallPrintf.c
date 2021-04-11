@@ -15,7 +15,6 @@
 #include "smallPrintf.h"
 
 #include <limits.h>
-#include <stdarg.h>
 #ifndef __cplusplus
     #include <stdbool.h>
 #endif
@@ -551,7 +550,7 @@ static ItoaResult simplePtoa(void* pointer, char buffer[], uint8_t size,FormatFl
 
 // === PUBLIC FUNCTIONS ========================================================
 
-int smallPrintf(PutChar putChar, char const* format, ...)
+int smallPrintf(PutChar putChar, char const* format, va_list args)
 {
     #define MAX_WIDTH                   ((sizeof(uint32_t) * 8u) + 2u)
     #define BUFFER_SIZE                 (MAX_WIDTH + 1u)
@@ -559,9 +558,6 @@ int smallPrintf(PutChar putChar, char const* format, ...)
     int n = -1;
     if (putChar != NULL)
     {
-        va_list args;
-        va_start(args, format);
-        
         bool formatSpecifier = false;
         FormatFlags flags;
         flags.value = 0;

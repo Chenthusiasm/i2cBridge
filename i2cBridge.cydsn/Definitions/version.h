@@ -42,7 +42,7 @@
     
     /// Defines any small bug fixes or code rework.
     /// Format: unsigned 16-bit integer, represented as decimal.
-    #define VERSION_UPDATE              (10u)
+    #define VERSION_UPDATE              (11u)
     
     /// Defines the legacy variation of the version; major release. The legacy
     /// major version is hard-coded to 254 (0xfe).

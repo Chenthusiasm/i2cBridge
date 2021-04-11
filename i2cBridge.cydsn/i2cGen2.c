@@ -671,7 +671,6 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                     TransferMode mode = { { false, false } };
                     status = read(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], g_appRxStateMachine.pendingRxSize, mode);
                 #else
-                    uint8_t* buffer = g_heap->rxBuffer;
                     status = read(g_slaveAddress, g_heap->rxBuffer, g_appRxStateMachine.pendingRxSize);
                 #endif // ENABLE_TRANSFER_MODE
                     
@@ -1108,7 +1107,8 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
             timeoutMS = DefaultAckTimeout;
         alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
         
-        while (true)
+        bool acknowledged = false;
+        while (!acknowledged)
         {
             if (alarm.armed && alarm_hasElapsed(&alarm))
             {
@@ -1127,6 +1127,7 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
             #else
                 status = read(address, &scratch, 0);
             #endif // ENABLE_TRANSFER_MODE
+                acknowledged = !status.errorOccurred;
             }
         }
     }
