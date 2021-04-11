@@ -634,7 +634,6 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             {
                 // @TODO Check to see if this makes sense, the host should not
                 // be sending a slave NAK message to the bridge.
-                txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
                 break;
             }
             
@@ -644,12 +643,6 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 I2cGen2Status i2cStatus = i2cGen2_read(data[PacketOffset_BridgeData], readData, sizeof(readData));
                 if (!i2cStatus.errorOccurred)
                     uartFrameProtocol_txEnqueueData(data, size);
-                else
-                {
-                    if (i2cStatus.timedOut)
-                        txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
-                    status = false;
-                }
                 break;
             }
             
@@ -657,7 +650,6 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             {
                 // @TODO Check to see if this makes sense, the host should not
                 // be sending a slave timeout message to the bridge.
-                txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
                 break;
             }
             
@@ -683,14 +675,6 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                     i2cStatus = i2cGen2_ackApp(timeoutMS);
                 if (!i2cStatus.errorOccurred)
                     txEnqueueCommandResponse(BridgeCommand_SlaveAck, NULL, 0);
-                else
-                {
-                    if (i2cStatus.timedOut)
-                        txEnqueueCommandResponse(BridgeCommand_SlaveTimeout, NULL, 0);
-                    else if (i2cStatus.nak)
-                        txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
-                    status = false;
-                }
                 break;
             }
             

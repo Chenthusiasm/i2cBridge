@@ -170,8 +170,14 @@ typedef enum AppRxState
     /// Read the length of the response.
     AppRxState_ReadLength,
     
+    /// Process the length after reading.
+    AppRxState_ProcessLength,
+    
     /// Read the remaining data payload state.
     AppRxState_ReadDataPayload,
+    
+    /// Process the the data payload after reading.
+    AppRxState_ProcessDataPayload,
     
 #if ENABLE_TRANSFER_MODE
     /// Complete the read operation by sending a stop.
@@ -180,9 +186,6 @@ typedef enum AppRxState
     
     /// Clear the IRQ.
     AppRxState_ClearIrq,
-    
-    /// Receive completed.
-    AppRxState_Complete,
     
 } AppRxState;
 
@@ -576,13 +579,12 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
     else
         alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
         
-    int length = 0;
-    uint8_t payloadLength = 0;
     while (g_appRxStateMachine.state != AppRxState_Waiting)
     {
         if (g_appRxStateMachine.timeoutAlarm.armed && alarm_hasElapsed(&g_appRxStateMachine.timeoutAlarm))
         {
             status.timedOut = true;
+            g_appRxStateMachine.state = AppRxState_Waiting;
             break;
         }
         
@@ -590,7 +592,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
         {
             case AppRxState_Pending:
             {
-                length = 0;
+                g_appRxStateMachine.pendingRxSize = G_AppRxPacketLengthSize;
                 if (g_slaveAppResponseActive)
                     g_appRxStateMachine.state = AppRxState_ReadLength;
                 else
@@ -606,7 +608,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                     if (!status.errorOccurred)
                         g_appRxStateMachine.state = AppRxState_ReadLength;
                     else
-                        g_appRxStateMachine.state = AppRxState_Complete;
+                        g_appRxStateMachine.state = AppRxState_Waiting;
                 }
                 break;
             }
@@ -617,41 +619,47 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                 {
                 #if ENABLE_TRANSFER_MODE
                     TransferMode mode = { { false, false } };
-                    status = read(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize, mode);
+                    status = read(g_slaveAddress, g_heap->rxBuffer, g_appRxStateMachine.pendingRxSize, mode);
                 #else
-                    status = read(g_slaveAddress, g_heap->rxBuffer, G_AppRxPacketLengthSize);
+                    status = read(g_slaveAddress, g_heap->rxBuffer, g_appRxStateMachine.pendingRxSize);
                 #endif // ENABLE_TRANSFER_MODE
                     if (!status.errorOccurred)
+                        g_appRxStateMachine.state = AppRxState_ProcessLength;
+                    else
+                        g_appRxStateMachine.state = AppRxState_Waiting;
+                }
+                break;
+            }
+            
+            case AppRxState_ProcessLength:
+            {
+                if (isBusReady())
+                {
+                    uint8_t length = g_heap->rxBuffer[AppRxPacketOffset_Length];
+                    if (isAppPacketLengthValid(length))
                     {
-                        payloadLength = g_heap->rxBuffer[AppRxPacketOffset_Length];
-                        if (isAppPacketLengthValid(payloadLength))
-                        {
-                            length += G_AppRxPacketLengthSize;
-                            if (length <= 0)
-                            {
-                                if (g_rxCallback != NULL)
-                                    g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
-                            #if ENABLE_TRANSFER_MODE
-                                g_appRxStateMachine.state = AppRxState_StopRead;
-                            #else
-                                g_appRxStateMachine.state = AppRxState_ClearIrq;
-                            #endif // ENABLE_TRANSFER_MODE
-                            }
-                            else
-                            {
-                                alarm_snooze(&g_appRxStateMachine.timeoutAlarm, findExtendedTimeoutMS(payloadLength));
-                                g_appRxStateMachine.state = AppRxState_ReadDataPayload;
-                            }
-                        }
+                    #if ENABLE_TRANSFER_MODE
+                        g_appRxStateMachine.pendingRxSize = length;
+                    #else
+                        g_appRxStateMachine.pendingRxSize += length;
+                    #endif // ENABLE_TRANSFER_MODE
+                        if (length <= 0)
+                            g_appRxStateMachine.state = AppRxState_ProcessDataPayload;
                         else
                         {
-                            status.invalidRead = true;
-                            g_appRxStateMachine.state = AppRxState_Complete;
+                            alarm_snooze(&g_appRxStateMachine.timeoutAlarm, findExtendedTimeoutMS(g_appRxStateMachine.pendingRxSize));
+                            g_appRxStateMachine.state = AppRxState_ReadDataPayload;
                         }
                     }
                     else
-                        g_appRxStateMachine.state = AppRxState_Complete;
+                    {
+                        status.invalidRead = true;
+                        // No issue with the I2C transaction; there's an issue
+                        // with the data, so still clear the IRQ.
+                        g_appRxStateMachine.state = AppRxState_ClearIrq;
+                    }
                 }
+                
                 break;
             }
             
@@ -659,24 +667,38 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             {
                 if (isBusReady())
                 {
-                    uint8_t* pointer = g_heap->rxBuffer;
-                    uint16_t readSize = length + payloadLength;
-                    
                 #if ENABLE_TRANSFER_MODE
                     TransferMode mode = { { false, false } };
-                    status = read(g_slaveAddress, pointer, readSize, mode);
+                    status = read(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], g_appRxStateMachine.pendingRxSize, mode);
                 #else
-                    status = read(g_slaveAddress, pointer, readSize);
+                    uint8_t* buffer = g_heap->rxBuffer;
+                    status = read(g_slaveAddress, g_heap->rxBuffer, g_appRxStateMachine.pendingRxSize);
                 #endif // ENABLE_TRANSFER_MODE
+                    
                     if (!status.errorOccurred)
-                    {
-                        length = readSize;
-                        if (g_rxCallback != NULL)
-                            g_rxCallback(g_heap->rxBuffer, (uint16_t)length);
-                        g_appRxStateMachine.state = AppRxState_ClearIrq;
-                    }
+                        g_appRxStateMachine.state = AppRxState_ProcessDataPayload;
                     else
-                        g_appRxStateMachine.state = AppRxState_Complete;
+                        g_appRxStateMachine.state = AppRxState_Waiting;
+                }
+                break;
+            }
+            
+            case AppRxState_ProcessDataPayload:
+            {
+                if (isBusReady())
+                {
+                #if ENABLE_TRANSFER_MODE
+                    uint16_t length = G_AppRxPacketLengthSize + g_appRxStateMachine.pendingRxSize;
+                #else
+                    uint16_t length = g_appRxStateMachine.pendingRxSize;
+                #endif // ENABLE_TRANSFER_MODE
+                    if (g_rxCallback != NULL)
+                        g_rxCallback(g_heap->rxBuffer, length);
+                #if ENABLE_TRANSFER_MODE
+                    g_appRxStateMachine.state = AppRxState_StopRead;
+                #else
+                    g_appRxStateMachine.state = AppRxState_ClearIrq;
+                #endif // ENABLE_TRANSFER_MODE
                 }
                 break;
             }
@@ -688,9 +710,9 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                 {
                     status = sendStop();
                     if (!status.errorOccurred)
-                        state = AppRxState_ClearIrq;
+                        g_appRxStateMachine.state = AppRxState_ClearIrq;
                     else
-                        state = AppRxState_Complete;
+                        g_appRxStateMachine.state = AppRxState_Waiting;
                 }
                 break;
             }
@@ -701,7 +723,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                 if (isBusReady())
                 {
                     status = resetIrq();
-                    g_appRxStateMachine.state = AppRxState_Complete;
+                    g_appRxStateMachine.state = AppRxState_Waiting;
                 }
                 break;
             }
@@ -709,6 +731,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             default:
             {
                 // Should never get here.
+                g_appRxStateMachine.state = AppRxState_Waiting;
             }
         }
     }
