@@ -47,6 +47,17 @@
 
 // === TYPE DEFINES ============================================================
 
+/// The master driver level function status type. The I2CMasterStatus function
+/// returns a uint32_t, but the returned value only uses 16-bits at most.
+typedef uint16_t mstatus_t;
+
+/// The master driver level function return type. The I2CMasterWriteBuf,
+/// I2CMasterReadBuf, and I2CMasterSendStop functions return a uint32_t. Only
+/// the I2CMasterSendStop function requires the return type to be uint32_t due
+/// to the timeout error. The other two functions' return type can fit in a
+/// uint16_t. Therefore, the return type is defined as the larger uint32_t.
+typedef uint32_t mreturn_t;
+
 /// Defines the type of transfer mode for the read/write transaction on the I2C
 /// bus.
 typedef union TransferMode
@@ -221,6 +232,10 @@ static uint8_t g_slaveAddress = SlaveAddress_App;
 /// Flag indicating if the IRQ triggerd and a receive is pending consumption.
 static volatile bool g_rxPending = false;
 
+/// Flag indicating that the slave is in the middle of a transaction and no stop
+/// was sent; the bus will remain busy.
+static bool g_slaveNoStop = false;
+
 /// Flag indicating we're in the response buffer is active for the slave app.
 static bool g_slaveAppResponseActive = false;
 
@@ -231,8 +246,10 @@ static I2cGen2_RxCallback g_rxCallback = NULL;
 static I2cGen2_ErrorCallback g_errorCallback = NULL;
 
 /// The status of the last driver API call. Refer to the possible error messages
-/// in the generated "I2C Component Name"_I2C.h file.
-static uint32_t g_lastDriverStatus = 0;
+/// in the generated "I2C Component Name"_I2C.h file. Note that the return type
+/// of the function to get the status is uint32_t, but in actuality, only a
+/// uint16_t is returned.
+static mstatus_t g_lastDriverStatus = 0;
 
 
 // === PRIVATE FUNCTIONS =======================================================
@@ -284,16 +301,6 @@ void resetPendingTxEnqueue(void)
 }
 
 
-/// Checks to see if the slave I2C bus is ready.
-/// @return If the bus is ready for a new read/write transaction.
-static bool isBusReady(void)
-{
-    uint32_t status = COMPONENT(SLAVE_I2C, I2CMasterStatus)();
-    g_lastDriverStatus = status;
-    return ((status & COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_INP)) == 0);
-}
-
-
 /// Checks if the read packet contains a valid data payload length.
 /// @param[in]  length  The data payload length.
 /// @return If the length is valid for a read packet.
@@ -334,6 +341,42 @@ static uint32_t findExtendedTimeoutMS(uint16_t transactionSize)
 }
 
 
+/// Checks to see if the slave I2C bus is ready.
+/// @return If the bus is ready for a new read/write transaction.
+static bool isBusReady(void)
+{
+    g_lastDriverStatus = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterStatus)();
+    return ((g_lastDriverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_INP)) == 0);
+}
+
+
+/// Updates the driver status and generates the I2cGen2Status that corresponds
+/// to the return result from the low-level driver function.
+/// @param[in]  mode    The TransferMode flags used in the low-level driver
+///                     function.
+/// @param[in]  result  The result from the low-level driver function call.
+I2cGen2Status updateDriverStatus(TransferMode mode, mreturn_t result)
+{
+    I2cGen2Status status = { false };
+    if (result == COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
+        g_slaveNoStop = mode.noStop;
+    else
+    {
+        status.driverError = true;
+        if ((result & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
+            status.nak = true;
+        if ((result & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
+            status.timedOut = true;
+    }
+    
+    // Update the driver status.
+    g_lastDriverStatus = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterStatus)();
+    COMPONENT(SLAVE_I2C, I2CMasterClearStatus)();
+    
+    return status;
+}
+
+
 /// Read data from a slave device on the I2C bus.
 /// @param[in]  address
 /// @param[out] data    Data buffer to copy the read data to.
@@ -344,15 +387,8 @@ static uint32_t findExtendedTimeoutMS(uint16_t transactionSize)
 ///         I2cGen2Status union.
 static I2cGen2Status read(uint8_t address, uint8_t data[], uint16_t size, TransferMode mode)
 {
-    I2cGen2Status status = { false };
-    uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, mode.value);
-    if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
-    {
-        status.driverError = true;
-        if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
-            status.nak = true;
-    }
-    g_lastDriverStatus = driverStatus;
+    mreturn_t result = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, mode.value);
+    I2cGen2Status status = updateDriverStatus(mode, result);
     return status;
 }
 
@@ -367,22 +403,16 @@ static I2cGen2Status read(uint8_t address, uint8_t data[], uint16_t size, Transf
 ///         I2cGen2Status union.
 static I2cGen2Status write(uint8_t address, uint8_t data[], uint16_t size, TransferMode mode)
 {
-    I2cGen2Status status = { false };
+    I2cGen2Status status;
     if ((data != NULL) && (size > 0))
     {
-        uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, data, size, mode.value);
-        if (driverStatus == COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
+        mreturn_t result = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, data, size, mode.value);
+        status = updateDriverStatus(mode, result);
+        if (!status.errorOccurred)
         {
             if (address == g_slaveAddress)
                 g_slaveAppResponseActive = (data[TxQueueDataOffset_Address] >= AppBufferOffset_Response);
         }
-        else
-        {
-            status.driverError = true;
-            if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
-                status.nak = true;
-        }
-        g_lastDriverStatus = driverStatus;
     }
     else
         status.inputParametersInvalid = true;
@@ -396,17 +426,10 @@ static I2cGen2Status write(uint8_t address, uint8_t data[], uint16_t size, Trans
 ///         I2cGen2Status union.
 static I2cGen2Status sendStop(void)
 {
-    I2cGen2Status status = { false };
-    uint32_t driverStatus = COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
-    if (driverStatus != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))
-    {
-        status.driverError = true;
-        if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_LB_NAK)) > 0)
-            status.nak = true;
-        if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
-            status.timedOut = true;
-    }
-    g_lastDriverStatus = driverStatus;
+    // Dummy TransferMode constant to pass into the updateDriverStatus function.
+    static TransferMode const mode = { { false, false } };
+    mreturn_t result = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
+    I2cGen2Status status = updateDriverStatus(mode, result);
     return status;
 }
 
@@ -460,7 +483,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
         
     int length = 0;
     uint8_t payloadLength = 0;
-    AppRxState state = AppRxState_Start;    
+    AppRxState state = AppRxState_Start;
     while (state != AppRxState_Complete)
     {
         if (alarm.armed && alarm_hasElapsed(&alarm))
@@ -596,6 +619,17 @@ static void processError(I2cGen2Status status, uint16_t callsite)
 }
 
 
+/// Resets the slave status flags to the default states. The following flags
+/// are reset:
+/// 1. g_slaveAppResponseActive (false)
+/// 2. g_slaveNoStop (false)
+static void resetSlaveStatusFlags(void)
+{
+    g_slaveAppResponseActive = false;
+    g_slaveNoStop = false;
+}
+
+
 // === ISR =====================================================================
 
 /// ISR for the slaveIRQ (for the slaveIRQPin). The IRQ is asserted when there's
@@ -613,8 +647,8 @@ CY_ISR(slaveIsr)
 
 void i2cGen2_init(void)
 {
+    resetSlaveStatusFlags();
     i2cGen2_resetSlaveAddress();
-    g_slaveAppResponseActive = false;
     
     COMPONENT(SLAVE_I2C, Start)();
     COMPONENT(SLAVE_IRQ, StartEx)(slaveIsr);
@@ -643,7 +677,7 @@ uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size)
         g_heap = &g_tempHeap;
         initTxQueue();
         allocatedSize = i2cGen2_getMemoryRequirement() / sizeof(uint32_t);
-        g_slaveAppResponseActive = false;
+        resetSlaveStatusFlags();
     }
     return allocatedSize;
 }
@@ -652,27 +686,33 @@ uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size)
 void i2cGen2_deactivate(void)
 {
     g_heap = NULL;
-    g_slaveAppResponseActive = false;
+    resetSlaveStatusFlags();
 }
 
 
 void i2cGen2_setSlaveAddress(uint8_t address)
 {
-    g_slaveAddress = address;
-    g_slaveAppResponseActive = false;
+    if (address != g_slaveAddress)
+    {
+        g_slaveAddress = address;
+        resetSlaveStatusFlags();
+    }
 }
 
 
 void i2cGen2_resetSlaveAddress(void)
 {
-    g_slaveAddress = SlaveAddress_App;
-    g_slaveAppResponseActive = false;
+    if (g_slaveAddress != SlaveAddress_App)
+    {
+        g_slaveAddress = SlaveAddress_App;
+        resetSlaveStatusFlags();
+    }
 }
 
 
-uint32_t i2cGen2_getLastDriverStatus(void)
+uint16_t i2cGen2_getLastDriverStatusMask(void)
 {
-    return g_lastDriverStatus;
+    return (uint16_t)g_lastDriverStatus;
 }
 
     
@@ -696,22 +736,25 @@ bool i2cGen2_processRx(uint32_t timeoutMS)
     
     bool result = false;
     I2cGen2Status status = { false };
-    if ((g_heap != NULL) && g_rxPending)
+    if (g_heap != NULL)
     {
-        if (isIrqAsserted())
+        if (g_rxPending)
         {
-            status = processAppRxStateMachine(timeoutMS);
-            if (!status.errorOccurred)
+            if (isIrqAsserted())
             {
-                g_rxPending = false;
-                result = true;
+                status = processAppRxStateMachine(timeoutMS);
+                if (!status.errorOccurred)
+                {
+                    g_rxPending = false;
+                    result = true;
+                }
+                // If an error occurred; do not clear the g_rxPending flag so that
+                // another attempt can be made to process a pending receive at a
+                // later time.
             }
-            // If an error occurred; do not clear the g_rxPending flag so that
-            // another attempt can be made to process a pending receive at a
-            // later time.
+            else
+                g_rxPending = false;
         }
-        else
-            g_rxPending = false;
     }
     else
         status.deactivated = true;

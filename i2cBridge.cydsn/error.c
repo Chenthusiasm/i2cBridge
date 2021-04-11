@@ -98,7 +98,7 @@ typedef struct I2cError
     uint8_t status;
     
     /// The last low level I2C driver status mask.
-    uint8_t driverStatus[4];
+    uint8_t driverStatus[2];
     
     /// The unique callsite ID that describes the function that triggered the
     /// error.
@@ -161,7 +161,7 @@ typedef struct MetaData
 // === CONSTANTS ===============================================================
 
 /// CLI error header.
-char const* CliErrorHeader = "Err";
+char const* CliErrorHeader = "ERR";
 
 /// CLI meta data for the different error types.
 MetaData const CliMetaData[] =
@@ -190,7 +190,7 @@ MetaData const CliMetaData[] =
     // ErrorType_I2c.
     {
         "I2C",
-        "[%s|%s] %02x.$08x @%04x\r\n",
+        "[%s|%s] %02x.$04x @%04x\r\n",
         NUM_HEX_CHAR(sizeof(I2cError)),
     },
     
@@ -213,7 +213,8 @@ MetaData const CliMetaData[] =
 // === GLOBALS =================================================================
 
 /// Indicates the current error mode. Default: legacy.
-static ErrorMode g_mode = ErrorMode_Legacy;
+/// @TODO: revert to ErrorMode_Legacy.
+static ErrorMode g_mode = ErrorMode_Global;
 
 
 /// Counter that tracks the number of times each ErrorType occurred (with the
@@ -307,7 +308,7 @@ int error_makeUpdaterErrorMessage(uint8_t buffer[], uint16_t size, uint8_t updat
 int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint16_t callsite)
 {
     int dataSize = -1;
-    uint32_t driverStatus = i2cGen2_getLastDriverStatus();
+    uint16_t driverStatus = i2cGen2_getLastDriverStatusMask();
     if (g_mode == ErrorMode_Global)
     {
         if (size >= sizeof(I2cError))
@@ -317,10 +318,8 @@ int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cGen2Status i2c
                 ErrorType_I2c,
                 i2cStatus.errorOccurred,
                 {
-                    BYTE_3_32_BIT(driverStatus),
-                    BYTE_2_32_BIT(driverStatus),
-                    BYTE_1_32_BIT(driverStatus),
-                    BYTE_0_32_BIT(driverStatus),
+                    HI_BYTE_16_BIT(driverStatus),
+                    LO_BYTE_16_BIT(driverStatus),
                 },
                 {
                     HI_BYTE_16_BIT(callsite),
