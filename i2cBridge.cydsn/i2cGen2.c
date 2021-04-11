@@ -346,7 +346,9 @@ static uint32_t findExtendedTimeoutMS(uint16_t transactionSize)
 static bool isBusReady(void)
 {
     g_lastDriverStatus = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterStatus)();
-    return ((g_lastDriverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_INP)) == 0);
+    COMPONENT(SLAVE_I2C, I2CMasterClearStatus)();
+    bool transactionInProgress = (g_lastDriverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_INP)) != 0;
+    return (g_slaveNoStop || !transactionInProgress);
 }
 
 
