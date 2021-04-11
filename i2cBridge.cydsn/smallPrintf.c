@@ -16,22 +16,25 @@
 
 #include <limits.h>
 #include <stdarg.h>
+#ifndef __cplusplus
+    #include <stdbool.h>
+#endif
 
 
 // === DEFINES =================================================================
 
 /// Enable the optimized decimal divide and modulo; this doesn't use the
 /// standard divide and modulo operators.
-#define ENABLE_OPTIMIZED_DECIMAL_DIVIDE (true)
+#define ENABLE_OPTIMIZED_DECIMAL_DIVIDE (false)
 
 /// Enable the binary (base 2) formatter.
-#define ENABLE_BINARY                   (true)
+#define ENABLE_BINARY                   (false)
 
 /// Enable the octal (base 8) formatter.
-#define ENABLE_OCTAL                    (true)
+#define ENABLE_OCTAL                    (false)
 
 /// Enable the hexadecimal (base 16) formatter.
-#define ENABLE_HEX                      (true)
+#define ENABLE_HEX                      (false)
 
 #if ENABLE_BINARY
 
@@ -193,8 +196,32 @@ static uint32_t const G_DecimalDivisor = 10u;
 /// Integer to character conversion table, lowercase (default).
 static char const G_CharTable[] = "0123456789abcdef";
 
-/// Integer to character conversion table, uppercase.
-static char const G_UpperCharTable[] = "0123456789ABCDEF";
+#if ENABLE_BINARY
+    
+    /// Binary prefix.
+    static char const G_BinaryPrefix[] = "0b";
+    
+#endif // ENABLE_BINARY
+
+#if ENABLE_OCTAL
+    
+    /// Octal prefix.
+    static char const G_OctalPrefix[] = "0";
+    
+#endif
+
+/// Standard hex prefix.
+static char const G_HexPrefix[] = "0x";
+
+#if ENABLE_HEX
+    
+    /// Uppercase hex perfix.
+    static char const G_UpperHexPrefix[] = "0X";
+    
+    /// Integer to character conversion table, uppercase.
+    static char const G_UpperCharTable[] = "0123456789ABCDEF";
+    
+#endif // ENABLE_HEX
 
 
 // === PRIVATE FUNCTIONS =======================================================
@@ -265,10 +292,6 @@ static uint32_t divideBy10(uint32_t d, uint32_t* r)
 ///         of characters in the converted string.
 static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base base, FormatFlags flags)
 {
-    static char const BinaryPrefix[] = "0b";
-    static char const OctalPrefix[] = "0";
-    static char const HexPrefix[] = "0x";
-    static char const UpperHexPrefix[] = "0X";
     static char const PositivePrefix[] = "+";
     static char const NegativePrefix[] = "-";
 
@@ -306,8 +329,8 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                 }
                 if (flags.prefix)
                 {
-                    prefixWidth += sizeof(BinaryPrefix) - 1u;
-                    prefix = BinaryPrefix;
+                    prefixWidth += sizeof(G_BinaryPrefix) - 1u;
+                    prefix = G_BinaryPrefix;
                 }
                 break;
             }
@@ -326,8 +349,8 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                 }
                 if (flags.prefix)
                 {
-                    prefixWidth += sizeof(OctalPrefix) - 1u;
-                    prefix = OctalPrefix;
+                    prefixWidth += sizeof(G_OctalPrefix) - 1u;
+                    prefix = G_OctalPrefix;
                 }
                 break;
             }
@@ -346,8 +369,8 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                 }
                 if (flags.prefix)
                 {
-                    prefixWidth += sizeof(HexPrefix) - 1u;
-                    prefix = HexPrefix;
+                    prefixWidth += sizeof(G_HexPrefix) - 1u;
+                    prefix = G_HexPrefix;
                 }
                 break;
             }
@@ -362,8 +385,8 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                 }
                 if (flags.prefix)
                 {
-                    prefixWidth += sizeof(UpperHexPrefix) - 1u;
-                    prefix = UpperHexPrefix;
+                    prefixWidth += sizeof(G_UpperHexPrefix) - 1u;
+                    prefix = G_UpperHexPrefix;
                 }
                 break;
             }
@@ -387,7 +410,7 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
 
                 #endif // ENABLE_OPTIMIZED_DECIMAL_DIVIDE
 
-                    buffer[--i] = G_UpperCharTable[r];
+                    buffer[--i] = G_CharTable[r];
                 }
                 if (flags.negative)
                 {
@@ -461,9 +484,8 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
 ///         of characters in the converted string.
 static ItoaResult simplePtoa(void* pointer, char buffer[], uint8_t size,FormatFlags flags)
 {
-    char const Prefix[] = "0x";
-    uint8_t const PrefixWidth = sizeof(Prefix) - 1u;
-    uint8_t const PointerWidth = sizeof(void*) * 2u;
+    static uint8_t const PrefixWidth = sizeof(G_HexPrefix) - 1u;
+    static uint8_t const PointerWidth = sizeof(void*) * 2u;
 
     // Prepare variables.
     uint8_t width = PointerWidth;
@@ -490,7 +512,7 @@ static ItoaResult simplePtoa(void* pointer, char buffer[], uint8_t size,FormatFl
     if (flags.prefix)
     {
         for (uint8_t i = 0; i < PrefixWidth; ++i)
-            *current++ = Prefix[i];
+            *current++ = G_HexPrefix[i];
     }
 
     // Process the pointer. This is done in reverse.
