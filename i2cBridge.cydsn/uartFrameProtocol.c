@@ -702,7 +702,6 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 break;
             }
         }
-        debug_printf("[U:%c]\n", command);
     }
     return status;
 }
@@ -735,12 +734,18 @@ static bool processReceivedByte(uint8_t data)
                 g_heap->rxState = RxState_EscapeCharacter;
             else if (isEndFrameCharacter(data))
             {
+                debug_setPin0(false);
+                debug_setPin0(true);
+                debug_setPin0(false);
                 status = queue_enqueueFinalize(&g_heap->decodedRxQueue);
+                debug_setPin0(true);
                 g_heap->rxState = RxState_OutOfFrame;
             }
             else
             {
+                debug_setPin0(false);
                 status = queue_enqueueByte(&g_heap->decodedRxQueue, data, false);
+                debug_setPin0(true);
                 if (!status)
                     handleRxFrameOverflow(data);
             }
@@ -749,9 +754,12 @@ static bool processReceivedByte(uint8_t data)
         
         case RxState_EscapeCharacter:
         {
+            debug_setPin0(false);
             status = queue_enqueueByte(&g_heap->decodedRxQueue, data, false);
-                if (!status)
-                    handleRxFrameOverflow(data);
+            debug_setPin0(true);
+            if (!status)
+                handleRxFrameOverflow(data);
+            g_heap->rxState = RxState_InFrame;
             break;
         }
         
@@ -944,6 +952,7 @@ uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS)
             
         while (!queue_isEmpty(&g_heap->decodedRxQueue))
         {
+            debug_setPin1(false);
             if (alarm.armed && alarm_hasElapsed(&alarm))
                 break;
             
@@ -952,9 +961,9 @@ uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS)
             if (size > 0)
                 if (processDecodedRxPacket(data, size))
                     ++count;
+            debug_setPin1(true);
         }
-        if (count > 0)
-            debug_printf("[U:Rx]=%u\n", count);
+        debug_setPin1(true);
     }
     return count;
 }
@@ -973,6 +982,9 @@ uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
             
         while (!queue_isEmpty(&g_heap->txQueue))
         {
+            debug_setPin1(false);
+            debug_setPin1(true);
+            debug_setPin1(false);
             if (alarm.armed && alarm_hasElapsed(&alarm))
                 break;
             
@@ -984,9 +996,9 @@ uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
                     COMPONENT(HOST_UART, UartPutChar)(data[i]);
                 ++count;
             }
+            debug_setPin1(true);
         }
-        if (count > 0)
-            debug_printf("[U:Tx]=%u\n", count);
+        debug_setPin1(true);
     }
     return count;
 }

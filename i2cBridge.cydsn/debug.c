@@ -39,12 +39,16 @@
 
 // === PRIVATE FUNCTIONS =======================================================    
 
-/// Implementation of the PutChar function used by smallPrintf to perform the
-/// a specific action on a post-formatted character.
-static void putChar(char c)
-{
-    PUTCHAR(c);
-}
+#if ACTIVE_DEBUG_UART
+    
+    /// Implementation of the PutChar function used by smallPrintf to perform the
+    /// a specific action on a post-formatted character.
+    static void putChar(char c)
+    {
+        PUTCHAR(c);
+    }
+    
+#endif // ACTIVE_DEBUG_UART
 
 
 // === PUBLIC FUNCTIONS ========================================================

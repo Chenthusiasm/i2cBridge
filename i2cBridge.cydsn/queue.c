@@ -138,6 +138,8 @@ bool queue_enqueueByte(Queue volatile* queue, uint8_t data, bool lastByte)
             queue->pendingEnqueueSize += enqueueSize;
             if (lastByte)
                 status = queue_enqueueFinalize(queue);
+            else
+                status = true;
         }
     }
     return status;
@@ -157,6 +159,7 @@ bool queue_enqueueFinalize(Queue volatile* queue)
         if (queue->tail >= queue->maxSize)
             queue->tail = 0;
         queue->pendingEnqueueSize = 0;
+        status = true;
     }
     return status;
 }
