@@ -15,6 +15,7 @@
 #include "bridgeStateMachine.h"
 
 #include "alarm.h"
+#include "error.h"
 #include "i2cGen2.h"
 #include "project.h"
 #include "uartFrameProtocol.h"
@@ -33,6 +34,9 @@
 /// The different states of the state machine.
 typedef enum State
 {
+    /// Initializes the host communication.
+    State_InitHostComm,
+    
     /// Initializes slave reset.
     State_InitSlaveReset,
     
@@ -57,7 +61,7 @@ typedef enum State
 // === GLOBAL VARIABLES ========================================================
 
 /// The current state of the state machine.
-static State g_state = State_SlaveReset;
+static State g_state = State_InitHostComm;
 
 /// Scratch buffer used for dynamic memory allocation by the comm modules.
 /// @TODO: remove the temporary small scratch buffer when we're ready to use
@@ -68,10 +72,41 @@ static uint32_t __attribute__((used)) g_scratchBuffer[SCRATCH_BUFFER_SIZE];
 static uint32_t __attribute__((used)) g_scratchBuffer[1];
 #endif
 
+/// The offset into the scratch buffer that indicates the start of free space
+static uint16_t g_scratchOffset = 0u;
+
+/// An alarm used to indicate how long to hold the slave device in reset.
 static Alarm g_resetAlarm;
 
 
 // === PRIVATE FUNCTIONS =======================================================
+
+/// Processes any system errors that may have occurred.
+void processError(SystemStatus status)
+{
+    if (status.errorOccurred)
+    {
+        error_tally(ErrorType_System);
+    }
+}
+
+
+/// Initializes the host communication bus.
+void processInitHostComm(void)
+{
+    SystemStatus status = { false };
+    g_scratchOffset = uartFrameProtocol_activate(
+        &g_scratchBuffer[g_scratchOffset],
+        SCRATCH_BUFFER_SIZE - g_scratchOffset);
+    if (g_scratchOffset <= 0)
+    {
+        status.invalidScratchOffset = true;
+        uint16_t requirement = uartFrameProtocol_getMemoryRequirement();
+        if (sizeof(g_scratchBuffer) < requirement)
+            status.invalidScratchBuffer = true;
+    }
+    processError(status);
+}
 
 
 /// Initialize the slave reset.
@@ -90,7 +125,7 @@ State processInitSlaveReset(void)
 State processSlaveReset(void)
 {
     State state = State_SlaveReset;
-    if (g_resetAlarm.armed && alarm_hasElapsed(&g_resetAlarm))
+    if (!g_resetAlarm.armed || alarm_hasElapsed(&g_resetAlarm))
     {
         slaveReset_Write(1);
         alarm_disarm(&g_resetAlarm);
@@ -153,7 +188,7 @@ void processSlaveUpdater(void)
 
 void bridgeStateMachine_reset(void)
 {
-    g_state = State_SlaveReset;    
+    g_state = State_InitHostComm;    
 }
 
 
@@ -167,6 +202,12 @@ void bridgeStateMachine_process(void)
 {
     switch(g_state)
     {
+        case State_InitHostComm:
+        {
+            g_state = State_InitSlaveReset;
+            break;
+        }
+        
         case State_InitSlaveReset:
         {
             g_state = processInitSlaveReset();

@@ -25,6 +25,37 @@
     #include <stdint.h>
     
     
+    // === TYPE DEFINES ========================================================
+    
+    /// Structure that holds the status of system; in this case, the bridge
+    /// state machine.
+    typedef union SystemStatus
+    {
+        /// General flag indicating an error occured; if false, no error
+        /// occurred.
+        bool errorOccurred;
+        
+        /// 8-bit representation of the status. Used to get the bit mask created
+        /// by the following anonymous struct of 1-bit flags.
+        uint8_t value;
+        
+        /// Anonymous struct of 1-bit flags indicating specific errors.
+        struct
+        {
+            /// Invalid state.
+            bool invalidState : 1;
+            
+            /// Invalid scratch buffer offset.
+            bool invalidScratchOffset : 1;
+            
+            /// Invalid scratch buffer operation.
+            bool invalidScratchBuffer : 1;
+            
+        };
+        
+    } SystemStatus;
+    
+    
     // === FUNCTIONS ===========================================================
     
     /// Reset the bridge state machine.
