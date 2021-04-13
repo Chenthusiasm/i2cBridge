@@ -250,7 +250,7 @@ static uint32_t const G_DefaultSendStopTimeoutMS = 5u;
 
 /// Message to write to the I2C slave to clear the IRQ. This can also be used
 /// to switch to the response buffer.
-static uint8_t const G_ClearIrqMessage[] = { AppBufferOffset_Response, 1 };
+static uint8_t const G_ClearIrqMessage[] = { AppBufferOffset_Response, 0 };
 
 /// Size of the clear slave IRQ message in bytes.
 static uint8_t const G_ClearIrqSize = sizeof(G_ClearIrqMessage);
@@ -593,10 +593,14 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             case AppRxState_Pending:
             {
                 g_appRxStateMachine.pendingRxSize = G_AppRxPacketLengthSize;
+            #if (false)
                 if (g_slaveAppResponseActive)
                     g_appRxStateMachine.state = AppRxState_ReadLength;
                 else
                     g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
+            #else
+                g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
+            #endif
                 break;
             }
             
