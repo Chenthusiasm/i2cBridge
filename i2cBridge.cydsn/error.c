@@ -97,8 +97,11 @@ typedef struct I2cError
     /// I2C status; refer to I2cGen2Status enum.
     uint8_t status;
     
-    /// The last low level I2C driver status mask.
+    /// The last low-level I2C driver status mask.
     uint8_t driverStatus[2];
+    
+    /// The last return value from the low-level driver function.
+    uint8_t driverReturnValue[2];
     
     /// The unique callsite ID that describes the function that triggered the
     /// error.
@@ -190,7 +193,7 @@ MetaData const CliMetaData[] =
     // ErrorType_I2c.
     {
         "I2C",
-        "[%s|%s] %02x.$04x @%04x\r\n",
+        "[%s|%s] %02x.%04x.%04x @%04x\r\n",
         NUM_HEX_CHAR(sizeof(I2cError)),
     },
     
@@ -249,7 +252,7 @@ void error_tally(ErrorType type)
 }
 
 
-int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, uint8_t systemStatus, uint16_t callsite)
+int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, SystemStatus systemStatus, uint16_t callsite)
 {
     int dataSize = -1;
     if (g_mode == ErrorMode_Global)
@@ -259,7 +262,7 @@ int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, uint8_t system
             SystemError error =
             {
                 ErrorType_System,
-                systemStatus,
+                systemStatus.value,
                 {
                     HI_BYTE_16_BIT(callsite),
                     LO_BYTE_16_BIT(callsite),
@@ -308,11 +311,13 @@ int error_makeUpdaterErrorMessage(uint8_t buffer[], uint16_t size, uint8_t updat
 int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint16_t callsite)
 {
     int dataSize = -1;
-    uint16_t driverStatus = i2cGen2_getLastDriverStatusMask();
+    
     if (g_mode == ErrorMode_Global)
     {
         if (size >= sizeof(I2cError))
         {
+            uint16_t driverStatus = i2cGen2_getLastDriverStatusMask();
+            uint16_t driverReturnValue = i2cGen2_getLastDriverReturnValue();
             I2cError error =
             {
                 ErrorType_I2c,
@@ -320,6 +325,10 @@ int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cGen2Status i2c
                 {
                     HI_BYTE_16_BIT(driverStatus),
                     LO_BYTE_16_BIT(driverStatus),
+                },
+                {
+                    HI_BYTE_16_BIT(driverReturnValue),
+                    LO_BYTE_16_BIT(driverReturnValue),
                 },
                 {
                     HI_BYTE_16_BIT(callsite),

@@ -489,7 +489,7 @@ static bool txEnqueueVersion(void)
 
 /// Enqueue the UART-specific error response.
 /// @return If the error response was successfully enqueued.
-static bool txEnqueueUartError(uint16_t callsite)
+static bool __attribute__((unused)) txEnqueueUartError(uint16_t callsite)
 {
     bool result = false;
     if (!queue_isFull(&g_heap->txQueue))
@@ -1005,6 +1005,23 @@ bool uartFrameProtocol_txEnqueueData(uint8_t const data[], uint16_t size)
         g_heap->pendingTxEnqueueFlags.command = false;
         g_heap->pendingTxEnqueueFlags.data = true;
         status = queue_enqueue(&g_heap->txQueue, data, size); 
+    }
+    return status;
+}
+
+
+bool uartFrameProtocol_txEnqueueError(uint8_t const data[], uint16_t size)
+{
+    bool status = false;
+    if (error_getMode() == ErrorMode_Global)
+    {
+        if ((g_heap != NULL) && !queue_isFull(&g_heap->txQueue))
+        {
+            g_heap->pendingTxEnqueueCommand = BridgeCommand_Error;
+            g_heap->pendingTxEnqueueFlags.command = true;
+            g_heap->pendingTxEnqueueFlags.data = true;
+            status = queue_enqueue(&g_heap->txQueue, data, size); 
+        }
     }
     return status;
 }

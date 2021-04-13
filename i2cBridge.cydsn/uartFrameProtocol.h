@@ -103,6 +103,12 @@
     /// @return If the data was successfully enqueued.
     bool uartFrameProtocol_txEnqueueData(uint8_t const data[], uint16_t size);
     
+    /// Enqueue error with associated data into the transmit queue.
+    /// @param[in]  data    The data associated with the error to enqueue.
+    /// @param[in]  size    The size of the data.
+    /// @return If the data was successfully enqueued.
+    bool uartFrameProtocol_txEnqueueError(uint8_t const data[], uint16_t size);
+    
     
     #ifdef __cplusplus
         } // extern "C"
