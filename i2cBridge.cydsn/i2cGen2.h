@@ -126,6 +126,11 @@
     /// @return The most recent driver status mask.
     uint16_t i2cGen2_getLastDriverStatusMask(void);
     
+    /// Accessor to get the driver function return value mask from the last
+    /// low-level I2C driver function call.
+    /// @return The most recent driver function return value.
+    uint16_t i2cGen2_getLastDriverReturnValue(void);
+    
     /// Process any pending data to be received.
     /// @param[in]  timeoutMS   The amount of time the process can occur before
     ///                         it times out and must finish. If 0, then there's

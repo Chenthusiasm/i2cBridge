@@ -363,6 +363,10 @@ static I2cGen2_ErrorCallback g_errorCallback = NULL;
 /// uint16_t is returned.
 static mstatus_t g_lastDriverStatus = 0;
 
+/// The return value of the last driver API call. Refer to possible errors in
+/// the generated "I2C Component Name"_I2C.h file.
+static mreturn_t g_lastDriverReturnValue = 0;
+
 
 // === PRIVATE FUNCTIONS =======================================================
 
@@ -555,16 +559,16 @@ static bool isBusReady(void)
     
     static I2cGen2Status read(uint8_t address, uint8_t data[], uint16_t size, TransferMode mode)
     {
-        mreturn_t result = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, mode.value);
-        return updateDriverStatus(mode, result);
+        g_lastDriverReturnValue = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, mode.value);
+        return updateDriverStatus(mode, g_lastDriverReturnValue);
     }
     
 #else
     
     static I2cGen2Status read(uint8_t address, uint8_t data[], uint16_t size)
     {
-        mreturn_t result = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, G_DefaultTransferMode);
-        return updateDriverStatus(result);
+        g_lastDriverReturnValue = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, G_DefaultTransferMode);
+        return updateDriverStatus(g_lastDriverReturnValue);
     }
     
 #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
@@ -590,11 +594,11 @@ static bool isBusReady(void)
             // Note: remove the const typing in order to utilize the low-level
             // driver function.
         #if ENABLE_OPTIMIZED_TRANSFER_MODE
-            mreturn_t result = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, (uint8_t*)data, size, mode.value);
-            status = updateDriverStatus(mode, result);
+            g_lastDriverReturnValue = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, (uint8_t*)data, size, mode.value);
+            status = updateDriverStatus(mode, g_lastDriverReturnValue);
         #else
-            mreturn_t result = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, (uint8_t*)data, size, G_DefaultTransferMode);
-            status = updateDriverStatus(result);
+            g_lastDriverReturnValue = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, (uint8_t*)data, size, G_DefaultTransferMode);
+            status = updateDriverStatus(g_lastDriverReturnValue);
         #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
         #if !ENABLE_ALL_CHANGE_TO_RESPONSE
             if (!status.errorOccurred)
@@ -620,8 +624,8 @@ static bool isBusReady(void)
     {
         // Dummy TransferMode constant to pass into the updateDriverStatus function.
         static TransferMode const mode = { { false, false } };
-        mreturn_t result = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
-        I2cGen2Status status = updateDriverStatus(mode, result);
+        g_lastDriverReturnValue = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterSendStop)(G_DefaultSendStopTimeoutMS);
+        I2cGen2Status status = updateDriverStatus(mode, g_lastDriverReturnValue);
         if (!status.errorOccurred)
             g_slaveNoStop = false;
         return status;
@@ -679,6 +683,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
     else
         alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
         
+    debug_setPin1(false);
     while (g_appRxStateMachine.state != AppRxState_Waiting)
     {
         if (g_appRxStateMachine.timeoutAlarm.armed && alarm_hasElapsed(&g_appRxStateMachine.timeoutAlarm))
@@ -852,9 +857,11 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             
             default:
             {
+                debug_setPin1(true);
                 // Should never get here.
                 alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
                 g_appRxStateMachine.state = AppRxState_Waiting;
+                debug_setPin1(false);
             }
         }
         
@@ -864,6 +871,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
         if (g_appRxStateMachine.state == AppRxState_Waiting)
             alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
     }
+    debug_setPin1(true);
     return status;
 }
 
@@ -1001,6 +1009,12 @@ void i2cGen2_resetSlaveAddress(void)
 uint16_t i2cGen2_getLastDriverStatusMask(void)
 {
     return (uint16_t)g_lastDriverStatus;
+}
+
+
+uint16_t i2cGen2_getLastDriverReturnValue(void)
+{
+    return g_lastDriverReturnValue;
 }
 
     

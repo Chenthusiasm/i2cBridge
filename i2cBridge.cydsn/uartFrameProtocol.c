@@ -952,7 +952,6 @@ uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS)
             
         while (!queue_isEmpty(&g_heap->decodedRxQueue))
         {
-            debug_setPin1(false);
             if (alarm.armed && alarm_hasElapsed(&alarm))
                 break;
             
@@ -961,9 +960,7 @@ uint16_t uartFrameProtocol_processRx(uint32_t timeoutMS)
             if (size > 0)
                 if (processDecodedRxPacket(data, size))
                     ++count;
-            debug_setPin1(true);
         }
-        debug_setPin1(true);
     }
     return count;
 }
@@ -982,9 +979,6 @@ uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
             
         while (!queue_isEmpty(&g_heap->txQueue))
         {
-            debug_setPin1(false);
-            debug_setPin1(true);
-            debug_setPin1(false);
             if (alarm.armed && alarm_hasElapsed(&alarm))
                 break;
             
@@ -996,9 +990,7 @@ uint16_t uartFrameProtocol_processTx(uint32_t timeoutMS)
                     COMPONENT(HOST_UART, UartPutChar)(data[i]);
                 ++count;
             }
-            debug_setPin1(true);
         }
-        debug_setPin1(true);
     }
     return count;
 }
