@@ -25,9 +25,17 @@
 
 // === DEFINES =================================================================
 
-/// Enable/disable the optimized read which uses no stops and restarts in the
-/// I2C transactions to hold onto the bus and potentially reduce I2C byte
-/// transactions.
+/// Enable/disable checking if on slave IRQ, if a write to change to the slave
+/// app's response buffer must be done before reading.
+/// true:   always change to the response buffer on every interrupt.
+/// false:  check the contents of the read to determine if the switch to
+///         response buffer must always be done on interrupt.
+#define ENABLE_ALL_CHANGE_TO_RESPONSE   (false)
+
+/// Enable/disable the optimized transfer mode to indicate for low-level I2C
+/// read/write to send restart and to not send the stop condition. This will
+/// allow for optimized reads which uses no stops and restarts in the I2C
+/// transactions to hold onto the bus and potentially reduce I2C byte traffic.
 #define ENABLE_OPTIMIZED_TRANSFER_MODE  (false)
 
 /// Name of the slave I2C component.
@@ -285,10 +293,18 @@ static uint8_t g_slaveAddress = SlaveAddress_App;
 /// App receive state machine variables.
 static AppRxStateMachine g_appRxStateMachine;
 
+#if !ENABLE_ALL_CHANGE_TO_RESPONSE
+    
+    /// Flag indicating on receive, if a write needs to be done to switch to the
+    /// response buffer.
+    static bool g_appRxSwitchToResponse = false;
+    
+#endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
+
 #if ENABLE_OPTIMIZED_TRANSFER_MODE
     
-    /// Flag indicating that the slave is in the middle of a transaction and no stop
-    /// was sent; the bus will remain busy.
+    /// Flag indicating that the slave is in the middle of a transaction and no
+    /// stop was sent; the bus will remain busy.
     static bool g_slaveNoStop = false;
     
 #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
@@ -364,6 +380,22 @@ void resetPendingTxEnqueue(void)
 static bool isAppPacketLengthValid(uint8_t length)
 {
     return (length < G_InvalidRxAppPacketLength);
+}
+
+
+/// Checks if the app needs to switch to the response buffer when an IRQ occurs
+/// indicating data is ready to be read (receive).
+/// @return If the app needs to switch to the response buffer before performing
+///         a read.
+static bool switchToAppResponseBuffer(void)
+{
+    bool result = true;
+    
+#if !ENABLE_ALL_CHANGE_TO_RESPONSE
+    
+#endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
+
+    return result;
 }
 
 
@@ -593,14 +625,14 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             case AppRxState_Pending:
             {
                 g_appRxStateMachine.pendingRxSize = G_AppRxPacketLengthSize;
-            #if (true)
+            #if ENABLE_ALL_CHANGE_TO_RESPONSE
+                g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
+            #else
                 if (g_slaveAppResponseActive)
                     g_appRxStateMachine.state = AppRxState_ReadLength;
                 else
                     g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
-            #else
-                g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
-            #endif
+            #endif // ENABLE_ALL_CHANGE_TO_RESPONSE
                 break;
             }
             
@@ -766,6 +798,9 @@ static void resetSlaveStatusFlags(void)
 #if ENABLE_OPTIMIZED_TRANSFER_MODE
     g_slaveNoStop = false;
 #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
+#if !ENABLE_ALL_CHANGE_TO_RESPONSE
+    g_appRxSwitchToResponse = false;
+#endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
 }
 
 
