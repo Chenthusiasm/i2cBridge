@@ -14,6 +14,7 @@
 
 #include "bridgeStateMachine.h"
 
+#include "alarm.h"
 #include "i2cGen2.h"
 #include "project.h"
 #include "uartFrameProtocol.h"
@@ -32,8 +33,8 @@
 /// The different states of the state machine.
 typedef enum State
 {
-    /// Reset the slave.
-    State_SlaveReset,
+    /// Initializes slave reset.
+    State_InitSlaveReset,
     
     /// Initialize the slave translator mode.
     State_InitSlaveTranslator,
@@ -41,11 +42,15 @@ typedef enum State
     /// Initialize the slave updater mode.
     State_InitSlaveUpdater,
     
-    /// Default I2C slave translator mode.
+    /// Processes tasks related to the slave reset.
+    State_SlaveReset,
+    
+    /// Processes tasks related to the default I2C slave translator mode.
     State_SlaveTranslator,
     
-    /// I2C slave update mode.
+    /// Processes tasks related to the I2C slave update mode.
     State_SlaveUpdater,
+    
 } State;
 
 
@@ -63,17 +68,35 @@ static uint32_t __attribute__((used)) g_scratchBuffer[SCRATCH_BUFFER_SIZE];
 static uint32_t __attribute__((used)) g_scratchBuffer[1];
 #endif
 
+static Alarm g_resetAlarm;
+
 
 // === PRIVATE FUNCTIONS =======================================================
 
-/// Processes all tasks associated with resetting teh I2C slave.
-void processSlaveReset(void)
+
+/// Initialize the slave reset.
+/// @return The next state.
+State processInitSlaveReset(void)
 {
-    // @TODO: is there a way to check if the reset line is connected to ensure
-    // we don't attempt to reset if the reset line is not connected.
+    static uint32_t const DefaultResetTimeoutMS = 100u;
+    alarm_arm(&g_resetAlarm, DefaultResetTimeoutMS, AlarmType_ContinuousNotification);
     slaveReset_Write(0);
-    CyDelay(100);
-    slaveReset_Write(1);
+    return State_SlaveReset;
+}
+
+
+/// Processes all tasks associated with resetting the I2C slave.
+/// @return The next state.
+State processSlaveReset(void)
+{
+    State state = State_SlaveReset;
+    if (g_resetAlarm.armed && alarm_hasElapsed(&g_resetAlarm))
+    {
+        slaveReset_Write(1);
+        alarm_disarm(&g_resetAlarm);
+        state = State_InitSlaveTranslator;
+    }
+    return state;
 }
 
 
@@ -144,10 +167,9 @@ void bridgeStateMachine_process(void)
 {
     switch(g_state)
     {
-        case State_SlaveReset:
+        case State_InitSlaveReset:
         {
-            processSlaveReset();
-            g_state = State_InitSlaveTranslator;
+            g_state = processInitSlaveReset();
             break;
         }
         
@@ -162,6 +184,12 @@ void bridgeStateMachine_process(void)
         {
             processInitSlaveUpdater();
             g_state = State_SlaveUpdater;
+            break;
+        }
+        
+        case State_SlaveReset:
+        {
+            g_state = processSlaveReset();
             break;
         }
         
