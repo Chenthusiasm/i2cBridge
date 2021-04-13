@@ -28,7 +28,7 @@
 /// Enable/disable the optimized read which uses no stops and restarts in the
 /// I2C transactions to hold onto the bus and potentially reduce I2C byte
 /// transactions.
-#define ENABLE_TRANSFER_MODE            (false)
+#define ENABLE_OPTIMIZED_TRANSFER_MODE  (false)
 
 /// Name of the slave I2C component.
 #define SLAVE_I2C                       slaveI2c_
@@ -63,7 +63,7 @@ typedef uint16_t mstatus_t;
 /// uint16_t. Therefore, the return type is defined as the larger uint32_t.
 typedef uint32_t mreturn_t;
 
-#if ENABLE_TRANSFER_MODE
+#if ENABLE_OPTIMIZED_TRANSFER_MODE
     
     /// Defines the type of transfer mode for the read/write transaction on the I2C
     /// bus.
@@ -83,7 +83,7 @@ typedef uint32_t mreturn_t;
         
     } TransferMode;
     
-#endif // ENABLE_TRANSFER_MODE
+#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
 
 
 /// Pre-defined 7-bit addresses of slave devices on the I2C bus.
@@ -179,10 +179,10 @@ typedef enum AppRxState
     /// Process the the data payload after reading.
     AppRxState_ProcessDataPayload,
     
-#if ENABLE_TRANSFER_MODE
+#if ENABLE_OPTIMIZED_TRANSFER_MODE
     /// Complete the read operation by sending a stop.
     AppRxState_StopRead,
-#endif // ENABLE_TRANSFER_MODE
+#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
     
     /// Clear the IRQ.
     AppRxState_ClearIrq,
@@ -259,13 +259,13 @@ static uint8_t const G_ClearIrqSize = sizeof(G_ClearIrqMessage);
 /// slave IRQ message.
 static uint8_t const G_ResponseBufferSize = sizeof(G_ClearIrqMessage) - 1u;
 
-#if !ENABLE_TRANSFER_MODE
+#if !ENABLE_OPTIMIZED_TRANSFER_MODE
     
     /// Default transfer mode mask for the low-level I2C driver read and write
     /// functions.
     static uint8_t const G_DefaultTransferMode = COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER);
     
-#endif // ENABLE_TRANSFER_MODE
+#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
 
 
 // === GLOBALS =================================================================
@@ -285,13 +285,13 @@ static uint8_t g_slaveAddress = SlaveAddress_App;
 /// App receive state machine variables.
 static AppRxStateMachine g_appRxStateMachine;
 
-#if ENABLE_TRANSFER_MODE
+#if ENABLE_OPTIMIZED_TRANSFER_MODE
     
     /// Flag indicating that the slave is in the middle of a transaction and no stop
     /// was sent; the bus will remain busy.
     static bool g_slaveNoStop = false;
     
-#endif // ENABLE_TRANSFER_MODE
+#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
 
 /// Flag indicating we're in the response buffer is active for the slave app.
 static bool g_slaveAppResponseActive = false;
@@ -405,9 +405,9 @@ static bool isBusReady(void)
     g_lastDriverStatus = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterStatus)();
     COMPONENT(SLAVE_I2C, I2CMasterClearStatus)();
     return (
-    #if ENABLE_TRANSFER_MODE
+    #if ENABLE_OPTIMIZED_TRANSFER_MODE
         g_slaveNoStop ||
-    #endif // ENABLE_TRANSFER_MODE
+    #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
         (g_lastDriverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_INP)) == 0);
 }
 
@@ -417,11 +417,11 @@ static bool isBusReady(void)
 /// @param[in]  mode    The TransferMode flags used in the low-level driver
 ///                     function.
 /// @param[in]  result  The result from the low-level driver function call.
-#if ENABLE_TRANSFER_MODE
+#if ENABLE_OPTIMIZED_TRANSFER_MODE
     I2cGen2Status updateDriverStatus(TransferMode mode, mreturn_t result)
 #else
     I2cGen2Status updateDriverStatus(mreturn_t result)
-#endif // ENABLE_TRANSFER_MODE
+#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
     {
         I2cGen2Status status = { false };
         if (result != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))            
@@ -432,10 +432,10 @@ static bool isBusReady(void)
             if ((result & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
                 status.timedOut = true;
         }
-    #if ENABLE_TRANSFER_MODE
+    #if ENABLE_OPTIMIZED_TRANSFER_MODE
         else
             g_slaveNoStop = mode.noStop;
-    #endif // ENABLE_TRANSFER_MODE
+    #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
         
         // Update the driver status.
         g_lastDriverStatus = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterStatus)();
@@ -453,7 +453,7 @@ static bool isBusReady(void)
 /// @param[in]  mode    TransferMode settings.
 /// @return Status indicating if an error occured. See the definition of the
 ///         I2cGen2Status union.
-#if ENABLE_TRANSFER_MODE
+#if ENABLE_OPTIMIZED_TRANSFER_MODE
     
     static I2cGen2Status read(uint8_t address, uint8_t data[], uint16_t size, TransferMode mode)
     {
@@ -469,7 +469,7 @@ static bool isBusReady(void)
         return updateDriverStatus(result);
     }
     
-#endif // ENABLE_TRANSFER_MODE
+#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
 
 
 /// Write data to the slave device on the I2C bus.
@@ -480,24 +480,24 @@ static bool isBusReady(void)
 /// @param[in]  mode    TransferMode settings.
 /// @return Status indicating if an error occured. See the definition of the
 ///         I2cGen2Status union.
-#if ENABLE_TRANSFER_MODE
+#if ENABLE_OPTIMIZED_TRANSFER_MODE
     static I2cGen2Status write(uint8_t address, uint8_t const data[], uint16_t size, TransferMode mode)
 #else
     static I2cGen2Status write(uint8_t address, uint8_t const data[], uint16_t size)
-#endif // ENABLE_TRANSFER_MODE
+#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
     {
         I2cGen2Status status;
         if ((data != NULL) && (size > 0))
         {
             // Note: remove the const typing in order to utilize the low-level
             // driver function.
-        #if ENABLE_TRANSFER_MODE
+        #if ENABLE_OPTIMIZED_TRANSFER_MODE
             mreturn_t result = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, (uint8_t*)data, size, mode.value);
             status = updateDriverStatus(mode, result);
         #else
             mreturn_t result = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, (uint8_t*)data, size, G_DefaultTransferMode);
             status = updateDriverStatus(result);
-        #endif // ENABLE_TRANSFER_MODE
+        #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
             if (!status.errorOccurred)
             {
                 if (address == g_slaveAddress)
@@ -510,7 +510,7 @@ static bool isBusReady(void)
     }
 
 
-#if ENABLE_TRANSFER_MODE
+#if ENABLE_OPTIMIZED_TRANSFER_MODE
     
     /// Sends the stop condition on the I2C bus. Only call this if a previous read
     /// or write call was called with the TransferMode.noStop flag was set to true.
@@ -527,7 +527,7 @@ static bool isBusReady(void)
         return status;
     }
     
-#endif // ENABLE_TRANSFER_MODE
+#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
 
 
 /// Create and sends the packet to the slave to instruct it to reset/clear the
@@ -536,12 +536,12 @@ static bool isBusReady(void)
 ///         I2cGen2Status union.
 static I2cGen2Status resetIrq(void)
 {
-#if ENABLE_TRANSFER_MODE
+#if ENABLE_OPTIMIZED_TRANSFER_MODE
     TransferMode mode = { { false, false } };
     return write(g_slaveAddress, G_ClearIrqMessage, G_ClearIrqSize, mode);
 #else
     return write(g_slaveAddress, G_ClearIrqMessage, G_ClearIrqSize);
-#endif // ENABLE_TRANSFER_MODE
+#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
 }
 
 
@@ -551,12 +551,12 @@ static I2cGen2Status resetIrq(void)
 ///         I2cGen2Status union.
 static I2cGen2Status changeSlaveAppToResponseBuffer(void)
 {
-#if ENABLE_TRANSFER_MODE
+#if ENABLE_OPTIMIZED_TRANSFER_MODE
     TransferMode mode = { { false, false } };
     return write(g_slaveAddress, G_ClearIrqMessage, G_ResponseBufferSize, mode);
 #else
     return write(g_slaveAddress, G_ClearIrqMessage, G_ResponseBufferSize);
-#endif // ENABLE_TRANSFER_MODE
+#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
     // Note: The write function will change the flag to reflect if the app was
     // switched to the response buffer.
 }
@@ -593,7 +593,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             case AppRxState_Pending:
             {
                 g_appRxStateMachine.pendingRxSize = G_AppRxPacketLengthSize;
-            #if (false)
+            #if (true)
                 if (g_slaveAppResponseActive)
                     g_appRxStateMachine.state = AppRxState_ReadLength;
                 else
@@ -621,12 +621,12 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             {
                 if (isBusReady())
                 {
-                #if ENABLE_TRANSFER_MODE
+                #if ENABLE_OPTIMIZED_TRANSFER_MODE
                     TransferMode mode = { { false, false } };
                     status = read(g_slaveAddress, g_heap->rxBuffer, g_appRxStateMachine.pendingRxSize, mode);
                 #else
                     status = read(g_slaveAddress, g_heap->rxBuffer, g_appRxStateMachine.pendingRxSize);
-                #endif // ENABLE_TRANSFER_MODE
+                #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
                     if (!status.errorOccurred)
                         g_appRxStateMachine.state = AppRxState_ProcessLength;
                     else
@@ -642,11 +642,11 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                     uint8_t length = g_heap->rxBuffer[AppRxPacketOffset_Length];
                     if (isAppPacketLengthValid(length))
                     {
-                    #if ENABLE_TRANSFER_MODE
+                    #if ENABLE_OPTIMIZED_TRANSFER_MODE
                         g_appRxStateMachine.pendingRxSize = length;
                     #else
                         g_appRxStateMachine.pendingRxSize += length;
-                    #endif // ENABLE_TRANSFER_MODE
+                    #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
                         if (length <= 0)
                             g_appRxStateMachine.state = AppRxState_ProcessDataPayload;
                         else
@@ -671,12 +671,12 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             {
                 if (isBusReady())
                 {
-                #if ENABLE_TRANSFER_MODE
+                #if ENABLE_OPTIMIZED_TRANSFER_MODE
                     TransferMode mode = { { false, false } };
                     status = read(g_slaveAddress, &g_heap->rxBuffer[AppRxPacketOffset_Data], g_appRxStateMachine.pendingRxSize, mode);
                 #else
                     status = read(g_slaveAddress, g_heap->rxBuffer, g_appRxStateMachine.pendingRxSize);
-                #endif // ENABLE_TRANSFER_MODE
+                #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
                     
                     if (!status.errorOccurred)
                         g_appRxStateMachine.state = AppRxState_ProcessDataPayload;
@@ -690,23 +690,23 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             {
                 if (isBusReady())
                 {
-                #if ENABLE_TRANSFER_MODE
+                #if ENABLE_OPTIMIZED_TRANSFER_MODE
                     uint16_t length = G_AppRxPacketLengthSize + g_appRxStateMachine.pendingRxSize;
                 #else
                     uint16_t length = g_appRxStateMachine.pendingRxSize;
-                #endif // ENABLE_TRANSFER_MODE
+                #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
                     if (g_rxCallback != NULL)
                         g_rxCallback(g_heap->rxBuffer, length);
-                #if ENABLE_TRANSFER_MODE
+                #if ENABLE_OPTIMIZED_TRANSFER_MODE
                     g_appRxStateMachine.state = AppRxState_StopRead;
                 #else
                     g_appRxStateMachine.state = AppRxState_ClearIrq;
-                #endif // ENABLE_TRANSFER_MODE
+                #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
                 }
                 break;
             }
             
-        #if ENABLE_TRANSFER_MODE
+        #if ENABLE_OPTIMIZED_TRANSFER_MODE
             case AppRxState_StopRead:
             {
                 if (isBusReady())
@@ -719,7 +719,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                 }
                 break;
             }
-        #endif // ENABLE_TRANSFER_MODE
+        #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
             
             case AppRxState_ClearIrq:
             {
@@ -763,9 +763,9 @@ static void processError(I2cGen2Status status, uint16_t callsite)
 static void resetSlaveStatusFlags(void)
 {
     g_slaveAppResponseActive = false;
-#if ENABLE_TRANSFER_MODE
+#if ENABLE_OPTIMIZED_TRANSFER_MODE
     g_slaveNoStop = false;
-#endif // ENABLE_TRANSFER_MODE
+#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
 }
 
 
@@ -959,12 +959,12 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
         {
             if (isBusReady())
             {
-            #if ENABLE_TRANSFER_MODE
+            #if ENABLE_OPTIMIZED_TRANSFER_MODE
                 TransferMode mode = { { false, false } };
                 status = read(address, data, size, mode);
             #else
                 status = read(address, data, size);
-            #endif // ENABLE_TRANSFER_MODE
+            #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
             }
             else
                 status.timedOut = true;
@@ -990,12 +990,12 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
         {
             if (isBusReady())
             {
-            #if ENABLE_TRANSFER_MODE
+            #if ENABLE_OPTIMIZED_TRANSFER_MODE
                 TransferMode mode = { { false, false } };
                 status = write(address, data, size, mode);
             #else
                 status = write(address, data, size);
-            #endif // ENABLE_TRANSFER_MODE
+            #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
             }
             else
                 status.timedOut = true;
@@ -1125,12 +1125,12 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
             uint8_t scratch;
             if (isBusReady())
             {
-            #if ENABLE_TRANSFER_MODE
+            #if ENABLE_OPTIMIZED_TRANSFER_MODE
                 TransferMode mode = { { false, false } };
                 status = read(address, &scratch, 0, mode);
             #else
                 status = read(address, &scratch, 0);
-            #endif // ENABLE_TRANSFER_MODE
+            #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
                 acknowledged = !status.errorOccurred;
             }
         }
