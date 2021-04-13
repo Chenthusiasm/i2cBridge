@@ -422,7 +422,7 @@ static bool switchToAppResponseBuffer(void)
     bool result = true;
     
 #if !ENABLE_ALL_CHANGE_TO_RESPONSE
-    
+    result &= (g_appRxSwitchToResponse || !g_slaveAppResponseActive);
 #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
 
     return result;
@@ -439,7 +439,7 @@ static AppRxLengthResult processAppRxLength(uint8_t data[], uint8_t size)
     static uint8_t const CommandMask = 0x7f;
     static uint8_t const InvalidCommand = 0x00;
     
-    AppRxLengthResult result = { false, 0u };
+    AppRxLengthResult result = { { false }, 0u };
     if ((data != NULL) && (size >= G_AppRxPacketLengthSize))
     {
         result.dataPayloadSize = data[AppRxPacketOffset_Length];
@@ -451,9 +451,12 @@ static AppRxLengthResult processAppRxLength(uint8_t data[], uint8_t size)
             result.invalidCommand = true;
         #if !ENABLE_ALL_CHANGE_TO_RESPONSE
             if (!g_appRxSwitchToResponse)
+            {
                 result.invalidAppBuffer = true;
+                g_appRxSwitchToResponse = true;
+            }
         #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE    
-            g_appRxSwitchToResponse = true;
+            
         }
     }
     else
@@ -593,11 +596,13 @@ static bool isBusReady(void)
             mreturn_t result = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, (uint8_t*)data, size, G_DefaultTransferMode);
             status = updateDriverStatus(result);
         #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
+        #if !ENABLE_ALL_CHANGE_TO_RESPONSE
             if (!status.errorOccurred)
             {
                 if (address == g_slaveAddress)
                     g_slaveAppResponseActive = (data[TxQueueDataOffset_Address] >= AppBufferOffset_Response);
             }
+        #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
         }
         else
             status.inputParametersInvalid = true;
@@ -746,20 +751,38 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                             g_appRxStateMachine.state = AppRxState_ReadDataPayload;
                         }
                     }
-                    else if (lengthResult.invalidCommand)
+                    else if (lengthResult.invalidParameters)
                     {
-                        status.invalidRead = true;
-                        
+                        status.inputParametersInvalid = true;
+                        g_appRxStateMachine.state = AppRxState_Waiting;
                     }
-                    else if (lengthResult.invalidLength)
+                    else
                     {
-                        status.invalidRead = true;
+                        if (lengthResult.invalidCommand)
+                        {    
+                        #if !ENABLE_ALL_CHANGE_TO_RESPONSE
+                            if (lengthResult.invalidAppBuffer)
+                            {
+                                g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
+                                continue;
+                            }
+                            else
+                        #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
+                            {
+                                status.invalidRead = true;
+                                // No issue with the I2C transaction; there's an issue
+                                // with the data, so still clear the IRQ.
+                                g_appRxStateMachine.state = AppRxState_ClearIrq;
+                            }
+                        }
+                        if (lengthResult.invalidLength)
+                            status.invalidRead = true;
+                            
                         // No issue with the I2C transaction; there's an issue
                         // with the data, so still clear the IRQ.
                         g_appRxStateMachine.state = AppRxState_ClearIrq;
                     }
                 }
-                
                 break;
             }
             
