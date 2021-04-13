@@ -198,6 +198,45 @@ typedef enum AppRxState
 } AppRxState;
 
 
+/// Contains the results of the processRxLength function.
+typedef struct AppRxLengthResult
+{
+    /// Anonymous union that collects bit flags indicating specific problems
+    /// in the length packet.
+    union
+    {
+        /// General flag indicating the length packet was invalid.
+        bool invalid;
+        
+        /// Anonymous struct to consolidate the different bit flags.
+        struct
+        {
+            /// The command is invalid.
+            bool invalidCommand : 1;
+            
+        #if !ENABLE_ALL_CHANGE_TO_RESPONSE
+            
+            /// An invalid command was read and probably caused because the app
+            /// was not in the valid buffer (valid buffer = response buffer).
+            bool invalidAppBuffer : 1;
+            
+        #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
+            
+            /// The length is invalid.
+            bool invalidLength : 1;
+            
+            /// The parameters passed in to process are invalid.
+            bool invalidParameters : 1;
+        };
+    };
+    
+    /// The size of of the data payload in bytes; if 0, then there was either an
+    /// error or there is no additional data to receive.
+    uint8_t dataPayloadSize;
+    
+} AppRxLengthResult;
+
+
 /// Application receive state machine variables.
 typedef struct AppRxStateMachine
 {
@@ -374,15 +413,6 @@ void resetPendingTxEnqueue(void)
 }
 
 
-/// Checks if the read packet contains a valid data payload length.
-/// @param[in]  length  The data payload length.
-/// @return If the length is valid for a read packet.
-static bool isAppPacketLengthValid(uint8_t length)
-{
-    return (length < G_InvalidRxAppPacketLength);
-}
-
-
 /// Checks if the app needs to switch to the response buffer when an IRQ occurs
 /// indicating data is ready to be read (receive).
 /// @return If the app needs to switch to the response buffer before performing
@@ -395,6 +425,39 @@ static bool switchToAppResponseBuffer(void)
     
 #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
 
+    return result;
+}
+
+
+/// Processes the reading of up to the length byte in the app's response.
+/// @param[in]  data    The app's response up to the length byte.
+/// @param[in]  size    The number of bytes in data.
+/// @return The AppRxLengthResult including the status and the size of the
+///         data payload (additional data to receive).
+static AppRxLengthResult processAppRxLength(uint8_t data[], uint8_t size)
+{
+    static uint8_t const CommandMask = 0x7f;
+    static uint8_t const InvalidCommand = 0x00;
+    
+    AppRxLengthResult result = { false, 0u };
+    if ((data != NULL) && (size >= G_AppRxPacketLengthSize))
+    {
+        result.dataPayloadSize = data[AppRxPacketOffset_Length];
+        if (result.dataPayloadSize >= G_InvalidRxAppPacketLength)
+            result.invalidLength = true;
+
+        if ((data[AppRxPacketOffset_Command] & CommandMask) == InvalidCommand)
+        {
+            result.invalidCommand = true;
+        #if !ENABLE_ALL_CHANGE_TO_RESPONSE
+            if (!g_appRxSwitchToResponse)
+                result.invalidAppBuffer = true;
+        #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE    
+            g_appRxSwitchToResponse = true;
+        }
+    }
+    else
+        result.invalidParameters = true;
     return result;
 }
 
@@ -667,15 +730,15 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             {
                 if (isBusReady())
                 {
-                    uint8_t length = g_heap->rxBuffer[AppRxPacketOffset_Length];
-                    if (isAppPacketLengthValid(length))
+                    AppRxLengthResult lengthResult = processAppRxLength(g_heap->rxBuffer, g_appRxStateMachine.pendingRxSize);
+                    if (!lengthResult.invalid)
                     {
                     #if ENABLE_OPTIMIZED_TRANSFER_MODE
-                        g_appRxStateMachine.pendingRxSize = length;
+                        g_appRxStateMachine.pendingRxSize = lengthResult.dataPayloadSize;
                     #else
-                        g_appRxStateMachine.pendingRxSize += length;
+                        g_appRxStateMachine.pendingRxSize += lengthResult.dataPayloadSize;
                     #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
-                        if (length <= 0)
+                        if (lengthResult.dataPayloadSize <= 0)
                             g_appRxStateMachine.state = AppRxState_ProcessDataPayload;
                         else
                         {
@@ -683,7 +746,12 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                             g_appRxStateMachine.state = AppRxState_ReadDataPayload;
                         }
                     }
-                    else
+                    else if (lengthResult.invalidCommand)
+                    {
+                        status.invalidRead = true;
+                        
+                    }
+                    else if (lengthResult.invalidLength)
                     {
                         status.invalidRead = true;
                         // No issue with the I2C transaction; there's an issue
