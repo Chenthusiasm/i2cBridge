@@ -295,6 +295,9 @@ static AppRxStateMachine g_appRxStateMachine;
 
 #if !ENABLE_ALL_CHANGE_TO_RESPONSE
     
+    /// Flag indicating we're in the response buffer is active for the slave app.
+    static bool g_slaveAppResponseActive = false;
+    
     /// Flag indicating on receive, if a write needs to be done to switch to the
     /// response buffer.
     static bool g_appRxSwitchToResponse = false;
@@ -308,9 +311,6 @@ static AppRxStateMachine g_appRxStateMachine;
     static bool g_slaveNoStop = false;
     
 #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
-
-/// Flag indicating we're in the response buffer is active for the slave app.
-static bool g_slaveAppResponseActive = false;
 
 /// The receive callback function.
 static I2cGen2_RxCallback g_rxCallback = NULL;
@@ -625,14 +625,10 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             case AppRxState_Pending:
             {
                 g_appRxStateMachine.pendingRxSize = G_AppRxPacketLengthSize;
-            #if ENABLE_ALL_CHANGE_TO_RESPONSE
-                g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
-            #else
-                if (g_slaveAppResponseActive)
-                    g_appRxStateMachine.state = AppRxState_ReadLength;
-                else
+                if (switchToAppResponseBuffer())
                     g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
-            #endif // ENABLE_ALL_CHANGE_TO_RESPONSE
+                else
+                    g_appRxStateMachine.state = AppRxState_ReadLength;
                 break;
             }
             
@@ -766,9 +762,16 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             default:
             {
                 // Should never get here.
+                alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
                 g_appRxStateMachine.state = AppRxState_Waiting;
             }
         }
+        
+        // The state machine can only be in the waiting state in the while loop
+        // if it transitioned to it because the receive is complete. If this
+        // occurs, disarm the alarm.
+        if (g_appRxStateMachine.state == AppRxState_Waiting)
+            alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
     }
     return status;
 }
@@ -788,19 +791,34 @@ static void processError(I2cGen2Status status, uint16_t callsite)
 }
 
 
+/// Resets the app receive state machine to the default/starting condition.
+static void resetAppRxStateMachine(void)
+{
+    g_appRxStateMachine.state = AppRxState_Waiting;
+    g_appRxStateMachine.pendingRxSize = 0u;
+    alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
+}
+
+
 /// Resets the slave status flags to the default states. The following flags
 /// are reset:
 /// 1. g_slaveAppResponseActive (false)
 /// 2. g_slaveNoStop (false)
 static void resetSlaveStatusFlags(void)
 {
-    g_slaveAppResponseActive = false;
-#if ENABLE_OPTIMIZED_TRANSFER_MODE
-    g_slaveNoStop = false;
-#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
 #if !ENABLE_ALL_CHANGE_TO_RESPONSE
+    
+    g_slaveAppResponseActive = false;
     g_appRxSwitchToResponse = false;
+    
 #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
+
+#if ENABLE_OPTIMIZED_TRANSFER_MODE
+    
+    g_slaveNoStop = false;
+    
+#endif // ENABLE_OPTIMIZED_TRANSFER_MODE
+
 }
 
 
@@ -821,6 +839,7 @@ CY_ISR(slaveIsr)
 
 void i2cGen2_init(void)
 {
+    resetAppRxStateMachine();
     resetSlaveStatusFlags();
     i2cGen2_resetSlaveAddress();
     
@@ -851,6 +870,7 @@ uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size)
         g_heap = &g_tempHeap;
         initTxQueue();
         allocatedSize = i2cGen2_getMemoryRequirement() / sizeof(uint32_t);
+        resetAppRxStateMachine();
         resetSlaveStatusFlags();
     }
     return allocatedSize;
@@ -860,6 +880,7 @@ uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size)
 void i2cGen2_deactivate(void)
 {
     g_heap = NULL;
+    resetAppRxStateMachine();
     resetSlaveStatusFlags();
 }
 
@@ -869,6 +890,7 @@ void i2cGen2_setSlaveAddress(uint8_t address)
     if (address != g_slaveAddress)
     {
         g_slaveAddress = address;
+        resetAppRxStateMachine();
         resetSlaveStatusFlags();
     }
 }
@@ -879,6 +901,7 @@ void i2cGen2_resetSlaveAddress(void)
     if (g_slaveAddress != SlaveAddress_App)
     {
         g_slaveAddress = SlaveAddress_App;
+        resetAppRxStateMachine();
         resetSlaveStatusFlags();
     }
 }
