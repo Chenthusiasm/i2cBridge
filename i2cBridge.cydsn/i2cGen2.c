@@ -195,6 +195,10 @@ typedef enum AppRxState
     /// Clear the IRQ.
     AppRxState_ClearIrq,
     
+    /// Attempt to recover the I2C bus after the bus has been determined to be
+    /// busy.
+    AppRxState_RecoverBus,
+    
 } AppRxState;
 
 
@@ -314,6 +318,9 @@ static uint8_t const G_ResponseBufferSize = sizeof(G_ClearIrqMessage) - 1u;
     
 #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
 
+/// Default timeout for the bus busy alarm.
+static uint32_t const G_DefaultBusBusyTimeoutMS = 200u;
+
 
 // === GLOBALS =================================================================
 
@@ -331,6 +338,11 @@ static uint8_t g_slaveAddress = SlaveAddress_App;
 
 /// App receive state machine variables.
 static AppRxStateMachine g_appRxStateMachine;
+
+/// Alarm to track if the I2C bus has been busy for an extended period of time.
+/// the I2C bus has been busy for too long, an attempt will be made to recover
+/// the bus before attemping to reset the device.
+static Alarm g_busBusyAlarm;
 
 #if !ENABLE_ALL_CHANGE_TO_RESPONSE
     
@@ -533,6 +545,13 @@ static bool isBusReady(void)
                 status.nak = true;
             if ((result & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
                 status.timedOut = true;
+            if ((result & COMPONENT(SLAVE_I2C, I2C_MSTR_BUS_BUSY)) > 0)
+            {
+                if (!g_busBusyAlarm.armed)
+                    alarm_arm(&g_busBusyAlarm, G_DefaultBusBusyTimeoutMS, AlarmType_ContinuousNotification);
+            }
+            else
+                alarm_disarm(&g_busBusyAlarm);
         }
     #if ENABLE_OPTIMIZED_TRANSFER_MODE
         else
@@ -855,6 +874,12 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                 break;
             }
             
+            case AppRxState_RecoverBus:
+            {
+                // @TODO: implement a recovery scheme:
+                // https://community.cypress.com/t5/PSoC-Creator-Designer-Software/Correct-way-to-reset-I2C-SCB-and-recover-stuck-bus/m-p/213188
+            }
+            
             default:
             {
                 debug_setPin1(true);
@@ -921,6 +946,16 @@ static void resetSlaveStatusFlags(void)
 }
 
 
+/// Reinitializes/resets all variables, states, and alarms to the default
+/// conditions.
+static void reinitAll(void)
+{
+    resetAppRxStateMachine();
+    resetSlaveStatusFlags();
+    alarm_disarm(&g_busBusyAlarm);
+}
+
+
 // === ISR =====================================================================
 
 /// ISR for the slaveIRQ (for the slaveIRQPin). The IRQ is asserted when there's
@@ -938,8 +973,7 @@ CY_ISR(slaveIsr)
 
 void i2cGen2_init(void)
 {
-    resetAppRxStateMachine();
-    resetSlaveStatusFlags();
+    reinitAll();
     i2cGen2_resetSlaveAddress();
     
     COMPONENT(SLAVE_I2C, Start)();
@@ -969,8 +1003,7 @@ uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size)
         g_heap = &g_tempHeap;
         initTxQueue();
         allocatedSize = i2cGen2_getMemoryRequirement() / sizeof(uint32_t);
-        resetAppRxStateMachine();
-        resetSlaveStatusFlags();
+        reinitAll();
     }
     return allocatedSize;
 }
@@ -979,8 +1012,7 @@ uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size)
 void i2cGen2_deactivate(void)
 {
     g_heap = NULL;
-    resetAppRxStateMachine();
-    resetSlaveStatusFlags();
+    reinitAll();
 }
 
 
@@ -989,8 +1021,7 @@ void i2cGen2_setSlaveAddress(uint8_t address)
     if (address != g_slaveAddress)
     {
         g_slaveAddress = address;
-        resetAppRxStateMachine();
-        resetSlaveStatusFlags();
+        reinitAll();
     }
 }
 
@@ -1000,8 +1031,7 @@ void i2cGen2_resetSlaveAddress(void)
     if (g_slaveAddress != SlaveAddress_App)
     {
         g_slaveAddress = SlaveAddress_App;
-        resetAppRxStateMachine();
-        resetSlaveStatusFlags();
+        reinitAll();
     }
 }
 
