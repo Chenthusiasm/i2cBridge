@@ -533,7 +533,12 @@ static bool isBusReady(void)
 /// @return If the bus is locked.
 static bool isBusLocked(void)
 {
-    return (g_lockedBusAlarm.armed && alarm_hasElapsed(&g_lockedBusAlarm));
+    bool locked = g_lockedBusAlarm.armed && alarm_hasElapsed(&g_lockedBusAlarm);
+    if (locked)
+        debug_setPin1(false);
+    else
+        debug_setPin1(true);
+    return locked;
 }
 
 
@@ -679,7 +684,6 @@ static I2cGen2Status recoverFromLockedBus(void)
     I2cGen2Status status = read(g_slaveAddress, &dummy, sizeof(dummy));
     if (status.lockedBus)
     {
-        debug_setPin1(true);
         #if (false)
         // First attempt to restart the I2C component.
         COMPONENT(SLAVE_I2C, Stop)();
@@ -699,7 +703,6 @@ static I2cGen2Status recoverFromLockedBus(void)
             ;
         }
         #endif
-        debug_setPin1(false);
     }
     return status;
 }
@@ -760,7 +763,6 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
         // action in the state machine.
         if (isBusLocked())
         {
-            debug_setPin1(false);
             g_appRxStateMachine.state = AppRxState_RecoverFromLockedBus;
         }
         else if (g_appRxStateMachine.timeoutAlarm.armed && alarm_hasElapsed(&g_appRxStateMachine.timeoutAlarm))
@@ -935,8 +937,6 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             case AppRxState_RecoverFromLockedBus:
             {
                 status = recoverFromLockedBus();
-                if (!status.errorOccurred)
-                    debug_setPin1(true);
                 g_appRxStateMachine.state = AppRxState_Waiting;
                 break;
             }
@@ -1126,22 +1126,27 @@ bool i2cGen2_processRx(uint32_t timeoutMS)
     
     bool result = false;
     I2cGen2Status status = { false };
-    if (g_heap != NULL)
-    {
-        if (g_appRxStateMachine.state != AppRxState_Waiting)
-        {
-            if (isIrqAsserted())
-            {
-                status = processAppRxStateMachine(timeoutMS);
-                if (!status.errorOccurred)
-                    result = true;
-            }
-            else
-                g_appRxStateMachine.state = AppRxState_Waiting;
-        }
-    }
+    if (isBusLocked())
+        status = recoverFromLockedBus();
     else
-        status.deactivated = true;
+    {
+        if (g_heap != NULL)
+        {
+            if (g_appRxStateMachine.state != AppRxState_Waiting)
+            {
+                if (isIrqAsserted())
+                {
+                    status = processAppRxStateMachine(timeoutMS);
+                    if (!status.errorOccurred)
+                        result = true;
+                }
+                else
+                    g_appRxStateMachine.state = AppRxState_Waiting;
+            }
+        }
+        else
+            status.deactivated = true;
+    }
     processError(status, Callsite);
     return result;
 }
@@ -1153,43 +1158,48 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
     
     int count = 0;
     I2cGen2Status status = { false };
-    if (g_heap != NULL)
-    {
-        Alarm alarm;
-        if (timeoutMS > 0)
-            alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
-        else
-            alarm_disarm(&alarm);
-            
-        int count = 0;
-        while (!queue_isEmpty(&g_heap->txQueue))
-        {
-            if (alarm.armed && alarm_hasElapsed(&alarm))
-            {
-                count = -1;
-                break;
-            }
-            if (isBusReady())
-            {
-                uint8_t* data;
-                uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
-                if (size > 0)
-                {
-                    i2cGen2_write(data[TxQueueDataOffset_Address], &data[TxQueueDataOffset_Data], size - 1);
-                    ++count;
-                }
-            }
-            else if (quitIfBusy)
-            {
-                count = -1;
-                break;
-            }
-        }
-    }
+    if (isBusLocked())
+        status = recoverFromLockedBus();
     else
     {
-        status.deactivated = true;
-        count = -1;
+        if (g_heap != NULL)
+        {
+            Alarm alarm;
+            if (timeoutMS > 0)
+                alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
+            else
+                alarm_disarm(&alarm);
+                
+            int count = 0;
+            while (!queue_isEmpty(&g_heap->txQueue))
+            {
+                if (alarm.armed && alarm_hasElapsed(&alarm))
+                {
+                    count = -1;
+                    break;
+                }
+                if (isBusReady())
+                {
+                    uint8_t* data;
+                    uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
+                    if (size > 0)
+                    {
+                        i2cGen2_write(data[TxQueueDataOffset_Address], &data[TxQueueDataOffset_Data], size - 1);
+                        ++count;
+                    }
+                }
+                else if (quitIfBusy)
+                {
+                    count = -1;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            status.deactivated = true;
+            count = -1;
+        }
     }
     processError(status, Callsite);
     return count;
