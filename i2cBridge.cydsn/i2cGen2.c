@@ -547,7 +547,12 @@ static bool isBusReady(void)
                 status.timedOut = true;
             if ((result & COMPONENT(SLAVE_I2C, I2C_MSTR_BUS_BUSY)) > 0)
             {
-                if (!g_busBusyAlarm.armed)
+                if (g_busBusyAlarm.armed)
+                {
+                    if (alarm_hasElapsed(&g_busBusyAlarm))
+                        status.busStuck = true;
+                }
+                else
                     alarm_arm(&g_busBusyAlarm, G_DefaultBusBusyTimeoutMS, AlarmType_ContinuousNotification);
             }
             else
@@ -653,6 +658,46 @@ static bool isBusReady(void)
 #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
 
 
+/// Attempts to recover from the bus busy error in the case that the I2C bus
+/// gets locked by either the SCL or SDA being held low for extended periods.
+/// See the following site for ideas on recovery:
+/// https://community.cypress.com/t5/PSoC-Creator-Designer-Software/Correct-way-to-reset-I2C-SCB-and-recover-stuck-bus/m-p/213188
+/// @return Status indicating if an error occured. See the definition of the
+///         I2cGen2Status union.
+static I2cGen2Status recoverFromBusBusy(void)
+{
+    // First perform a simple read of the slave device to determine if the
+    // bus is still stuck.
+    uint8_t dummy;
+    I2cGen2Status status = read(g_slaveAddress, &dummy, sizeof(dummy));
+    if (status.busStuck)
+    {
+        debug_setPin1(true);
+        #if (false)
+        // First attempt to restart the I2C component.
+        COMPONENT(SLAVE_I2C, Stop)();
+        // Try to clear the status register.
+        COMPONENT(SLAVE_I2C, I2C_STATUS_REG) = 0;
+        // Init is called instead of Start b/c of the initialization flag in the
+        // component has already been set.
+        COMPONENT(SLAVE_I2C, Init)();
+        COMPONENT(SLAVE_I2C, Enable)();
+        
+        // Recheck if a read works.
+        status = read(g_slaveAddress, &dummy, sizeof(dummy));
+        if (status.busStuck)
+        {
+            // Reconfigure the SDA and SCL lines to GPIO and attempt to manually
+            // reset the bus by clocking in clock signals.
+            ;
+        }
+        #endif
+        debug_setPin1(false);
+    }
+    return status;
+}
+
+
 /// Create and sends the packet to the slave to instruct it to reset/clear the
 /// IRQ line.
 /// @return Status indicating if an error occured. See the definition of the
@@ -702,10 +747,16 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
     else
         alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
         
-    debug_setPin1(false);
     while (g_appRxStateMachine.state != AppRxState_Waiting)
     {
-        if (g_appRxStateMachine.timeoutAlarm.armed && alarm_hasElapsed(&g_appRxStateMachine.timeoutAlarm))
+        // Handling the bus busy alarm expiring takes precedence over any other
+        // action in the state machine.
+        if (g_busBusyAlarm.armed && alarm_hasElapsed(&g_busBusyAlarm))
+        {
+            debug_setPin1(false);
+            g_appRxStateMachine.state = AppRxState_RecoverBus;
+        }
+        else if (g_appRxStateMachine.timeoutAlarm.armed && alarm_hasElapsed(&g_appRxStateMachine.timeoutAlarm))
         {
             status.timedOut = true;
             g_appRxStateMachine.state = AppRxState_Waiting;
@@ -876,17 +927,18 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             
             case AppRxState_RecoverBus:
             {
-                // @TODO: implement a recovery scheme:
-                // https://community.cypress.com/t5/PSoC-Creator-Designer-Software/Correct-way-to-reset-I2C-SCB-and-recover-stuck-bus/m-p/213188
+                status = recoverFromBusBusy();
+                if (!status.errorOccurred)
+                    debug_setPin1(true);
+                g_appRxStateMachine.state = AppRxState_Waiting;
+                break;
             }
             
             default:
             {
-                debug_setPin1(true);
                 // Should never get here.
                 alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
                 g_appRxStateMachine.state = AppRxState_Waiting;
-                debug_setPin1(false);
             }
         }
         
@@ -896,7 +948,6 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
         if (g_appRxStateMachine.state == AppRxState_Waiting)
             alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
     }
-    debug_setPin1(true);
     return status;
 }
 
@@ -1077,9 +1128,6 @@ bool i2cGen2_processRx(uint32_t timeoutMS)
                 status = processAppRxStateMachine(timeoutMS);
                 if (!status.errorOccurred)
                     result = true;
-                // If an error occurred; do not clear the g_rxPending flag so that
-                // another attempt can be made to process a pending receive at a
-                // later time.
             }
             else
                 g_appRxStateMachine.state = AppRxState_Waiting;
@@ -1313,16 +1361,16 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
                 break;
             }
             
-            // Scratch buffer; used so that the I2C read function has a valid
+            // Dummy byte used so that the I2C read function has a valid
             // non-NULL pointer for reading 0 bytes.
-            uint8_t scratch;
+            uint8_t dummy;
             if (isBusReady())
             {
             #if ENABLE_OPTIMIZED_TRANSFER_MODE
                 TransferMode mode = { { false, false } };
-                status = read(address, &scratch, 0, mode);
+                status = read(address, &dummy, sizeof(dummy), mode);
             #else
-                status = read(address, &scratch, 0);
+                status = read(address, &dummy, sizeof(dummy));
             #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
                 acknowledged = !status.errorOccurred;
             }

@@ -48,6 +48,10 @@
             /// Error flag indicating a low level driver error occurred.
             bool driverError : 1;
             
+            /// Error flag indicating the I2C bus has been stuck and no
+            /// low-level I2C transactions have been able to be run.
+            bool busStuck : 1;
+            
             /// Error flag indicating the bus was busy and the I2C transaction
             /// couldn't be completed; the I2C transaction timed out.
             bool timedOut : 1;
