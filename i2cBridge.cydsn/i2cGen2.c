@@ -739,32 +739,35 @@ static I2cGen2Status recoverFromLockedBus(void)
                 debug_setPin1(true);
                 debug_setPin1(false);
             }
-            
-            debug_setPin1(true);
-            
-            // Rearm the alarm for the next attempt.
-            alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMS, AlarmType_ContinuousNotification);
-            
-            #if (false)
-            // First attempt to restart the I2C component.
-            COMPONENT(SLAVE_I2C, Stop)();
-            // Try to clear the status register.
-            COMPONENT(SLAVE_I2C, I2C_STATUS_REG) = 0;
-            // Init is called instead of Start b/c of the initialization flag in the
-            // component has already been set.
-            COMPONENT(SLAVE_I2C, Init)();
-            COMPONENT(SLAVE_I2C, Enable)();
-            
-            // Recheck if a read works.
-            status = read(g_slaveAddress, &dummy, sizeof(dummy));
-            if (status.busStuck)
+            else
             {
-                // Reconfigure the SDA and SCL lines to GPIO and attempt to manually
-                // reset the bus by clocking in clock signals.
-                ;
+                debug_setPin1(true);
+                
+                // Rearm the alarm for the next attempt.
+                alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMS, AlarmType_ContinuousNotification);
+                
+                #if (false)
+                // First attempt to restart the I2C component.
+                COMPONENT(SLAVE_I2C, Stop)();
+                // Try to clear the status register.
+                COMPONENT(SLAVE_I2C, I2C_STATUS_REG) = 0;
+                // Init is called instead of Start b/c of the initialization flag in the
+                // component has already been set.
+                COMPONENT(SLAVE_I2C, Init)();
+                COMPONENT(SLAVE_I2C, Enable)();
+                
+                // Recheck if a read works.
+                status = read(g_slaveAddress, &dummy, sizeof(dummy));
+                if (status.busStuck)
+                {
+                    // Reconfigure the SDA and SCL lines to GPIO and attempt to manually
+                    // reset the bus by clocking in clock signals.
+                    ;
+                }
+                #endif
+                g_lockedBus.recoveryAttempts++;
+                debug_setPin1(false);
             }
-            #endif
-            debug_setPin1(false);
         }
         else
             resetLockedBusStructure();
