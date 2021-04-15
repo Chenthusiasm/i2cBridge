@@ -26,7 +26,7 @@
 // === DEFINES =================================================================
 
 /// Enable/disable the locked I2C bus detection and recovery.
-#define ENABLE_LOCKED_BUS_DETECTION     (false)
+#define ENABLE_LOCKED_BUS_DETECTION     (true)
 
 /// Enable/disable checking if on slave IRQ, if a write to change to the slave
 /// app's response buffer must be done before reading.
@@ -397,7 +397,7 @@ static uint32_t const G_DefaultLockedBusDetectTimeoutMS = 200u;
 
 /// Default timeout for the alarm used to determine how often to attempt to
 /// recover from the locked bus.
-static uint32_t const G_DefaultLockedBusRecoveryPeriodMS = 200u;
+static uint32_t const G_DefaultLockedBusRecoveryPeriodMS = 100u;
 
 /// Max number of recovery attempts before performing a system reset.
 static uint8_t const G_MaxRecoveryAttempts = 10u;
