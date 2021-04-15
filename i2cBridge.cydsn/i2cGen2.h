@@ -157,6 +157,14 @@
     ///         function ended early.
     int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy);
     
+    /// Post-process and check on the status of the previous transfer. This
+    /// needs to be invoked at a regular interval in case no receive or transmit
+    /// transfers have been set up.
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2cGen2Status union.
+    I2cGen2Status i2cGen2_postProcessPreviousTransfer(void);
+    
+    
     /// Read from the I2C bus.
     /// @param[in]  address The 7-bit I2C address.
     /// @param[in]  data    The data buffer to store the read data.

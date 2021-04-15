@@ -595,7 +595,8 @@ static uint32_t findExtendedTimeoutMS(uint16_t transactionSize)
 }
 
 
-/// Check and update the driver status.
+/// Check and update the driver status. No error processing or handling is done
+/// in this function; the caller must perform approriate error handling.
 /// @return The driver status mask.
 static mstatus_t checkDriverStatus(void)
 {
@@ -605,17 +606,55 @@ static mstatus_t checkDriverStatus(void)
 }
 
 
-/// Checks to see if the slave I2C bus is ready.
+/// Checks to see if an I2C-related error occurred. If an error occurred and an
+/// error callback function has been registered, the error callback function
+/// will be invoked.
+/// @param[in]  status      Status indicating if an error occured. See the
+///                         definition of the I2cGen2Status union.
+/// @param[in]  callsite    Unique callsite ID to distinguish different
+///                         functions that had an I2C error.
+static void processError(I2cGen2Status status, uint16_t callsite)
+{
+    if (status.errorOccurred && (g_errorCallback != NULL))
+        g_errorCallback(status, callsite);
+}
+
+
+/// Processes any errors that may have occured in the last I2C transfer.
+static I2cGen2Status processPreviousTranferErrors(mstatus_t status)
+{
+    static mstatus_t const PreviousDoneMask = COMPONENT(SLAVE_I2C, I2C_MSTAT_RD_CMPLT) | COMPONENT(SLAVE_I2C, I2C_MSTAT_WR_CMPLT);
+    static mstatus_t const ErrorMask = COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_MASK);
+    
+    I2cGen2Status returnStatus = { false };
+    if ((status & PreviousDoneMask) > 0)
+    {
+        if ((status & ErrorMask) > 0)
+        {
+            if ((status & COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_ADDR_NAK)) > 0)
+                returnStatus.nak = true;
+            returnStatus.driverError = true;
+        }
+    }
+    return returnStatus;
+}
+
+
+/// Checks to see if the slave I2C bus is ready. Also handles errors caused by
+/// previous transactions.
 /// @return If the bus is ready for a new read/write transaction.
 static bool isBusReady(void)
 {
+    static uint16_t Callsite = 0x0100;
+    static mstatus_t const BusyMask = COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_INP) | COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_HALT);
+    
     g_lastDriverStatus = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterStatus)();
     COMPONENT(SLAVE_I2C, I2CMasterClearStatus)();
-    return (
-    #if ENABLE_OPTIMIZED_TRANSFER_MODE
-        g_slaveNoStop ||
-    #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
-        (g_lastDriverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_INP)) == 0);
+    bool ready = (g_lastDriverStatus & BusyMask) == 0;
+    I2cGen2Status status = processPreviousTranferErrors(g_lastDriverStatus);
+    if (status.errorOccurred)
+        processError(status, Callsite);
+    return ready;
 }
 
 
@@ -1107,20 +1146,6 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
 }
 
 
-/// Checks to see if an I2C-related error occurred. If an error occurred and an
-/// error callback function has been registered, the error callback function
-/// will be invoked.
-/// @param[in]  status      Status indicating if an error occured. See the
-///                         definition of the I2cGen2Status union.
-/// @param[in]  callsite    Unique callsite ID to distinguish different
-///                         functions that had an I2C error.
-static void processError(I2cGen2Status status, uint16_t callsite)
-{
-    if (status.errorOccurred && (g_errorCallback != NULL))
-        g_errorCallback(status, callsite);
-}
-
-
 /// Resets the app receive state machine to the default/starting condition.
 static void resetAppRxStateMachine(void)
 {
@@ -1273,7 +1298,7 @@ void i2cGen2_registerErrorCallback(I2cGen2_ErrorCallback callback)
 
 bool i2cGen2_processRx(uint32_t timeoutMS)
 {
-    static uint16_t Callsite = 0x0100;
+    static uint16_t Callsite = 0x0200;
     
     bool result = false;
     I2cGen2Status status = { false };
@@ -1307,7 +1332,7 @@ bool i2cGen2_processRx(uint32_t timeoutMS)
 
 int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
 {
-    static uint16_t Callsite = 0x0200;
+    static uint16_t Callsite = 0x0300;
     
     int count = 0;
     I2cGen2Status status = { false };
@@ -1372,9 +1397,27 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
 }
 
 
+I2cGen2Status i2cGen2_postProcessPreviousTransfer(void)
+{
+    static uint16_t Callsite = 0x0400;
+    
+    I2cGen2Status status = { false };
+#if ENABLE_LOCKED_BUS_DETECTION
+    if (isBusLocked())
+        status = recoverFromLockedBus();
+    else
+#endif // ENABLE_LOCKED_BUS_DETECTION
+    {
+        status = processPreviousTranferErrors(checkDriverStatus());
+    }
+    processError(status, Callsite);
+    return status;
+}
+
+
 I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 {
-    static uint16_t const Callsite = 0x0300;
+    static uint16_t const Callsite = 0x0500;
     
     I2cGen2Status status = { false };
     if (g_heap != NULL)
@@ -1405,7 +1448,7 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 {
-    static uint16_t const Callsite = 0x0400;
+    static uint16_t const Callsite = 0x0600;
     
     I2cGen2Status status = { false };
     if (g_heap != NULL)
@@ -1440,7 +1483,7 @@ I2cGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
     // calls i2cGen2_write which has its own error processing; only process
     // errors if i2cGen2_write is not invoked.
     
-    static uint16_t const Callsite = 0x0500;
+    static uint16_t const Callsite = 0x0700;
     static uint8_t const MinSize = 2u;
     static uint8_t const AddressOffset = 0u;
     static uint8_t const DataOffset = 1u;
@@ -1468,7 +1511,7 @@ I2cGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 {
-    static uint16_t const Callsite = 0x0600;
+    static uint16_t const Callsite = 0x0800;
     
     I2cGen2Status status = { false };
     if (g_heap != NULL)
@@ -1496,7 +1539,7 @@ I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 {
-    static uint16_t const Callsite = 0x0700;
+    static uint16_t const Callsite = 0x0900;
     
     I2cGen2Status status = { false };
     if (g_heap != NULL)
@@ -1524,7 +1567,7 @@ I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
 {
-    static uint16_t const Callsite = 0x0800;
+    static uint16_t const Callsite = 0x0a00;
     static uint32_t const DefaultAckTimeout = 2u;
     
     I2cGen2Status status = { false };
