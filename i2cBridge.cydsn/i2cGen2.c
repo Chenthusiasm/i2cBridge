@@ -595,6 +595,16 @@ static uint32_t findExtendedTimeoutMS(uint16_t transactionSize)
 }
 
 
+/// Check and update the driver status.
+/// @return The driver status mask.
+static mstatus_t checkDriverStatus(void)
+{
+    g_lastDriverStatus = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterStatus)();
+    COMPONENT(SLAVE_I2C, I2CMasterClearStatus)();
+    return g_lastDriverStatus;
+}
+
+
 /// Checks to see if the slave I2C bus is ready.
 /// @return If the bus is ready for a new read/write transaction.
 static bool isBusReady(void)
@@ -1525,8 +1535,9 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
             timeoutMS = DefaultAckTimeout;
         alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
         
-        bool acknowledged = false;
-        while (!acknowledged)
+        bool ackSent = false;
+        bool done = false;
+        while (!done)
         {
             if (alarm.armed && alarm_hasElapsed(&alarm))
             {
@@ -1534,18 +1545,37 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
                 break;
             }
             
-            // Dummy byte used so that the I2C read function has a valid
-            // non-NULL pointer for reading 0 bytes.
-            uint8_t dummy;
-            if (isBusReady())
+            if (!ackSent)
             {
-            #if ENABLE_OPTIMIZED_TRANSFER_MODE
-                TransferMode mode = { { false, false } };
-                status = read(address, &dummy, sizeof(dummy), mode);
-            #else
-                status = read(address, &dummy, sizeof(dummy));
-            #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
-                acknowledged = !status.errorOccurred;
+                // Dummy byte used so that the I2C read function has a valid
+                // non-NULL pointer for reading 0 bytes.
+                uint8_t dummy;
+                if (isBusReady())
+                {
+                #if ENABLE_OPTIMIZED_TRANSFER_MODE
+                    TransferMode mode = { { false, false } };
+                    status = read(address, &dummy, sizeof(dummy), mode);
+                #else
+                    status = read(address, &dummy, sizeof(dummy));
+                #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
+                    if (status.errorOccurred)
+                        done = true;
+                    else
+                        ackSent = true;
+                }
+            }
+            else
+            {
+                // Check the driver status, block until the transaction is done.
+                mstatus_t driverStatus = checkDriverStatus();
+                if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_RD_CMPLT)) > 0)
+                {
+                    if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_ADDR_NAK)) > 0)
+                        status.nak = true;
+                    else if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_MASK)) > 0)
+                        status.driverError = true;
+                    done = true;
+                }
             }
         }
     }
