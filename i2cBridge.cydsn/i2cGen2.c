@@ -26,7 +26,7 @@
 // === DEFINES =================================================================
 
 /// Enable/disable the locked I2C bus detection and recovery.
-#define ENABLE_LOCKED_BUS_DETECTION     (true)
+#define ENABLE_LOCKED_BUS_DETECTION     (false)
 
 /// Enable/disable checking if on slave IRQ, if a write to change to the slave
 /// app's response buffer must be done before reading.
