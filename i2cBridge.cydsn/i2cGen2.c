@@ -1338,6 +1338,7 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
                 }
                 else if (quitIfBusy)
                 {
+                    status.timedOut = true;
                     count = -1;
                     break;
                 }
