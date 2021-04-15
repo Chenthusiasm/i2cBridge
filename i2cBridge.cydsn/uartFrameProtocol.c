@@ -734,18 +734,12 @@ static bool processReceivedByte(uint8_t data)
                 g_heap->rxState = RxState_EscapeCharacter;
             else if (isEndFrameCharacter(data))
             {
-                debug_setPin0(false);
-                debug_setPin0(true);
-                debug_setPin0(false);
                 status = queue_enqueueFinalize(&g_heap->decodedRxQueue);
-                debug_setPin0(true);
                 g_heap->rxState = RxState_OutOfFrame;
             }
             else
             {
-                debug_setPin0(false);
                 status = queue_enqueueByte(&g_heap->decodedRxQueue, data, false);
-                debug_setPin0(true);
                 if (!status)
                     handleRxFrameOverflow(data);
             }
@@ -754,9 +748,7 @@ static bool processReceivedByte(uint8_t data)
         
         case RxState_EscapeCharacter:
         {
-            debug_setPin0(false);
             status = queue_enqueueByte(&g_heap->decodedRxQueue, data, false);
-            debug_setPin0(true);
             if (!status)
                 handleRxFrameOverflow(data);
             g_heap->rxState = RxState_InFrame;

@@ -25,6 +25,9 @@
 
 // === DEFINES =================================================================
 
+/// Enable/disable the locked I2C bus detection and recovery.
+#define ENABLE_LOCKED_BUS_DETECTION     (true)
+
 /// Enable/disable checking if on slave IRQ, if a write to change to the slave
 /// app's response buffer must be done before reading.
 /// true:   always change to the response buffer on every interrupt.
@@ -195,10 +198,6 @@ typedef enum AppRxState
     /// Clear the IRQ.
     AppRxState_ClearIrq,
     
-    /// Attempt to recover the I2C bus after the bus has been determined to be
-    /// locked-up.
-    AppRxState_RecoverFromLockedBus,
-    
 } AppRxState;
 
 
@@ -258,26 +257,31 @@ typedef struct AppRxStateMachine
 } AppRxStateMachine;
 
 
-/// Locked bus variables.
-typedef struct LockedBus
-{
-    /// Alarm to determine after how long since a continuous bus busy error from
-    /// the low level driver should the status flag be set indicating a locked
-    /// bus.
-    Alarm detectAlarm;
+#if ENABLE_LOCKED_BUS_DETECTION
     
-    /// Alarm to track when to attempt a recovery after a locked bus has been
-    /// detected.
-    Alarm recoverAlarm;
-    
-    /// Track the number of recovery attempts since the locked bus was detected.
-    /// This can be used to determine when to trigger a system reset.
-    uint8_t recoveryAttempts;
-    
-    /// Flag indicating if the bus is in the locked condition.
-    bool locked;
-    
-} LockedBus;
+    /// Locked bus variables.
+    typedef struct LockedBus
+    {
+        /// Alarm to determine after how long since a continuous bus busy error
+        /// from the low level driver should the status flag be set indicating a
+        /// locked bus.
+        Alarm detectAlarm;
+        
+        /// Alarm to track when to attempt a recovery after a locked bus has
+        /// been detected.
+        Alarm recoverAlarm;
+        
+        /// Track the number of recovery attempts since the locked bus was
+        /// detected. This can be used to determine when to trigger a system
+        /// reset.
+        uint8_t recoveryAttempts;
+        
+        /// Flag indicating if the bus is in the locked condition.
+        bool locked;
+        
+    } LockedBus;
+
+#endif // ENABLE_LOCKED_BUS_DETECTION
 
 
 /// Data structure that defines memory used by the module in a similar fashion
@@ -345,7 +349,7 @@ static uint32_t const G_DefaultLockedBusDetectTimeoutMS = 200u;
 
 /// Default timeout for the alarm used to determine how often to attempt to
 /// recover from the locked bus.
-static uint32_t const G_DefaultLockedBusRecoveryPeriodMS = 100u;
+static uint32_t const G_DefaultLockedBusRecoveryPeriodMS = 200u;
 
 /// Max number of recovery attempts before performing a system reset.
 static uint8_t const G_MaxRecoveryAttempts = 10u;
@@ -368,8 +372,12 @@ static uint8_t g_slaveAddress = SlaveAddress_App;
 /// App receive state machine variables.
 static AppRxStateMachine g_appRxStateMachine;
 
-/// Container for locked-bus related variables.
-static LockedBus g_lockedBus;
+#if ENABLE_LOCKED_BUS_DETECTION
+    
+    /// Container for locked-bus related variables.
+    static LockedBus g_lockedBus;
+    
+#endif // ENABLE_LOCKED_BUS_DETECTION
 
 #if !ENABLE_ALL_CHANGE_TO_RESPONSE
     
@@ -559,7 +567,11 @@ static bool isBusReady(void)
 /// @return If the bus is locked.
 static bool isBusLocked(void)
 {
+#if ENABLE_LOCKED_BUS_DETECTION
     bool locked = g_lockedBus.locked;
+#else
+    bool locked = false;
+#endif // ENABLE_LOCKED_BUS_DETECTION
     if (locked)
         debug_setPin1(false);
     else
@@ -568,15 +580,19 @@ static bool isBusLocked(void)
 }
 
 
-/// Reset the locked bus structure to the default values. Also disables all
-/// alarms associated with the locked bus.
-static void resetLockedBusStructure(void)
-{
-    alarm_disarm(&g_lockedBus.detectAlarm);
-    alarm_disarm(&g_lockedBus.recoverAlarm);
-    g_lockedBus.recoveryAttempts = 0;
-    g_lockedBus.locked = false;
-}
+#if ENABLE_LOCKED_BUS_DETECTION
+    
+    /// Reset the locked bus structure to the default values. Also disables all
+    /// alarms associated with the locked bus.
+    static void resetLockedBusStructure(void)
+    {
+        alarm_disarm(&g_lockedBus.detectAlarm);
+        alarm_disarm(&g_lockedBus.recoverAlarm);
+        g_lockedBus.recoveryAttempts = 0;
+        g_lockedBus.locked = false;
+    }
+    
+#endif // ENABLE_LOCKED_BUS_DETECTIONS
 
 
 /// Updates the driver status and generates the I2cGen2Status that corresponds
@@ -598,7 +614,8 @@ static void resetLockedBusStructure(void)
                 status.nak = true;
             if ((result & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
                 status.timedOut = true;
-            if ((result & COMPONENT(SLAVE_I2C, I2C_MSTR_BUS_BUSY)) > 0)
+        #if ENABLE_LOCKED_BUS_DETECTION
+            if ((result & (COMPONENT(SLAVE_I2C, I2C_MSTR_BUS_BUSY) | COMPONENT(SLAVE_I2C, I2C_MSTR_NOT_READY))) > 0)
             {
                 g_lockedBus.locked = isBusLocked() ||
                     (g_lockedBus.detectAlarm.armed && alarm_hasElapsed(&g_lockedBus.detectAlarm));
@@ -610,6 +627,7 @@ static void resetLockedBusStructure(void)
             }
             else
                 resetLockedBusStructure();
+        #endif // ENABLE_LOCKED_BUS_DETECTION
         }
     #if ENABLE_OPTIMIZED_TRANSFER_MODE
         else
@@ -711,67 +729,71 @@ static void resetLockedBusStructure(void)
 #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
 
 
-/// Attempts to recover from the bus lock error in the case that the I2C bus
-/// gets locked by either the SCL or SDA being held low for extended periods.
-/// See the following site for ideas on recovery:
-/// https://community.cypress.com/t5/PSoC-Creator-Designer-Software/Correct-way-to-reset-I2C-SCB-and-recover-stuck-bus/m-p/213188
-/// @return Status indicating if an error occured. See the definition of the
-///         I2cGen2Status union.
-static I2cGen2Status recoverFromLockedBus(void)
-{
-    I2cGen2Status status = { false };
-    if (g_lockedBus.recoverAlarm.armed && alarm_hasElapsed(&g_lockedBus.recoverAlarm))
+#if ENABLE_LOCKED_BUS_DETECTION
+    
+    /// Attempts to recover from the bus lock error in the case that the I2C bus
+    /// gets locked by either the SCL or SDA being held low for extended periods.
+    /// See the following site for ideas on recovery:
+    /// https://community.cypress.com/t5/PSoC-Creator-Designer-Software/Correct-way-to-reset-I2C-SCB-and-recover-stuck-bus/m-p/213188
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2cGen2Status union.
+    static I2cGen2Status recoverFromLockedBus(void)
     {
-        // First perform a simple read of the slave device to determine if the
-        // bus is still locked.
-        uint8_t dummy;
-        status = read(g_slaveAddress, &dummy, sizeof(dummy));
-        if (g_lockedBus.locked)
+        I2cGen2Status status = { false };
+        if (g_lockedBus.recoverAlarm.armed && alarm_hasElapsed(&g_lockedBus.recoverAlarm))
         {
-            if (g_lockedBus.recoveryAttempts >= G_MaxRecoveryAttempts)
-            {
-                debug_setPin1(true);
-                debug_setPin1(false);
-                debug_setPin1(true);
-                debug_setPin1(false);
-                debug_setPin1(true);
-                debug_setPin1(false);
-                debug_setPin1(true);
-                debug_setPin1(false);
-            }
-            
-            debug_setPin1(true);
-            
-            // Rearm the alarm for the next attempt.
-            alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMS, AlarmType_ContinuousNotification);
-            
-            #if (false)
-            // First attempt to restart the I2C component.
-            COMPONENT(SLAVE_I2C, Stop)();
-            // Try to clear the status register.
-            COMPONENT(SLAVE_I2C, I2C_STATUS_REG) = 0;
-            // Init is called instead of Start b/c of the initialization flag in the
-            // component has already been set.
-            COMPONENT(SLAVE_I2C, Init)();
-            COMPONENT(SLAVE_I2C, Enable)();
-            
-            // Recheck if a read works.
+            // First perform a simple read of the slave device to determine if the
+            // bus is still locked.
+            uint8_t dummy;
             status = read(g_slaveAddress, &dummy, sizeof(dummy));
-            if (status.busStuck)
+            if (g_lockedBus.locked)
             {
-                // Reconfigure the SDA and SCL lines to GPIO and attempt to manually
-                // reset the bus by clocking in clock signals.
-                ;
+                if (g_lockedBus.recoveryAttempts >= G_MaxRecoveryAttempts)
+                {
+                    debug_setPin1(true);
+                    debug_setPin1(false);
+                    debug_setPin1(true);
+                    debug_setPin1(false);
+                    debug_setPin1(true);
+                    debug_setPin1(false);
+                    debug_setPin1(true);
+                    debug_setPin1(false);
+                    debug_setPin1(true);
+                    debug_setPin1(false);
+                    debug_setPin1(true);
+                    debug_setPin1(false);
+                    debug_setPin1(true);
+                    debug_setPin1(false);
+                    debug_setPin1(true);
+                    debug_setPin1(false);
+                    CySoftwareReset();
+                }
+                
+                debug_setPin1(true);
+                
+                // Rearm the alarm for the next attempt.
+                alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMS, AlarmType_ContinuousNotification);
+                
+                #if false
+                // First attempt to restart the I2C component.
+                COMPONENT(SLAVE_I2C, Stop)();
+                // Try to clear the status register.
+                //COMPONENT(SLAVE_I2C, I2C_STATUS_REG) = 0;
+                // Init is called instead of Start b/c of the initialization flag in the
+                // component has already been set.
+                COMPONENT(SLAVE_I2C, Init)();
+                COMPONENT(SLAVE_I2C, Enable)();
+                #endif
+                g_lockedBus.recoveryAttempts++;
+                debug_setPin1(false);
             }
-            #endif
-            g_lockedBus.recoveryAttempts++;
-            debug_setPin1(false);
+            else
+                resetLockedBusStructure();
         }
-        else
-            resetLockedBusStructure();
+        return status;
     }
-    return status;
-}
+    
+#endif // ENABLE_LOCKED_BUS_DETECTION
 
 
 /// Create and sends the packet to the slave to instruct it to reset/clear the
@@ -823,15 +845,10 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
     else
         alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
         
+    debug_setPin0(false);
     while (g_appRxStateMachine.state != AppRxState_Waiting)
     {
-        // Handling the bus busy alarm expiring takes precedence over any other
-        // action in the state machine.
-        if (isBusLocked())
-        {
-            g_appRxStateMachine.state = AppRxState_RecoverFromLockedBus;
-        }
-        else if (g_appRxStateMachine.timeoutAlarm.armed && alarm_hasElapsed(&g_appRxStateMachine.timeoutAlarm))
+        if (g_appRxStateMachine.timeoutAlarm.armed && alarm_hasElapsed(&g_appRxStateMachine.timeoutAlarm))
         {
             status.timedOut = true;
             g_appRxStateMachine.state = AppRxState_Waiting;
@@ -1000,13 +1017,6 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                 break;
             }
             
-            case AppRxState_RecoverFromLockedBus:
-            {
-                status = recoverFromLockedBus();
-                g_appRxStateMachine.state = AppRxState_Waiting;
-                break;
-            }
-            
             default:
             {
                 // Should never get here.
@@ -1021,6 +1031,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
         if (g_appRxStateMachine.state == AppRxState_Waiting)
             alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
     }
+    debug_setPin0(true);
     return status;
 }
 
@@ -1076,7 +1087,9 @@ static void reinitAll(void)
 {
     resetAppRxStateMachine();
     resetSlaveStatusFlags();
+#if ENABLE_LOCKED_BUS_DETECTION
     resetLockedBusStructure();
+#endif // ENABLE_LOCKED_BUS_DETECTION
 }
 
 
@@ -1192,9 +1205,11 @@ bool i2cGen2_processRx(uint32_t timeoutMS)
     
     bool result = false;
     I2cGen2Status status = { false };
+#if ENABLE_LOCKED_BUS_DETECTION
     if (isBusLocked())
         status = recoverFromLockedBus();
     else
+#endif // ENABLE_LOCKED_BUS_DETECTION
     {
         if (g_heap != NULL)
         {
@@ -1224,9 +1239,11 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
     
     int count = 0;
     I2cGen2Status status = { false };
+#if ENABLE_LOCKED_BUS_DETECTION
     if (isBusLocked())
         status = recoverFromLockedBus();
     else
+#endif // ENABLE_LOCKED_BUS_DETECTION
     {
         if (g_heap != NULL)
         {
@@ -1239,6 +1256,9 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
             int count = 0;
             while (!queue_isEmpty(&g_heap->txQueue))
             {
+                debug_setPin0(false);
+                debug_setPin0(true);
+                debug_setPin0(false);
                 if (alarm.armed && alarm_hasElapsed(&alarm))
                 {
                     count = -1;
@@ -1260,6 +1280,7 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
                     break;
                 }
             }
+            debug_setPin0(true);
         }
         else
         {
