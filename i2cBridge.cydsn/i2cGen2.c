@@ -393,11 +393,11 @@ static uint8_t const G_ResponseBufferSize = sizeof(G_ClearIrqMessage) - 1u;
 #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
 
 /// Default timeout for the alarm for detecting a locked bus condition.
-static uint32_t const G_DefaultLockedBusDetectTimeoutMS = 200u;
+static uint32_t const G_DefaultLockedBusDetectTimeoutMS = 100u;
 
 /// Default timeout for the alarm used to determine how often to attempt to
 /// recover from the locked bus.
-static uint32_t const G_DefaultLockedBusRecoveryPeriodMS = 100u;
+static uint32_t const G_DefaultLockedBusRecoveryPeriodMS = 50u;
 
 /// Max number of recovery attempts before performing a system reset.
 static uint8_t const G_MaxRecoveryAttempts = 10u;
@@ -683,10 +683,12 @@ static bool isBusLocked(void)
     /// alarms associated with the locked bus.
     static void resetLockedBusStructure(void)
     {
+        debug_setPin0(false);
         alarm_disarm(&g_lockedBus.detectAlarm);
         alarm_disarm(&g_lockedBus.recoverAlarm);
         g_lockedBus.recoveryAttempts = 0;
         g_lockedBus.locked = false;
+        debug_setPin0(true);
     }
     
 #endif // ENABLE_LOCKED_BUS_DETECTIONS
@@ -722,14 +724,16 @@ static bool isBusLocked(void)
                 if (g_lockedBus.locked && !g_lockedBus.recoverAlarm.armed)
                     alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMS, AlarmType_ContinuousNotification);
             }
-            else
-                resetLockedBusStructure();
         #endif // ENABLE_LOCKED_BUS_DETECTION
         }
-    #if ENABLE_OPTIMIZED_TRANSFER_MODE
         else
+        {
+            if (isBusLocked())
+                resetLockedBusStructure();
+    #if ENABLE_OPTIMIZED_TRANSFER_MODE
             g_slaveNoStop = mode.noStop;
     #endif // ENABLE_OPTIMIZED_TRANSFER_MODE
+        }
         
         // Update the driver status.
         g_lastDriverStatus = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterStatus)();
@@ -839,53 +843,45 @@ static bool isBusLocked(void)
         I2cGen2Status status = { false };
         if (g_lockedBus.recoverAlarm.armed && alarm_hasElapsed(&g_lockedBus.recoverAlarm))
         {
-            // First perform a simple read of the slave device to determine if the
-            // bus is still locked.
-            uint8_t dummy;
-            status = read(g_slaveAddress, &dummy, sizeof(dummy));
-            if (g_lockedBus.locked)
+            if (g_lockedBus.recoveryAttempts >= G_MaxRecoveryAttempts)
             {
-                if (g_lockedBus.recoveryAttempts >= G_MaxRecoveryAttempts)
-                {
-                    debug_setPin1(true);
-                    debug_setPin1(false);
-                    debug_setPin1(true);
-                    debug_setPin1(false);
-                    debug_setPin1(true);
-                    debug_setPin1(false);
-                    debug_setPin1(true);
-                    debug_setPin1(false);
-                    debug_setPin1(true);
-                    debug_setPin1(false);
-                    debug_setPin1(true);
-                    debug_setPin1(false);
-                    debug_setPin1(true);
-                    debug_setPin1(false);
-                    debug_setPin1(true);
-                    debug_setPin1(false);
-                    CySoftwareReset();
-                }
-                
                 debug_setPin1(true);
-                
-                // Rearm the alarm for the next attempt.
-                alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMS, AlarmType_ContinuousNotification);
-                
-                #if false
-                // First attempt to restart the I2C component.
-                COMPONENT(SLAVE_I2C, Stop)();
-                // Try to clear the status register.
-                //COMPONENT(SLAVE_I2C, I2C_STATUS_REG) = 0;
-                // Init is called instead of Start b/c of the initialization flag in the
-                // component has already been set.
-                COMPONENT(SLAVE_I2C, Init)();
-                COMPONENT(SLAVE_I2C, Enable)();
-                #endif
-                g_lockedBus.recoveryAttempts++;
                 debug_setPin1(false);
+                debug_setPin1(true);
+                debug_setPin1(false);
+                debug_setPin1(true);
+                debug_setPin1(false);
+                debug_setPin1(true);
+                debug_setPin1(false);
+                debug_setPin1(true);
+                debug_setPin1(false);
+                debug_setPin1(true);
+                debug_setPin1(false);
+                debug_setPin1(true);
+                debug_setPin1(false);
+                debug_setPin1(true);
+                debug_setPin1(false);
+                //CySoftwareReset();
             }
-            else
-                resetLockedBusStructure();
+            
+            debug_setPin1(true);
+            
+            // Rearm the alarm for the next attempt.
+            alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMS, AlarmType_ContinuousNotification);
+            
+            #if true
+            // First attempt to restart the I2C component.
+            COMPONENT(SLAVE_I2C, Stop)();
+            // Try to clear the status register.
+            COMPONENT(SLAVE_I2C, I2C_STATUS_REG) = 0;
+            // Init is called instead of Start b/c of the initialization flag in the
+            // component has already been set.
+            COMPONENT(SLAVE_I2C, Init)();
+            COMPONENT(SLAVE_I2C, Enable)();
+            status = i2cGen2_ackApp(0);
+            #endif
+            g_lockedBus.recoveryAttempts++;
+            debug_setPin1(false);
         }
         return status;
     }
@@ -942,7 +938,6 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
     else
         alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
         
-    debug_setPin0(false);
     while (g_appRxStateMachine.state != AppRxState_Waiting)
     {
         if (g_appRxStateMachine.timeoutAlarm.armed && alarm_hasElapsed(&g_appRxStateMachine.timeoutAlarm))
@@ -1141,7 +1136,6 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
         if (g_appRxStateMachine.state == AppRxState_Waiting)
             alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
     }
-    debug_setPin0(true);
     return status;
 }
 
@@ -1353,9 +1347,6 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
             int count = 0;
             while (!queue_isEmpty(&g_heap->txQueue))
             {
-                debug_setPin0(false);
-                debug_setPin0(true);
-                debug_setPin0(false);
                 if (alarm.armed && alarm_hasElapsed(&alarm))
                 {
                     count = -1;
@@ -1363,8 +1354,6 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
                 }
                 if (isBusReady())
                 {
-                    debug_setPin0(true);
-                    debug_setPin0(false);
                     uint8_t* data;
                     uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
                     if (size > 0)
@@ -1375,16 +1364,11 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
                 }
                 else if (quitIfBusy)
                 {
-                    debug_setPin0(true);
-                    debug_setPin0(false);
-                    debug_setPin0(true);
-                    debug_setPin0(false);
                     status.timedOut = true;
                     count = -1;
                     break;
                 }
             }
-            debug_setPin0(true);
         }
         else
         {
