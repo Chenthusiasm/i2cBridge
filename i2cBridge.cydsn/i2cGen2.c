@@ -165,6 +165,50 @@ typedef enum AppBufferOffset
 } AppBufferOffset;
 
 
+/// Definition of all the available commands of the application.
+typedef enum AppCommand
+{
+    /// Default touch scan mode: scan and only report changes in touch status.
+    AppCommand_ScanAndReportChanges     = 0x01,
+    
+    /// Scan and report everything.
+    AppCommand_ScanAndReportAll         = 0x02,
+    
+    /// Stop scanning.
+    AppCommand_StopScan                 = 0x03,
+    
+    /// Accessor to modify a parameter.
+    AppCommand_SetParameter             = 0x04,
+    
+    /// Accessor to read a parameter.
+    AppCommand_GetParameter             = 0x05,
+    
+    /// Perform a touch rebaseline.
+    AppCommand_Rebaseline               = 0x06,
+    
+    /// Get reset info or execute a reset.
+    AppCommand_Reset                    = 0x07,
+    
+    /// Clear the tuning settings in flash.
+    AppCommand_EraseFlash               = 0x08,
+    
+    /// Save current tuning settings from RAM to flash.
+    AppCommand_WriteFlash               = 0x09,
+    
+    /// Echo test.
+    AppCommand_Echo                     = 0x0a,
+    
+    /// Built-in self-test.
+    AppCommand_Bist                     = 0x0b,
+    
+    /// Customer-specific command.
+    AppCommand_CustomerSpecific         = 0x0c,
+    
+    /// Debug command.
+    AppCommand_Debug                    = 0x0d,
+} AppCommand;
+
+
 /// States used by the app receive state machine to handle the different steps
 /// in processing the responses.
 typedef enum AppRxState
@@ -249,6 +293,10 @@ typedef struct AppRxStateMachine
     
     /// Number of bytes that need to be received (pending).
     uint16_t pendingRxSize;
+    
+    /// Flag indicating if another attempt at a read should be performed but
+    /// switch to the response buffer first.
+    bool switchToResponseBuffer;
     
     /// The current state. This needs to be volatile because it is modified in
     /// an ISR.
@@ -859,9 +907,13 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
         {
             case AppRxState_Pending:
             {
+                g_appRxStateMachine.switchToResponseBuffer = false;
                 g_appRxStateMachine.pendingRxSize = G_AppRxPacketLengthSize;
                 if (switchToAppResponseBuffer())
+                {
+                    g_appRxStateMachine.switchToResponseBuffer = true;
                     g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
+                }
                 else
                     g_appRxStateMachine.state = AppRxState_ReadLength;
                 break;
@@ -925,13 +977,18 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                     }
                     else
                     {
+                        // No issue with the I2C transaction; there's an issue
+                        // with the data, so still clear the IRQ. Also, set the
+                        // next state first because depending on the length
+                        // result, the next state will be different.
+                        g_appRxStateMachine.state = AppRxState_ClearIrq;
+                        
                         if (lengthResult.invalidCommand)
                         {    
                         #if !ENABLE_ALL_CHANGE_TO_RESPONSE
                             if (lengthResult.invalidAppBuffer)
                             {
                                 g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
-                                continue;
                             }
                             else
                         #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
@@ -943,11 +1000,15 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                             }
                         }
                         if (lengthResult.invalidLength)
-                            status.invalidRead = true;
-                            
-                        // No issue with the I2C transaction; there's an issue
-                        // with the data, so still clear the IRQ.
-                        g_appRxStateMachine.state = AppRxState_ClearIrq;
+                        {
+                            if (!g_appRxStateMachine.switchToResponseBuffer)
+                            {
+                                g_appRxStateMachine.switchToResponseBuffer = true;
+                                g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
+                            }
+                            else
+                                status.invalidRead = true;
+                        }
                     }
                 }
                 break;
@@ -1053,9 +1114,10 @@ static void processError(I2cGen2Status status, uint16_t callsite)
 /// Resets the app receive state machine to the default/starting condition.
 static void resetAppRxStateMachine(void)
 {
-    g_appRxStateMachine.state = AppRxState_Waiting;
-    g_appRxStateMachine.pendingRxSize = 0u;
     alarm_disarm(&g_appRxStateMachine.timeoutAlarm);
+    g_appRxStateMachine.pendingRxSize = 0u;
+    g_appRxStateMachine.switchToResponseBuffer = false;
+    g_appRxStateMachine.state = AppRxState_Waiting;
 }
 
 
