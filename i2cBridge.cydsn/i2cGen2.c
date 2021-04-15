@@ -1328,6 +1328,8 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
                 }
                 if (isBusReady())
                 {
+                    debug_setPin0(true);
+                    debug_setPin0(false);
                     uint8_t* data;
                     uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
                     if (size > 0)
@@ -1338,6 +1340,10 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
                 }
                 else if (quitIfBusy)
                 {
+                    debug_setPin0(true);
+                    debug_setPin0(false);
+                    debug_setPin0(true);
+                    debug_setPin0(false);
                     status.timedOut = true;
                     count = -1;
                     break;

@@ -707,6 +707,11 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
 }
 
 
+/// Processes the received byte and removes the framing protocol to get a pure
+/// data buffer.
+/// @param[in]  data    The byte to process.
+/// @return If the byte was valid data when processing through the framing
+///         protocol.
 static bool processReceivedByte(uint8_t data)
 {
     bool status = true;
