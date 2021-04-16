@@ -43,11 +43,12 @@
     ///     an increment value to the callsite; this way, the public function's
     ///     callsite will be retained (0x00ff).
     /// 4.  The private function mask can be further split up into upper and
-    ///     lower nibbles where the upper nibble can be reserved for commonly
-    ///     called private functions and the lower nibble can be reserved for
-    ///     less commonly called private functions. This way, if both types of
-    ///     functions are called when the error occurred, they don't mask each
-    ///     other off.
+    ///     lower nibbles where the upper nibble can be reserved specific blocks
+    ///     of code executed in the public function or a called inner function.
+    ///     The low nibble can be reserved for specific private functions or
+    ///     blocks of code that are repeatedly called by different functions.
+    ///     This way, if both types of functions are called when the error
+    ///     occurred, they don't mask each other off.
     /// 5.  Function calls that are mutually exclusive can be defined in the
     ///     entire range of the decribed masks above (i.e. public functions that
     ///     use the 0xff00 mask has a range of 256 instead of 8 in the 8-bit

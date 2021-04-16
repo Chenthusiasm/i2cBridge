@@ -45,6 +45,9 @@
             /// the globals have not had memory dynamically allocated.
             bool deactivated : 1;
             
+            /// Error flag indicating that the input parameters are invalid.
+            bool invalidInputParameters : 1;
+            
             /// Error flag indicating a low level driver error occurred.
             bool driverError : 1;
             
@@ -65,10 +68,9 @@
             bool invalidRead : 1;
             
             /// Error flag indicating that the transmit queue is full.
-            bool transmitQueueFull : 1;
+            bool queueFull : 1;
             
-            /// Error flag indicating that the input parameters are invalid.
-            bool inputParametersInvalid : 1;
+            
         };
         
     } I2cGen2Status;

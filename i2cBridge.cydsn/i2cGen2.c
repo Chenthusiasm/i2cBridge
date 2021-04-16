@@ -219,12 +219,6 @@ typedef enum CommState
     /// Check if the last transmit transaction has completed.
     CommState_TxCheckComplete,
     
-    /// Generic blocking read data from a slave device.
-    CommState_ReadData,
-    
-    /// Generic blocking write data to a slave device.
-    CommState_WriteData,
-    
 } CommState;
 
 
@@ -443,6 +437,14 @@ static callsite_t g_callsite = 0u;
 
 // === PRIVATE FUNCTIONS =======================================================
 
+/// Clears the low byte of the callsite and "adds" a new low byte to the now
+/// cleared low byte of the callsite.
+static void clearAndSetCallsiteLoByte(uint8_t loByte)
+{
+    g_callsite = (g_callsite & 0xff00) | loByte;
+}
+
+
 /// Generates the transmit queue data to include the I2C address as the first
 /// byte (encode the I2C address in the data). The transmit dequeue function
 /// will take care of properly pulling out the I2C address and the actual data
@@ -593,7 +595,6 @@ static void processError(I2cGen2Status status)
 {
     if (status.errorOccurred && (g_errorCallback != NULL))
         g_errorCallback(status, g_callsite);
-    g_callsite = 0u;
 }
 
 
@@ -619,21 +620,25 @@ static I2cGen2Status processPreviousTranferErrors(mstatus_t status)
 
 /// Checks to see if the slave I2C bus is ready. Also handles errors caused by
 /// previous transactions.
+/// @param[out] status  Status indicating if an error occured. See the
+///                     definition of the I2cGen2Status union.
 /// @return If the bus is ready for a new read/write transaction.
-static bool isBusReady(void)
+static bool isBusReady(I2cGen2Status* status)
 {
     static mstatus_t const BusyMask = COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_INP) | COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_HALT);
     
     g_lastDriverStatus = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterStatus)();
     COMPONENT(SLAVE_I2C, I2CMasterClearStatus)();
     bool ready = (g_lastDriverStatus & BusyMask) == 0;
-    I2cGen2Status status = processPreviousTranferErrors(g_lastDriverStatus);
-    if (status.errorOccurred)
+    I2cGen2Status localStatus = processPreviousTranferErrors(g_lastDriverStatus);
+    if (localStatus.errorOccurred)
     {
         static callsite_t const Callsite = 0x00f0;
         g_callsite += Callsite;
-        processError(status);
+        processError(localStatus);
     }
+    if (status != NULL)
+        *status = localStatus;
     return ready;
 }
 
@@ -757,7 +762,7 @@ static I2cGen2Status write(uint8_t address, uint8_t const data[], uint16_t size)
     #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
     }
     else
-        status.inputParametersInvalid = true;
+        status.invalidInputParameters = true;
     return status;
 }
 
@@ -885,6 +890,7 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
         {
             case CommState_RxPending:
             {
+                clearAndSetCallsiteLoByte(0x10);
                 g_commFsm.rxSwitchToResponseBuffer = false;
                 g_commFsm.pendingRxSize = G_AppRxPacketLengthSize;
                 if (switchToAppResponseBuffer())
@@ -899,7 +905,8 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
             
             case CommState_RxSwitchToResponseBuffer:
             {
-                if (isBusReady())
+                clearAndSetCallsiteLoByte(0x20);
+                if (isBusReady(&status))
                 {
                     status = changeSlaveAppToResponseBuffer();
                     if (!status.errorOccurred)
@@ -912,7 +919,8 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
             
             case CommState_RxReadLength:
             {
-                if (isBusReady())
+                clearAndSetCallsiteLoByte(0x30);
+                if (isBusReady(&status))
                 {
                     status = read(g_slaveAddress, g_heap->rxBuffer, g_commFsm.pendingRxSize);
                     if (!status.errorOccurred)
@@ -925,7 +933,8 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
             
             case CommState_RxProcessLength:
             {
-                if (isBusReady())
+                clearAndSetCallsiteLoByte(0x40);
+                if (isBusReady(&status))
                 {
                     AppRxLengthResult lengthResult = processAppRxLength(g_heap->rxBuffer, g_commFsm.pendingRxSize);
                     if (!lengthResult.invalid)
@@ -941,7 +950,7 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
                     }
                     else if (lengthResult.invalidParameters)
                     {
-                        status.inputParametersInvalid = true;
+                        status.invalidInputParameters = true;
                         g_commFsm.state = CommState_Waiting;
                     }
                     else
@@ -985,7 +994,8 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
             
             case CommState_RxReadExtraData:
             {
-                if (isBusReady())
+                clearAndSetCallsiteLoByte(0x50);
+                if (isBusReady(&status))
                 {
                     status = read(g_slaveAddress, g_heap->rxBuffer, g_commFsm.pendingRxSize);
                     if (!status.errorOccurred)
@@ -998,7 +1008,8 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
             
             case CommState_RxProcessExtraData:
             {
-                if (isBusReady())
+                clearAndSetCallsiteLoByte(0x60);
+                if (isBusReady(&status))
                 {
                     uint16_t length = g_commFsm.pendingRxSize;
                     if (g_rxCallback != NULL)
@@ -1010,42 +1021,56 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
             
             case CommState_RxClearIrq:
             {
-                if (isBusReady())
+                clearAndSetCallsiteLoByte(0x70);
+                if (isBusReady(&status))
                 {
                     status = resetIrq();
-                    g_commFsm.state = CommState_Waiting;
+                    g_commFsm.state = CommState_RxCheckComplete;
                 }
                 break;
             }
             
             case CommState_RxCheckComplete:
             {
+                clearAndSetCallsiteLoByte(0x80);
+                if (isBusReady(&status))
+                    g_commFsm.state = CommState_Waiting;
                 break;
             }
             
             case CommState_TxDequeueAndWrite:
             {
+                clearAndSetCallsiteLoByte(0x90);
+                if (isBusReady(&status))
+                {
+                    uint8_t* data;
+                    uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
+                    if (size > 0)
+                    {
+                        status = i2cGen2_write(data[TxQueueDataOffset_Address], &data[TxQueueDataOffset_Data], size - 1);
+                        g_commFsm.state = CommState_TxCheckComplete;
+                    }
+                    else
+                    {
+                        status.invalidInputParameters = true;
+                        g_commFsm.state = CommState_Waiting;
+                    }
+                }
                 break;
             }
             
             case CommState_TxCheckComplete:
             {
-                break;
-            }
-            
-            case CommState_ReadData:
-            {
-                break;
-            }
-            
-            case CommState_WriteData:
-            {
+                clearAndSetCallsiteLoByte(0xa0);
+                if (isBusReady(&status))
+                    g_commFsm.state = CommState_Waiting;
                 break;
             }
             
             default:
             {
                 // Should never get here.
+                clearAndSetCallsiteLoByte(0xf0);
                 alarm_disarm(&g_commFsm.timeoutAlarm);
                 g_commFsm.state = CommState_Waiting;
             }
@@ -1106,7 +1131,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             
             case CommState_RxSwitchToResponseBuffer:
             {
-                if (isBusReady())
+                if (isBusReady(NULL))
                 {
                     status = changeSlaveAppToResponseBuffer();
                     if (!status.errorOccurred)
@@ -1119,7 +1144,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             
             case CommState_RxReadLength:
             {
-                if (isBusReady())
+                if (isBusReady(NULL))
                 {
                     status = read(g_slaveAddress, g_heap->rxBuffer, g_commFsm.pendingRxSize);
                     if (!status.errorOccurred)
@@ -1132,7 +1157,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             
             case CommState_RxProcessLength:
             {
-                if (isBusReady())
+                if (isBusReady(NULL))
                 {
                     AppRxLengthResult lengthResult = processAppRxLength(g_heap->rxBuffer, g_commFsm.pendingRxSize);
                     if (!lengthResult.invalid)
@@ -1148,7 +1173,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                     }
                     else if (lengthResult.invalidParameters)
                     {
-                        status.inputParametersInvalid = true;
+                        status.invalidInputParameters = true;
                         g_commFsm.state = CommState_Waiting;
                     }
                     else
@@ -1192,7 +1217,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             
             case CommState_RxReadExtraData:
             {
-                if (isBusReady())
+                if (isBusReady(NULL))
                 {
                     status = read(g_slaveAddress, g_heap->rxBuffer, g_commFsm.pendingRxSize);
                     if (!status.errorOccurred)
@@ -1205,7 +1230,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             
             case CommState_RxProcessExtraData:
             {
-                if (isBusReady())
+                if (isBusReady(NULL))
                 {
                     uint16_t length = g_commFsm.pendingRxSize;
                     if (g_rxCallback != NULL)
@@ -1217,7 +1242,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
             
             case CommState_RxClearIrq:
             {
-                if (isBusReady())
+                if (isBusReady(NULL))
                 {
                     status = resetIrq();
                     g_commFsm.state = CommState_Waiting;
@@ -1474,7 +1499,7 @@ int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
                     count = -1;
                     break;
                 }
-                if (isBusReady())
+                if (isBusReady(NULL))
                 {
                     uint8_t* data;
                     uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
@@ -1532,13 +1557,13 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
     {
         if ((data != NULL) && (size > 0))
         {
-            if (isBusReady())
+            if (isBusReady(NULL))
                 status = read(address, data, size);
             else
                 status.timedOut = true;
         }
         else
-            status.inputParametersInvalid = true;
+            status.invalidInputParameters = true;
     }
     else
         status.deactivated = true;
@@ -1557,13 +1582,13 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
     {
         if ((data != NULL) && (size > 0))
         {
-            if (isBusReady())
+            if (isBusReady(NULL))
                 status = write(address, data, size);
             else
                 status.timedOut = true;
         }
         else
-            status.inputParametersInvalid = true;
+            status.invalidInputParameters = true;
     }
     else
         status.deactivated = true;
@@ -1595,7 +1620,7 @@ I2cGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
             invokedWrite = true;
         }
         else
-            status.inputParametersInvalid = true;
+            status.invalidInputParameters = true;
     }
     else
         status.deactivated = true;
@@ -1619,13 +1644,13 @@ I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
             {
                 g_heap->pendingTxEnqueueAddress = address;
                 if (!queue_enqueue(&g_heap->txQueue, data, size))
-                    status.transmitQueueFull = true;
+                    status.queueFull = true;
             }
             else
-                status.transmitQueueFull = true;
+                status.queueFull = true;
         }
         else
-            status.inputParametersInvalid = true;
+            status.invalidInputParameters = true;
     }
     else
         status.deactivated = true;
@@ -1648,13 +1673,13 @@ I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
             {
                 g_heap->pendingTxEnqueueAddress = data[TxQueueDataOffset_Address];
                 if (!queue_enqueue(&g_heap->txQueue, &data[TxQueueDataOffset_Data], size - 1))
-                    status.transmitQueueFull = true;
+                    status.queueFull = true;
             }
             else
-                status.inputParametersInvalid = true;
+                status.invalidInputParameters = true;
         }
         else
-            status.inputParametersInvalid = true;
+            status.invalidInputParameters = true;
     }
     else
         status.deactivated = true;
@@ -1692,7 +1717,7 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
                 // Dummy byte used so that the I2C read function has a valid
                 // non-NULL pointer for reading 0 bytes.
                 uint8_t dummy;
-                if (isBusReady())
+                if (isBusReady(NULL))
                 {
                     status = read(address, &dummy, sizeof(dummy));
                     if (status.errorOccurred)

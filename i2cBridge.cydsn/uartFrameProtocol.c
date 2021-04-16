@@ -558,9 +558,9 @@ static void processI2cErrors(I2cGen2Status status, uint16_t callsite)
             txEnqueueCommandResponse(BridgeCommand_SlaveNak, NULL, 0);
         if (status.invalidRead)
             ;
-        if (status.transmitQueueFull)
+        if (status.queueFull)
             ;
-        if (status.inputParametersInvalid)
+        if (status.invalidInputParameters)
             ;
     }
     error_tally(ErrorType_I2c);
