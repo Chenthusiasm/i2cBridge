@@ -1595,6 +1595,8 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
             {
                 // Check the driver status, block until the transaction is done.
                 mstatus_t driverStatus = checkDriverStatus();
+                if (driverStatus == COMPONENT(SLAVE_I2C, I2C_MSTAT_CLEAR))
+                    done = true;
                 if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_RD_CMPLT)) > 0)
                 {
                     if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_ADDR_NAK)) > 0)
