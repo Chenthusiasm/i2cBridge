@@ -24,7 +24,7 @@
     #endif
     #include <stdint.h>
     
-    #include "bridgeStateMachine.h"
+    #include "bridgeFsm.h"
     #include "i2cGen2.h"
     
     

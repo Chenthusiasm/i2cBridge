@@ -59,15 +59,15 @@
     // === FUNCTIONS ===========================================================
     
     /// Reset the bridge state machine.
-    void bridgeStateMachine_reset(void);
+    void bridgeFsm_reset(void);
     
     /// Initialize the bridge state machine. This will also reset the bridge
     /// state machine.
-    void bridgeStateMachine_init(void);
+    void bridgeFsm_init(void);
 
     /// Process tasks associated with the current state of the bridge state
     /// machine.
-    void bridgeStateMachine_process(void);
+    void bridgeFsm_process(void);
     
     
     #ifdef __cplusplus

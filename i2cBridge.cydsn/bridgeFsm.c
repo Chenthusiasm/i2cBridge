@@ -12,7 +12,7 @@
 
 // === DEPENDENCIES ============================================================
 
-#include "bridgeStateMachine.h"
+#include "bridgeFsm.h"
 
 #include "alarm.h"
 #include "error.h"
@@ -184,19 +184,19 @@ void processSlaveUpdater(void)
 
 // === PUBLIC FUNCTIONS ========================================================
 
-void bridgeStateMachine_reset(void)
+void bridgeFsm_reset(void)
 {
     g_state = State_InitHostComm;    
 }
 
 
-void bridgeStateMachine_init(void)
+void bridgeFsm_init(void)
 {
-    bridgeStateMachine_reset();
+    bridgeFsm_reset();
 }
 
 
-void bridgeStateMachine_process(void)
+void bridgeFsm_process(void)
 {
     switch(g_state)
     {

@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "bridgeStateMachine.h"
+#include "bridgeFsm.h"
 #include "debug.h"
 #include "hwSystemTime.h"
 #include "i2cGen2.h"
@@ -45,7 +45,7 @@ static void init(void)
     uartFrameProtocol_init();
     
     // Initialize state machines and system controls.
-    bridgeStateMachine_init();
+    bridgeFsm_init();
 }
 
 
@@ -60,7 +60,7 @@ int main(void)
     
     for(int i = 0; ; ++i)
     {
-        bridgeStateMachine_process();
+        bridgeFsm_process();
     }
 }
 
