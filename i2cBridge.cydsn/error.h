@@ -30,6 +30,30 @@
     
     // === TYPE DEFINES ========================================================
     
+    /// Type define for the callsite variable used for error messages. The
+    /// callsite is a unique ID used to help identify where an error may have
+    /// occurred. Use the following recommendations when defining unique
+    /// callsite IDs.
+    /// 1.  Create a static global variable (file-scope) that contains the
+    ///     current callsite. This will help when drilling to specific private
+    ///     function invocations that may have triggered an error.
+    /// 2.  Public functions in a module should use the most significant byte to
+    ///     define the function callsite (0xff00).
+    /// 3.  Any private function should use the least significant byte to define
+    ///     an increment value to the callsite; this way, the public function's
+    ///     callsite will be retained (0x00ff).
+    /// 4.  The private function mask can be further split up into upper and
+    ///     lower nibbles where the upper nibble can be reserved for commonly
+    ///     called private functions and the lower nibble can be reserved for
+    ///     less commonly called private functions. This way, if both types of
+    ///     functions are called when the error occurred, they don't mask each
+    ///     other off.
+    /// 5.  Function calls that are mutually exclusive can be defined in the
+    ///     entire range of the decribed masks above (i.e. public functions that
+    ///     use the 0xff00 mask has a range of 256 instead of 8 in the 8-bit
+    ///     mask).
+    typedef uint16_t callsite_t;
+    
     /// Enumerations for the different types of alarms.
     typedef enum ErrorMode
     {

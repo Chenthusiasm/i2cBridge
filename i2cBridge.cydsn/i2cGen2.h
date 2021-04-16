@@ -135,6 +135,15 @@
     /// @return The most recent driver function return value.
     uint16_t i2cGen2_getLastDriverReturnValue(void);
     
+    /// Process any pending receive or transmit transactions.
+    /// @param[in]  timeoutMS   The amount of time the process can occur before
+    ///                         it times out and must finish. If 0, then there's
+    ///                         no timeout and the function blocks until all
+    ///                         pending actions are completed.
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2cGen2Status union.
+    I2cGen2Status i2cGen2_process(uint32_t timeoutMS);
+    
     /// Process any pending data to be received.
     /// @param[in]  timeoutMS   The amount of time the process can occur before
     ///                         it times out and must finish. If 0, then there's
