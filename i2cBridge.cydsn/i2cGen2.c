@@ -209,6 +209,21 @@ typedef enum CommState
     /// Clear the IRQ after a complete read.
     CommState_RxClearIrq,
     
+    /// Dequeue from the transmit queue and transmit.
+    CommState_TxDequeue,
+    
+    /// Generic read data from a slave device.
+    CommState_RxReadData,
+    
+    /// Generic write data to a slave device.
+    CommState_TxWriteData,
+    
+    /// Check if the last receive transaction has completed.
+    CommState_RxCheckComplete,
+    
+    /// Check if the last transmit transaction has completed.
+    CommState_TxCheckComplete,
+    
 } CommState;
 
 
@@ -268,7 +283,7 @@ typedef struct CommFsm
     
     /// Flag indicating if another attempt at a read should be performed but
     /// switch to the response buffer first.
-    bool switchToResponseBuffer;
+    bool rxSwitchToResponseBuffer;
     
     /// The current state.
     CommState state;
@@ -852,11 +867,11 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
         {
             case CommState_RxPending:
             {
-                g_commFsm.switchToResponseBuffer = false;
+                g_commFsm.rxSwitchToResponseBuffer = false;
                 g_commFsm.pendingRxSize = G_AppRxPacketLengthSize;
                 if (switchToAppResponseBuffer())
                 {
-                    g_commFsm.switchToResponseBuffer = true;
+                    g_commFsm.rxSwitchToResponseBuffer = true;
                     g_commFsm.state = CommState_RxSwitchToResponseBuffer;
                 }
                 else
@@ -937,9 +952,9 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                         }
                         if (lengthResult.invalidLength)
                         {
-                            if (!g_commFsm.switchToResponseBuffer)
+                            if (!g_commFsm.rxSwitchToResponseBuffer)
                             {
-                                g_commFsm.switchToResponseBuffer = true;
+                                g_commFsm.rxSwitchToResponseBuffer = true;
                                 g_commFsm.state = CommState_RxSwitchToResponseBuffer;
                             }
                             else
@@ -1010,7 +1025,7 @@ static void resetAppRxStateMachine(void)
     alarm_disarm(&g_commFsm.timeoutAlarm);
     g_commFsm.pendingRxSize = 0u;
     g_commFsm.rxPending = false;
-    g_commFsm.switchToResponseBuffer = false;
+    g_commFsm.rxSwitchToResponseBuffer = false;
     g_commFsm.state = CommState_Waiting;
 }
 
