@@ -838,6 +838,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
     else
         alarm_disarm(&g_appStateMachine.timeoutAlarm);
         
+    g_appStateMachine.state = AppState_RxPending;
     while (g_appStateMachine.state != AppState_Waiting)
     {
         if (g_appStateMachine.timeoutAlarm.armed && alarm_hasElapsed(&g_appStateMachine.timeoutAlarm))
@@ -998,6 +999,7 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
         if (g_appStateMachine.state == AppState_Waiting)
             alarm_disarm(&g_appStateMachine.timeoutAlarm);
     }
+    g_appStateMachine.rxPending = false;
     return status;
 }
 
@@ -1159,7 +1161,7 @@ bool i2cGen2_processRx(uint32_t timeoutMS)
     {
         if (g_heap != NULL)
         {
-            if (g_appStateMachine.state != AppState_Waiting)
+            if (g_appStateMachine.rxPending)
             {
                 if (isIrqAsserted())
                 {
