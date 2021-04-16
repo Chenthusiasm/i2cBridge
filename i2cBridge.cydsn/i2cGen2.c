@@ -849,66 +849,66 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
         
         switch (g_appStateMachine.state)
         {
-            case AppState_Pending:
+            case AppState_RxPending:
             {
-                g_appRxStateMachine.switchToResponseBuffer = false;
-                g_appRxStateMachine.pendingRxSize = G_AppRxPacketLengthSize;
+                g_appStateMachine.switchToResponseBuffer = false;
+                g_appStateMachine.pendingRxSize = G_AppRxPacketLengthSize;
                 if (switchToAppResponseBuffer())
                 {
-                    g_appRxStateMachine.switchToResponseBuffer = true;
-                    g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
+                    g_appStateMachine.switchToResponseBuffer = true;
+                    g_appStateMachine.state = AppState_RxSwitchToResponseBuffer;
                 }
                 else
-                    g_appRxStateMachine.state = AppRxState_ReadLength;
+                    g_appStateMachine.state = AppState_RxReadLength;
                 break;
             }
             
-            case AppState_SwitchToResponseBuffer:
+            case AppState_RxSwitchToResponseBuffer:
             {
                 if (isBusReady())
                 {
                     status = changeSlaveAppToResponseBuffer();
                     if (!status.errorOccurred)
-                        g_appRxStateMachine.state = AppRxState_ReadLength;
+                        g_appStateMachine.state = AppState_RxReadLength;
                     else
-                        g_appRxStateMachine.state = AppRxState_Waiting;
+                        g_appStateMachine.state = AppState_Waiting;
                 }
                 break;
             }
             
-            case AppState_ReadLength:
+            case AppState_RxReadLength:
             {
                 if (isBusReady())
                 {
-                    status = read(g_slaveAddress, g_heap->rxBuffer, g_appRxStateMachine.pendingRxSize);
+                    status = read(g_slaveAddress, g_heap->rxBuffer, g_appStateMachine.pendingRxSize);
                     if (!status.errorOccurred)
-                        g_appRxStateMachine.state = AppRxState_ProcessLength;
+                        g_appStateMachine.state = AppState_RxProcessLength;
                     else
-                        g_appRxStateMachine.state = AppRxState_Waiting;
+                        g_appStateMachine.state = AppState_Waiting;
                 }
                 break;
             }
             
-            case AppState_ProcessLength:
+            case AppState_RxProcessLength:
             {
                 if (isBusReady())
                 {
-                    AppRxLengthResult lengthResult = processAppRxLength(g_heap->rxBuffer, g_appRxStateMachine.pendingRxSize);
+                    AppRxLengthResult lengthResult = processAppRxLength(g_heap->rxBuffer, g_appStateMachine.pendingRxSize);
                     if (!lengthResult.invalid)
                     {
-                        g_appRxStateMachine.pendingRxSize += lengthResult.dataPayloadSize;
+                        g_appStateMachine.pendingRxSize += lengthResult.dataPayloadSize;
                         if (lengthResult.dataPayloadSize <= 0)
-                            g_appRxStateMachine.state = AppRxState_ProcessDataPayload;
+                            g_appStateMachine.state = AppState_RxProcessExtraData;
                         else
                         {
-                            alarm_snooze(&g_appRxStateMachine.timeoutAlarm, findExtendedTimeoutMS(g_appRxStateMachine.pendingRxSize));
-                            g_appRxStateMachine.state = AppRxState_ReadDataPayload;
+                            alarm_snooze(&g_appStateMachine.timeoutAlarm, findExtendedTimeoutMS(g_appStateMachine.pendingRxSize));
+                            g_appStateMachine.state = AppState_RxReadExtraData;
                         }
                     }
                     else if (lengthResult.invalidParameters)
                     {
                         status.inputParametersInvalid = true;
-                        g_appRxStateMachine.state = AppRxState_Waiting;
+                        g_appStateMachine.state = AppState_Waiting;
                     }
                     else
                     {
@@ -916,14 +916,14 @@ static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
                         // with the data, so still clear the IRQ. Also, set the
                         // next state first because depending on the length
                         // result, the next state will be different.
-                        g_appRxStateMachine.state = AppRxState_ClearIrq;
+                        g_appStateMachine.state = AppState_RxClearIrq;
                         
                         if (lengthResult.invalidCommand)
                         {    
                         #if !ENABLE_ALL_CHANGE_TO_RESPONSE
                             if (lengthResult.invalidAppBuffer)
                             {
-                                g_appRxStateMachine.state = AppRxState_SwitchToResponseBuffer;
+                                g_appStateMachine.state = AppState_RxSwitchToResponseBuffer;
                             }
                             else
                         #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
@@ -1048,8 +1048,7 @@ CY_ISR(slaveIsr)
 {
     COMPONENT(SLAVE_IRQ, ClearPending)();
     COMPONENT(SLAVE_IRQ_PIN, ClearInterrupt)();
-        
-    g_appRxStateMachine.state = AppRxState_Pending;
+    g_appStateMachine.rxPending = true;
 }
 
 
@@ -1160,7 +1159,7 @@ bool i2cGen2_processRx(uint32_t timeoutMS)
     {
         if (g_heap != NULL)
         {
-            if (g_appRxStateMachine.state != AppRxState_Waiting)
+            if (g_appStateMachine.state != AppState_Waiting)
             {
                 if (isIrqAsserted())
                 {
@@ -1169,7 +1168,7 @@ bool i2cGen2_processRx(uint32_t timeoutMS)
                         result = true;
                 }
                 else
-                    g_appRxStateMachine.state = AppRxState_Waiting;
+                    g_appStateMachine.state = AppState_Waiting;
             }
         }
         else
