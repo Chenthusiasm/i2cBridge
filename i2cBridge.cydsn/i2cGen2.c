@@ -210,20 +210,20 @@ typedef enum CommState
     /// Clear the IRQ after a complete read.
     CommState_RxClearIrq,
     
-    /// Dequeue from the transmit queue and transmit.
-    CommState_TxDequeue,
-    
-    /// Generic read data from a slave device.
-    CommState_RxReadData,
-    
-    /// Generic write data to a slave device.
-    CommState_TxWriteData,
-    
     /// Check if the last receive transaction has completed.
     CommState_RxCheckComplete,
     
+    /// Dequeue from the transmit queue and transmit.
+    CommState_TxDequeueAndWrite,
+    
     /// Check if the last transmit transaction has completed.
     CommState_TxCheckComplete,
+    
+    /// Generic blocking read data from a slave device.
+    CommState_ReadData,
+    
+    /// Generic blocking write data to a slave device.
+    CommState_WriteData,
     
 } CommState;
 
@@ -862,7 +862,201 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
         alarm_arm(&g_commFsm.timeoutAlarm, timeoutMS, AlarmType_ContinuousNotification);
     else
         alarm_disarm(&g_commFsm.timeoutAlarm);
+    
+    // Determine the next state when waiting.
+    if (g_commFsm.state == CommState_Waiting)
+    {
+        if (g_commFsm.rxPending)
+            g_commFsm.state = CommState_RxPending;
+        else if (!queue_isEmpty(&g_heap->txQueue))
+            g_commFsm.state = CommState_TxDequeueAndWrite;
+    }
+    
+    while (g_commFsm.state != CommState_Waiting)
+    {
+        if (g_commFsm.timeoutAlarm.armed && alarm_hasElapsed(&g_commFsm.timeoutAlarm))
+        {
+            status.timedOut = true;
+            g_commFsm.state = CommState_Waiting;
+            break;
+        }
         
+        switch (g_commFsm.state)
+        {
+            case CommState_RxPending:
+            {
+                g_commFsm.rxSwitchToResponseBuffer = false;
+                g_commFsm.pendingRxSize = G_AppRxPacketLengthSize;
+                if (switchToAppResponseBuffer())
+                {
+                    g_commFsm.rxSwitchToResponseBuffer = true;
+                    g_commFsm.state = CommState_RxSwitchToResponseBuffer;
+                }
+                else
+                    g_commFsm.state = CommState_RxReadLength;
+                break;
+            }
+            
+            case CommState_RxSwitchToResponseBuffer:
+            {
+                if (isBusReady())
+                {
+                    status = changeSlaveAppToResponseBuffer();
+                    if (!status.errorOccurred)
+                        g_commFsm.state = CommState_RxReadLength;
+                    else
+                        g_commFsm.state = CommState_Waiting;
+                }
+                break;
+            }
+            
+            case CommState_RxReadLength:
+            {
+                if (isBusReady())
+                {
+                    status = read(g_slaveAddress, g_heap->rxBuffer, g_commFsm.pendingRxSize);
+                    if (!status.errorOccurred)
+                        g_commFsm.state = CommState_RxProcessLength;
+                    else
+                        g_commFsm.state = CommState_Waiting;
+                }
+                break;
+            }
+            
+            case CommState_RxProcessLength:
+            {
+                if (isBusReady())
+                {
+                    AppRxLengthResult lengthResult = processAppRxLength(g_heap->rxBuffer, g_commFsm.pendingRxSize);
+                    if (!lengthResult.invalid)
+                    {
+                        g_commFsm.pendingRxSize += lengthResult.dataPayloadSize;
+                        if (lengthResult.dataPayloadSize <= 0)
+                            g_commFsm.state = CommState_RxProcessExtraData;
+                        else
+                        {
+                            alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMS(g_commFsm.pendingRxSize));
+                            g_commFsm.state = CommState_RxReadExtraData;
+                        }
+                    }
+                    else if (lengthResult.invalidParameters)
+                    {
+                        status.inputParametersInvalid = true;
+                        g_commFsm.state = CommState_Waiting;
+                    }
+                    else
+                    {
+                        // No issue with the I2C transaction; there's an issue
+                        // with the data, so still clear the IRQ. Also, set the
+                        // next state first because depending on the length
+                        // result, the next state will be different.
+                        g_commFsm.state = CommState_RxClearIrq;
+                        
+                        if (lengthResult.invalidCommand)
+                        {    
+                        #if !ENABLE_ALL_CHANGE_TO_RESPONSE
+                            if (lengthResult.invalidAppBuffer)
+                            {
+                                g_commFsm.state = CommState_RxSwitchToResponseBuffer;
+                            }
+                            else
+                        #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
+                            {
+                                status.invalidRead = true;
+                                // No issue with the I2C transaction; there's an issue
+                                // with the data, so still clear the IRQ.
+                                g_commFsm.state = CommState_RxClearIrq;
+                            }
+                        }
+                        if (lengthResult.invalidLength)
+                        {
+                            if (!g_commFsm.rxSwitchToResponseBuffer)
+                            {
+                                g_commFsm.rxSwitchToResponseBuffer = true;
+                                g_commFsm.state = CommState_RxSwitchToResponseBuffer;
+                            }
+                            else
+                                status.invalidRead = true;
+                        }
+                    }
+                }
+                break;
+            }
+            
+            case CommState_RxReadExtraData:
+            {
+                if (isBusReady())
+                {
+                    status = read(g_slaveAddress, g_heap->rxBuffer, g_commFsm.pendingRxSize);
+                    if (!status.errorOccurred)
+                        g_commFsm.state = CommState_RxProcessExtraData;
+                    else
+                        g_commFsm.state = CommState_Waiting;
+                }
+                break;
+            }
+            
+            case CommState_RxProcessExtraData:
+            {
+                if (isBusReady())
+                {
+                    uint16_t length = g_commFsm.pendingRxSize;
+                    if (g_rxCallback != NULL)
+                        g_rxCallback(g_heap->rxBuffer, length);
+                    g_commFsm.state = CommState_RxClearIrq;
+                }
+                break;
+            }
+            
+            case CommState_RxClearIrq:
+            {
+                if (isBusReady())
+                {
+                    status = resetIrq();
+                    g_commFsm.state = CommState_Waiting;
+                }
+                break;
+            }
+            
+            case CommState_RxCheckComplete:
+            {
+                break;
+            }
+            
+            case CommState_TxDequeueAndWrite:
+            {
+                break;
+            }
+            
+            case CommState_TxCheckComplete:
+            {
+                break;
+            }
+            
+            case CommState_ReadData:
+            {
+                break;
+            }
+            
+            case CommState_WriteData:
+            {
+                break;
+            }
+            
+            default:
+            {
+                // Should never get here.
+                alarm_disarm(&g_commFsm.timeoutAlarm);
+                g_commFsm.state = CommState_Waiting;
+            }
+        }
+        
+        // The state machine can only be in the waiting state in the while loop
+        // if it transitioned to it because the receive is complete. If this
+        // occurs, disarm the alarm.
+        if (g_commFsm.state == CommState_Waiting)
+            alarm_disarm(&g_commFsm.timeoutAlarm);
+    }
     return status;
 }
 
