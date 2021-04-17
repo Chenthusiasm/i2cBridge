@@ -161,14 +161,14 @@
     /// @param[in]  size    The number of bytes to write.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cGen2Status union.
-    I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size);
+    I2cGen2Status i2cGen2_write(uint8_t address, uint8_t const data[], uint16_t size);
     
     /// Perform an ACK handshake with a specific slave device on the I2C bus.
     /// @param[in]  address The 7-bit I2C address.
     /// @param[in]  timeout The amount of time in milliseconds the function
     ///                     can wait for the I2C bus to free up before timing
-    ///                     out. If 0, then the function will wait indefinitely
-    ///                     until the bus is free.
+    ///                     out. If 0, then the function will wait for a default
+    ///                     timeout period.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cGen2Status union.
     I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS);
@@ -176,8 +176,8 @@
     /// Perform an ACK handshake with the slave app.
     /// @param[in]  timeout The amount of time in milliseconds the function
     ///                     can wait for the I2C bus to free up before timing
-    ///                     out. If 0, then the function will wait indefinitely
-    ///                     until the bus is free.
+    ///                     out. If 0, then the function will wait for a default
+    ///                     timeout period.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cGen2Status union.
     I2cGen2Status i2cGen2_ackApp(uint32_t timeoutMS);

@@ -1179,6 +1179,132 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
 }
 
 
+/// Enqueue a read transaction into the transfer queue.
+/// @param[in]  address The 7-bit I2C address.
+/// @param[in]  size    The number of bytes to read.
+/// @return Status indicating if an error occured. See the definition of the
+///         I2cGen2Status union.
+I2cGen2Status xferEnqueueRead(uint8_t address, uint16_t size)
+{
+    I2cGen2Status status = { false };
+    if (g_heap != NULL)
+    {
+        if ((size > 0) && (size <= UINT8_MAX))
+        {
+            if (!queue_isFull(&g_heap->xferQueue))
+            {
+                uint8_t readSize = size;
+                g_heap->pendingQueueXfer.address = address;
+                g_heap->pendingQueueXfer.direction = I2cDirection_Read;
+                if (!queue_enqueue(&g_heap->xferQueue, &readSize, sizeof(readSize)))
+                    status.queueFull = true;
+            }
+            else
+                status.queueFull = true;
+        }
+        else
+            status.invalidInputParameters = true;
+    }
+    else
+        status.deactivated = true;
+    return status;
+}
+
+
+/// Enqueue a write transaction into the transfer queue.
+/// @param[in]  address The 7-bit I2C address.
+/// @param[in]  data    The data buffer to that contains the data to write.
+/// @param[in]  size    The number of bytes to write.
+/// @return Status indicating if an error occured. See the definition of the
+///         I2cGen2Status union.
+I2cGen2Status xferEnqueueWrite(uint8_t address, uint8_t const data[], uint16_t size)
+{
+    I2cGen2Status status = { false };
+    if (g_heap != NULL)
+    {
+        if ((data != NULL) && (size > 0))
+        {
+            if (!queue_isFull(&g_heap->xferQueue))
+            {
+                g_heap->pendingQueueXfer.address = address;
+                g_heap->pendingQueueXfer.direction = I2cDirection_Write;
+                if (!queue_enqueue(&g_heap->xferQueue, data, size))
+                    status.queueFull = true;
+            }
+            else
+                status.queueFull = true;
+        }
+        else
+            status.invalidInputParameters = true;
+    }
+    else
+        status.deactivated = true;
+    return status;
+}
+
+
+/// Perform an I2C slave ACK: attempt to read one byte from a specific slave
+/// address. If the slave address exists, the address byte will be acknowledged.
+/// @param[in]  address The 7-bit I2C address.
+/// @param[in]  timeout The amount of time in milliseconds the function can wait
+///                     for the I2C bus to free up before timing out. If 0, then
+///                     the function will wait for a default timeout period.
+/// @return Status indicating if an error occured. See the definition of the
+///         I2cGen2Status union.
+I2cGen2Status ack(uint8_t address, uint32_t timeoutMS)
+{
+    static uint32_t const DefaultAckTimeout = 2u;
+    
+    Alarm alarm;
+    if (timeoutMS <= 0)
+        timeoutMS = DefaultAckTimeout;
+    alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
+    
+    bool ackSent = false;
+    bool done = false;
+    I2cGen2Status status = { false };
+    while (!done)
+    {
+        if (alarm.armed && alarm_hasElapsed(&alarm))
+        {
+            status.timedOut = true;
+            break;
+        }
+        
+        if (!ackSent)
+        {
+            // Dummy byte used so that the I2C read function has a valid
+            // non-NULL pointer for reading 0 bytes.
+            uint8_t dummy;
+            if (isBusReady(NULL))
+            {
+                status = read(address, &dummy, sizeof(dummy));
+                if (status.errorOccurred)
+                    done = true;
+                else
+                    ackSent = true;
+            }
+        }
+        else
+        {
+            // Check the driver status, block until the transaction is done.
+            mstatus_t driverStatus = checkDriverStatus();
+            if (driverStatus == COMPONENT(SLAVE_I2C, I2C_MSTAT_CLEAR))
+                done = true;
+            if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_RD_CMPLT)) > 0)
+            {
+                if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_ADDR_NAK)) > 0)
+                    status.nak = true;
+                else if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_MASK)) > 0)
+                    status.driverError = true;
+                done = true;
+            }
+        }
+    }
+    return status;
+}
+
+
 /// Resets the app receive state machine to the default/starting condition.
 static void resetAppRxStateMachine(void)
 {
@@ -1348,59 +1474,20 @@ I2cGen2Status i2cGen2_process(uint32_t timeoutMS)
 I2cGen2Status i2cGen2_read(uint8_t address, uint16_t size)
 {
     g_callsite.value = 0u;
-    g_callsite.topCall = 253u;
+    g_callsite.topCall = 2u;
     
-    I2cGen2Status status = { false };
-    if (g_heap != NULL)
-    {
-        if ((size > 0) && (size <= UINT8_MAX))
-        {
-            if (!queue_isFull(&g_heap->xferQueue))
-            {
-                uint8_t readSize = size;
-                g_heap->pendingQueueXfer.address = address;
-                g_heap->pendingQueueXfer.direction = I2cDirection_Read;
-                if (!queue_enqueue(&g_heap->xferQueue, &readSize, sizeof(readSize)))
-                    status.queueFull = true;
-            }
-            else
-                status.queueFull = true;
-        }
-        else
-            status.invalidInputParameters = true;
-    }
-    else
-        status.deactivated = true;
+    I2cGen2Status status = xferEnqueueRead(address, size);
     processError(status);
     return status;
 }
 
 
-I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
+I2cGen2Status i2cGen2_write(uint8_t address, uint8_t const data[], uint16_t size)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 3u;
     
-    I2cGen2Status status = { false };
-    if (g_heap != NULL)
-    {
-        if ((data != NULL) && (size > 0))
-        {
-            if (!queue_isFull(&g_heap->xferQueue))
-            {
-                g_heap->pendingQueueXfer.address = address;
-                g_heap->pendingQueueXfer.direction = I2cDirection_Write;
-                if (!queue_enqueue(&g_heap->xferQueue, data, size))
-                    status.queueFull = true;
-            }
-            else
-                status.queueFull = true;
-        }
-        else
-            status.invalidInputParameters = true;
-    }
-    else
-        status.deactivated = true;
+    I2cGen2Status status = xferEnqueueWrite(address, data, size);
     processError(status);
     return status;
 }
@@ -1408,62 +1495,10 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 
 I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
 {
-    static uint32_t const DefaultAckTimeout = 2u;
-    
     g_callsite.value = 0u;
-    g_callsite.topCall = 5u;
+    g_callsite.topCall = 4u;
     
-    I2cGen2Status status = { false };
-    if (g_heap != NULL)
-    {
-        Alarm alarm;
-        if (timeoutMS <= 0)
-            timeoutMS = DefaultAckTimeout;
-        alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
-        
-        bool ackSent = false;
-        bool done = false;
-        while (!done)
-        {
-            if (alarm.armed && alarm_hasElapsed(&alarm))
-            {
-                status.timedOut = true;
-                break;
-            }
-            
-            if (!ackSent)
-            {
-                // Dummy byte used so that the I2C read function has a valid
-                // non-NULL pointer for reading 0 bytes.
-                uint8_t dummy;
-                if (isBusReady(NULL))
-                {
-                    status = read(address, &dummy, sizeof(dummy));
-                    if (status.errorOccurred)
-                        done = true;
-                    else
-                        ackSent = true;
-                }
-            }
-            else
-            {
-                // Check the driver status, block until the transaction is done.
-                mstatus_t driverStatus = checkDriverStatus();
-                if (driverStatus == COMPONENT(SLAVE_I2C, I2C_MSTAT_CLEAR))
-                    done = true;
-                if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_RD_CMPLT)) > 0)
-                {
-                    if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_ADDR_NAK)) > 0)
-                        status.nak = true;
-                    else if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_MASK)) > 0)
-                        status.driverError = true;
-                    done = true;
-                }
-            }
-        }
-    }
-    else
-        status.deactivated = true;
+    I2cGen2Status status = ack(address, timeoutMS);
     processError(status);
     return status;
 }
@@ -1471,7 +1506,12 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
 
 I2cGen2Status i2cGen2_ackApp(uint32_t timeoutMS)
 {
-    return i2cGen2_ack(g_slaveAddress, timeoutMS);
+    g_callsite.value = 0u;
+    g_callsite.topCall = 5u;
+    
+    I2cGen2Status status = ack(g_slaveAddress, timeoutMS);
+    processError(status);
+    return status;
 }
 
 

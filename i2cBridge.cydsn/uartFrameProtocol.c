@@ -638,24 +638,10 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                 break;
             }
             
-            case BridgeCommand_SlaveNak:
-            {
-                // @TODO Check to see if this makes sense, the host should not
-                // be sending a slave NAK message to the bridge.
-                break;
-            }
-            
             case BridgeCommand_SlaveRead:
             {
                 if (size > PacketOffset_I2cData)
                     i2cGen2_read(data[PacketOffset_I2cAddress], data[PacketOffset_I2cData]);
-                break;
-            }
-            
-            case BridgeCommand_SlaveTimeout:
-            {
-                // @TODO Check to see if this makes sense, the host should not
-                // be sending a slave timeout message to the bridge.
                 break;
             }
             
@@ -674,12 +660,11 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveAck:
             {
-                static uint32_t const timeoutMS = 2u;
                 I2cGen2Status i2cStatus;
                 if (size > PacketOffset_BridgeData)
-                    i2cStatus = i2cGen2_ack(data[PacketOffset_BridgeData], timeoutMS);
+                    i2cStatus = i2cGen2_ack(data[PacketOffset_BridgeData], 0);
                 else
-                    i2cStatus = i2cGen2_ackApp(timeoutMS);
+                    i2cStatus = i2cGen2_ackApp(0);
                 if (!i2cStatus.errorOccurred)
                     txEnqueueCommandResponse(BridgeCommand_SlaveAck, NULL, 0);
                 break;
