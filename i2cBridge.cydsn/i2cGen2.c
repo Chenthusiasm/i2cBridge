@@ -133,6 +133,7 @@ typedef union Callsite
         uint8_t topCall : 8;
         
     };
+    
 } Callsite;
 
 
@@ -246,7 +247,7 @@ static Callsite g_callsite = { 0u };
 ///         data.
 static uint16_t prepareXferQueueData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
 {
-    static uint16_t const MinSourceSize = HostXferQueueDataOffset_Xfer + 1u;
+    static uint16_t const MinSourceSize = XferQueueDataOffset_Xfer + 1u;
     
     uint16_t size = 0;
     if ((source != NULL) && (sourceSize >= MinSourceSize) && (target != NULL) && (targetSize > sourceSize))
@@ -538,7 +539,7 @@ static I2cGen2Status write(uint8_t address, uint8_t const data[], uint16_t size)
         if (!status.errorOccurred)
         {
             if (address == g_slaveAddress)
-                g_slaveAppResponseActive = (data[HostXferQueueDataOffset_Xfer] >= AppBufferOffset_Response);
+                g_slaveAppResponseActive = (data[XferQueueDataOffset_Xfer] >= AppBufferOffset_Response);
         }
     #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
     }
@@ -813,22 +814,22 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
                 {
                     uint8_t* data;
                     uint16_t size = queue_dequeue(&g_heap->xferQueue, &data);
-                    if (size > HostXferQueueDataOffset_Data)
+                    if (size > XferQueueDataOffset_Data)
                     {
                         g_commFsm.pendingRxSize = 0u;
-                        I2cXfer xfer = { data[HostXferQueueDataOffset_Xfer] };
+                        I2cXfer xfer = { data[XferQueueDataOffset_Xfer] };
                         if (xfer.direction == I2cDirection_Write)
                         {
                             // Exclude the I2cXfer byte in the transmit size.
                             size--;
                             alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMS(size));
-                            status = write(xfer.address, &data[HostXferQueueDataOffset_Data], size);
+                            status = write(xfer.address, &data[XferQueueDataOffset_Data], size);
                         }
                         else if (xfer.direction == I2cDirection_Read)
                         {
-                            g_commFsm.pendingRxSize = data[HostXferQueueDataOffset_Data];
+                            g_commFsm.pendingRxSize = data[XferQueueDataOffset_Data];
                             alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMS(g_commFsm.pendingRxSize));
-                            status = read(xfer.address, g_heap->rxBuffer, data[HostXferQueueDataOffset_Data]);
+                            status = read(xfer.address, g_heap->rxBuffer, data[XferQueueDataOffset_Data]);
                         }
                         if (!status.errorOccurred)
                         {

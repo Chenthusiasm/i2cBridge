@@ -77,15 +77,15 @@
     
     
     /// Definition of the host transfer queue data offsets.
-    typedef enum HostXferQueueDataOffset
+    typedef enum XferQueueDataOffset
     {
         /// The I2C address.
-        HostXferQueueDataOffset_Xfer        = 0u,
+        XferQueueDataOffset_Xfer        = 0u,
         
         /// The start of the data payload.
-        HostXferQueueDataOffset_Data        = 1u,
+        XferQueueDataOffset_Data        = 1u,
         
-    } HostXferQueueDataOffset;
+    } XferQueueDataOffset;
     
     
     /// Definition of the duraTOUCH application I2C communication receive packet
