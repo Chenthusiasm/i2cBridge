@@ -213,11 +213,12 @@ typedef enum CommState
     /// Check if the last receive transaction has completed.
     CommState_RxCheckComplete,
     
-    /// Dequeue from the transmit queue and transmit.
-    CommState_TxDequeueAndWrite,
+    /// Dequeue from the transfer queue and act (read or write) based on the
+    /// type of transfer.
+    CommState_XferDequeueAndAct,
     
-    /// Check if the last transmit transaction has completed.
-    CommState_TxCheckComplete,
+    /// Check if the last transfer queue transaction has completed.
+    CommState_XferCheckComplete,
     
 } CommState;
 
@@ -878,18 +879,6 @@ static I2cGen2Status write(uint8_t address, uint8_t const data[], uint16_t size)
                 debug_setPin1(false);
                 debug_setPin1(true);
                 debug_setPin1(false);
-                debug_setPin1(true);
-                debug_setPin1(false);
-                debug_setPin1(true);
-                debug_setPin1(false);
-                debug_setPin1(true);
-                debug_setPin1(false);
-                debug_setPin1(true);
-                debug_setPin1(false);
-                debug_setPin1(true);
-                debug_setPin1(false);
-                debug_setPin1(true);
-                debug_setPin1(false);
                 //CySoftwareReset();
             }
             
@@ -964,7 +953,7 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
         if (g_commFsm.rxPending && isIrqAsserted())
             g_commFsm.state = CommState_RxPending;
         else if (!queue_isEmpty(&g_heap->hostXferQueue))
-            g_commFsm.state = CommState_TxDequeueAndWrite;
+            g_commFsm.state = CommState_XferDequeueAndAct;
     }
     
     while (g_commFsm.state != CommState_Waiting)
@@ -1135,7 +1124,7 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
                 break;
             }
             
-            case CommState_TxDequeueAndWrite:
+            case CommState_XferDequeueAndAct:
             {
                 g_callsite.subValue = 0u;
                 g_callsite.subCall = 9u;
@@ -1143,10 +1132,14 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
                 {
                     uint8_t* data;
                     uint16_t size = queue_dequeue(&g_heap->hostXferQueue, &data);
-                    if (size > 0)
+                    if (size > HostXferQueueDataOffset_Data)
                     {
-                        status = i2cGen2_write(data[HostXferQueueDataOffset_Xfer], &data[HostXferQueueDataOffset_Data], size - 1);
-                        g_commFsm.state = CommState_TxCheckComplete;
+                        I2cXfer xfer = { data[HostXferQueueDataOffset_Xfer] };
+                        if (xfer.direction == I2cDirection_Write)
+                            status = write(xfer.address, &data[HostXferQueueDataOffset_Data], size - 1u);
+                        else if (xfer.direction == I2cDirection_Read)
+                            status = read(xfer.address, g_heap->rxBuffer, data[HostXferQueueDataOffset_Data]);
+                        g_commFsm.state = CommState_XferCheckComplete;
                     }
                     else
                     {
@@ -1157,7 +1150,7 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
                 break;
             }
             
-            case CommState_TxCheckComplete:
+            case CommState_XferCheckComplete:
             {
                 g_callsite.subValue = 0u;
                 g_callsite.subCall = 10u;
