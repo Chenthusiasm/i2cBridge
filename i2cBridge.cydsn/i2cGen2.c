@@ -45,15 +45,15 @@
 /// Name of the slave IRQ pin component.
 #define SLAVE_IRQ_PIN                   slaveIrqPin_
 
-/// Size of the receive data buffer.
+/// Size of the raw receive data buffer.
 #define RX_BUFFER_SIZE                  (260u)
 
-/// The max size of the transmit queue (the max number of queue elements).
-#define TX_QUEUE_MAX_SIZE               (8u)
+/// The max size of the host transfer queue (the max number of queue elements).
+#define HOST_XFER_QUEUE_MAX_SIZE        (8u)
 
-/// The size of the data array that holds the queue element data in the transmit
-/// queue.
-#define TX_QUEUE_DATA_SIZE              (600u)
+/// The size of the data array that holds the queue element data in the host
+/// transfer queue.
+#define HOST_XFER_QUEUE_DATA_SIZE       (600u)
 
 
 // === TYPE DEFINES ============================================================
@@ -84,16 +84,16 @@ typedef enum SlaveAddress
 } SlaveAddress;
 
 
-/// Definition of the transmit queue data offsets.
-typedef enum TxQueueDataOffset
+/// Definition of the host transfer queue data offsets.
+typedef enum HostXferQueueDataOffset
 {
     /// The I2C address.
-    TxQueueDataOffset_Address           = 0u,
+    HostXferQueueDataOffset_Xfer        = 0u,
     
     /// The start of the data payload.
-    TxQueueDataOffset_Data              = 1u,
+    HostXferQueueDataOffset_Data        = 1u,
     
-} TxQueueDataOffset;
+} HostXferQueueDataOffset;
 
 
 /// Definition of the duraTOUCH application I2C communication receive packet
@@ -222,6 +222,39 @@ typedef enum CommState
 } CommState;
 
 
+/// I2C transfer direction: read or write.
+typedef enum I2cDirection
+{
+    /// Write to the slave device.
+    I2cDirection_Write                  = COMPONENT(SLAVE_I2C, I2C_WRITE_XFER_MODE),
+    
+    /// Read from the slave device.
+    I2cDirection_Read                   = COMPONENT(SLAVE_I2C, I2C_READ_XFER_MODE),
+    
+} I2cDirection;
+
+
+/// Contains information about the I2C tranfer including the slave address and
+/// the direction (read or write).
+typedef union I2cXfer
+{
+    /// 8-bit representation of
+    uint8_t value;
+    
+    /// Anonymous struct that defines the different fields in the I2cXfer union.
+    struct
+    {
+        /// The 7-bit slave address.
+        uint8_t address : 7;
+        
+        /// The direction (read or write) of the transfer.
+        I2cDirection direction : 1;
+        
+    };
+    
+} I2cXfer;
+
+
 /// Contains the results of the processRxLength function.
 typedef struct AppRxLengthResult
 {
@@ -251,6 +284,7 @@ typedef struct AppRxLengthResult
             
             /// The parameters passed in to process are invalid.
             bool invalidParameters : 1;
+        
         };
     };
     
@@ -320,22 +354,27 @@ typedef struct CommFsm
 /// must be run in a mutual exclusive fashion (one or the other; no overlap).
 typedef struct Heap
 {
-    /// Transmit queue.
-    Queue txQueue;
+    /// Host transfer queue.
+    Queue hostXferQueue;
     
-    /// Array of transmit queue elements for the transmit queue.
-    QueueElement txQueueElements[TX_QUEUE_MAX_SIZE];
+    /// Array of host transfer queue elements for the host transfer queue.
+    QueueElement hostXferQueueElements[HOST_XFER_QUEUE_MAX_SIZE];
     
-    /// Array to hold the data of the elements in the transmit queue.
-    uint8_t txQueueData[TX_QUEUE_DATA_SIZE];
+    /// Array to hold the data of the elements in the host transfer queue. Note
+    /// that each transfer queue element has at least 2 bytes:
+    /// [0]: I2cXfer (adress and direction)
+    /// [1]:
+    ///     read: number of bytes to read.
+    ///     write: data payload...
+    uint8_t hostXferQueueData[HOST_XFER_QUEUE_DATA_SIZE];
     
-    /// The receive buffer.
+    /// The raw receive buffer.
     uint8_t rxBuffer[RX_BUFFER_SIZE];
     
-    /// The I2C address associated with the data that is waiting to be enqueued
-    /// into the transmit queue. This must be set prior to enqueueing data into
-    /// the transmit queue.
-    uint8_t pendingTxEnqueueAddress;
+    /// The I2C address and direction associated with the transaction that is
+    /// waiting to be enqueued into the transfer queue. This must be set prior
+    /// to enqueueing data into the transfer queue.
+    I2cXfer pendingQueueXfer;
     
 } Heap;
 
@@ -385,12 +424,14 @@ typedef union Callsite
                 /// Next level call below the top-level call. Used to help
                 /// identify where specifically the error occurred.
                 uint8_t subCall : 4;
+                
             };
         };
         
         /// The public function that serves as the top-level invocation in the
         /// call chain within the module.
         uint8_t topCall : 8;
+        
     };
 } Callsite;
 
@@ -492,11 +533,11 @@ static Callsite g_callsite = { 0u };
 
 // === PRIVATE FUNCTIONS =======================================================
 
-/// Generates the transmit queue data to include the I2C address as the first
-/// byte (encode the I2C address in the data). The transmit dequeue function
-/// will take care of properly pulling out the I2C address and the actual data
-/// payload to transmit. Note that the g_pendingTxEnqueueAddress must be set
-/// properly before invoking this function.
+/// Generates the transfer queue data to include the I2C address and direction
+/// as the first byte (see I2cXfer union). The transfer dequeue function
+/// will take care of properly pulling out the I2C address, direction, and the
+/// actual data payload to for the transaction. Note that g_pendingQueueXfer
+/// must be set properly before invoking this function.
 /// @param[in]  source      The source buffer.
 /// @param[in]  sourceSize  The number of bytes in the source.
 /// @param[out] target      The target buffer (where the formatted data is
@@ -506,14 +547,14 @@ static Callsite g_callsite = { 0u };
 ///         to transmit.  If 0, then the source buffer was either invalid or
 ///         there's not enough bytes in target buffer to store the formatted
 ///         data.
-static uint16_t prepareTxQueueData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
+static uint16_t prepareXferQueueData(uint8_t target[], uint16_t targetSize, uint8_t const source[], uint16_t sourceSize)
 {
-    static uint16_t const MinSourceSize = TxQueueDataOffset_Data + 1;
+    static uint16_t const MinSourceSize = HostXferQueueDataOffset_Xfer + 1u;
     
     uint16_t size = 0;
     if ((source != NULL) && (sourceSize >= MinSourceSize) && (target != NULL) && (targetSize > sourceSize))
     {
-        target[size++] = g_heap->pendingTxEnqueueAddress;
+        target[size++] = g_heap->pendingQueueXfer.value;
         memcpy(&target[size], source, sourceSize);
         size += sourceSize;
     }
@@ -523,19 +564,19 @@ static uint16_t prepareTxQueueData(uint8_t target[], uint16_t targetSize, uint8_
 /// Initializes the transmit queue.
 static void initTxQueue(void)
 {
-    queue_registerEnqueueCallback(&g_heap->txQueue, prepareTxQueueData);
-    g_heap->txQueue.data = g_heap->txQueueData;
-    g_heap->txQueue.elements = g_heap->txQueueElements;
-    g_heap->txQueue.maxDataSize = TX_QUEUE_DATA_SIZE;
-    g_heap->txQueue.maxSize = TX_QUEUE_MAX_SIZE;
-    queue_empty(&g_heap->txQueue);
+    queue_registerEnqueueCallback(&g_heap->hostXferQueue, prepareXferQueueData);
+    g_heap->hostXferQueue.data = g_heap->hostXferQueueData;
+    g_heap->hostXferQueue.elements = g_heap->hostXferQueueElements;
+    g_heap->hostXferQueue.maxDataSize = HOST_XFER_QUEUE_DATA_SIZE;
+    g_heap->hostXferQueue.maxSize = HOST_XFER_QUEUE_MAX_SIZE;
+    queue_empty(&g_heap->hostXferQueue);
 }
 
 
 /// Resets the variables associated with the pending transmit enqueue.
 void resetPendingTxEnqueue(void)
 {
-    g_heap->pendingTxEnqueueAddress = 0;
+    g_heap->pendingQueueXfer.value = 0;
 }
 
 
@@ -806,7 +847,7 @@ static I2cGen2Status write(uint8_t address, uint8_t const data[], uint16_t size)
         if (!status.errorOccurred)
         {
             if (address == g_slaveAddress)
-                g_slaveAppResponseActive = (data[TxQueueDataOffset_Address] >= AppBufferOffset_Response);
+                g_slaveAppResponseActive = (data[HostXferQueueDataOffset_Xfer] >= AppBufferOffset_Response);
         }
     #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
     }
@@ -922,7 +963,7 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
     {
         if (g_commFsm.rxPending && isIrqAsserted())
             g_commFsm.state = CommState_RxPending;
-        else if (!queue_isEmpty(&g_heap->txQueue))
+        else if (!queue_isEmpty(&g_heap->hostXferQueue))
             g_commFsm.state = CommState_TxDequeueAndWrite;
     }
     
@@ -1101,10 +1142,10 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
                 if (isBusReady(&status))
                 {
                     uint8_t* data;
-                    uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
+                    uint16_t size = queue_dequeue(&g_heap->hostXferQueue, &data);
                     if (size > 0)
                     {
-                        status = i2cGen2_write(data[TxQueueDataOffset_Address], &data[TxQueueDataOffset_Data], size - 1);
+                        status = i2cGen2_write(data[HostXferQueueDataOffset_Xfer], &data[HostXferQueueDataOffset_Data], size - 1);
                         g_commFsm.state = CommState_TxCheckComplete;
                     }
                     else
@@ -1311,26 +1352,7 @@ I2cGen2Status i2cGen2_process(uint32_t timeoutMS)
 }
 
 
-I2cGen2Status i2cGen2_postProcessPreviousTransfer(void)
-{
-    g_callsite.value = 0u;
-    g_callsite.topCall = 252u;
-    
-    I2cGen2Status status = { false };
-#if ENABLE_LOCKED_BUS_DETECTION
-    if (isBusLocked())
-        status = recoverFromLockedBus();
-    else
-#endif // ENABLE_LOCKED_BUS_DETECTION
-    {
-        status = processPreviousTranferErrors(checkDriverStatus());
-    }
-    processError(status);
-    return status;
-}
-
-
-I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
+I2cGen2Status i2cGen2_read(uint8_t address, uint16_t size)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 253u;
@@ -1338,96 +1360,14 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint8_t data[], uint16_t size)
     I2cGen2Status status = { false };
     if (g_heap != NULL)
     {
-        if ((data != NULL) && (size > 0))
+        if ((size > 0) && (size <= UINT8_MAX))
         {
-            if (isBusReady(NULL))
-                status = read(address, data, size);
-            else
-                status.timedOut = true;
-        }
-        else
-            status.invalidInputParameters = true;
-    }
-    else
-        status.deactivated = true;
-    processError(status);
-    return status;
-}
-
-
-I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
-{
-    g_callsite.value = 0u;
-    g_callsite.topCall = 254u;
-    
-    I2cGen2Status status = { false };
-    if (g_heap != NULL)
-    {
-        if ((data != NULL) && (size > 0))
-        {
-            if (isBusReady(NULL))
-                status = write(address, data, size);
-            else
-                status.timedOut = true;
-        }
-        else
-            status.invalidInputParameters = true;
-    }
-    else
-        status.deactivated = true;
-    processError(status);
-    return status;
-}
-
-
-I2cGen2Status i2cGen2_writeWithAddressInData(uint8_t data[], uint16_t size)
-{
-    // Note: the error processing works differently in this function because it
-    // calls i2cGen2_write which has its own error processing; only process
-    // errors if i2cGen2_write is not invoked.
-    
-    static uint8_t const MinSize = 2u;
-    static uint8_t const AddressOffset = 0u;
-    static uint8_t const DataOffset = 1u;
-    
-    g_callsite.value = 0u;
-    g_callsite.topCall = 255u;
-    
-    I2cGen2Status status = { false };
-    bool invokedWrite = false;
-    if (g_heap != NULL)
-    {
-        if ((data != NULL) && (size > MinSize))
-        {
-            size--;
-            status = i2cGen2_write(data[AddressOffset], &data[DataOffset], size);
-            invokedWrite = true;
-        }
-        else
-            status.invalidInputParameters = true;
-    }
-    else
-        status.deactivated = true;
-    if (invokedWrite)
-        processError(status);
-    return status;
-}
-
-
-I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
-{
-    g_callsite.value = 0u;
-    g_callsite.topCall = 2u;
-    
-    I2cGen2Status status = { false };
-    if (g_heap != NULL)
-    {
-        if ((data != NULL) && (size > 0))
-        {
-            if (!queue_isFull(&g_heap->txQueue))
+            if (!queue_isFull(&g_heap->hostXferQueue))
             {
-                g_heap->pendingTxEnqueueAddress = address;
-                if (!queue_enqueue(&g_heap->txQueue, data, size))
+                uint8_t readSize = size;
+                g_heap->pendingQueueXfer.address = address;
+                g_heap->pendingQueueXfer.direction = I2cDirection_Read;
+                if (!queue_enqueue(&g_heap->hostXferQueue, &readSize, sizeof(readSize)))
                     status.queueFull = true;
             }
             else
@@ -1443,7 +1383,7 @@ I2cGen2Status i2cGen2_txEnqueue(uint8_t address, uint8_t data[], uint16_t size)
 }
 
 
-I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
+I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 3u;
@@ -1453,14 +1393,15 @@ I2cGen2Status i2cGen2_txEnqueueWithAddressInData(uint8_t data[], uint16_t size)
     {
         if ((data != NULL) && (size > 0))
         {
-            if(!queue_isFull(&g_heap->txQueue))
+            if (!queue_isFull(&g_heap->hostXferQueue))
             {
-                g_heap->pendingTxEnqueueAddress = data[TxQueueDataOffset_Address];
-                if (!queue_enqueue(&g_heap->txQueue, &data[TxQueueDataOffset_Data], size - 1))
+                g_heap->pendingQueueXfer.address = address;
+                g_heap->pendingQueueXfer.direction = I2cDirection_Write;
+                if (!queue_enqueue(&g_heap->hostXferQueue, data, size))
                     status.queueFull = true;
             }
             else
-                status.invalidInputParameters = true;
+                status.queueFull = true;
         }
         else
             status.invalidInputParameters = true;
@@ -1477,7 +1418,7 @@ I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS)
     static uint32_t const DefaultAckTimeout = 2u;
     
     g_callsite.value = 0u;
-    g_callsite.topCall = 4u;
+    g_callsite.topCall = 5u;
     
     I2cGen2Status status = { false };
     if (g_heap != NULL)

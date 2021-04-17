@@ -143,6 +143,14 @@ typedef enum PacketOffset
     /// Offset in the data frame for the data payload.
     PacketOffset_BridgeData             = 1u,
     
+    /// Offset in the data frame for the I2C address in I2C transactions (read,
+    /// write, ACK).
+    PacketOffset_I2cAddress             = 1u,
+    
+    /// Offset in the data frame for the I2C data in I2C transactions (read,
+    /// write).
+    PacketOffset_I2cData                = 2u,
+    
 } PacketOffset;
 
 
@@ -623,8 +631,8 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveAddress:
             {
-                if (size > PacketOffset_BridgeData)
-                    i2cGen2_setSlaveAddress(data[PacketOffset_BridgeData]);
+                if (size > PacketOffset_I2cAddress)
+                    i2cGen2_setSlaveAddress(data[PacketOffset_I2cAddress]);
                 else
                     status = false;
                 break;
@@ -639,10 +647,8 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveRead:
             {
-                uint8_t readData[0xff];
-                I2cGen2Status i2cStatus = i2cGen2_read(data[PacketOffset_BridgeData], readData, sizeof(readData));
-                if (!i2cStatus.errorOccurred)
-                    uartFrameProtocol_txEnqueueData(data, size);
+                if (size > PacketOffset_I2cData)
+                    i2cGen2_read(data[PacketOffset_I2cAddress], data[PacketOffset_I2cData]);
                 break;
             }
             
@@ -661,7 +667,8 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveWrite:
             {
-                i2cGen2_txEnqueueWithAddressInData(&data[PacketOffset_BridgeData], size - 1);
+                if (size > PacketOffset_I2cData)
+                    i2cGen2_write(data[PacketOffset_I2cAddress], &data[PacketOffset_I2cData], size - PacketOffset_I2cData);
                 break;
             }
             
