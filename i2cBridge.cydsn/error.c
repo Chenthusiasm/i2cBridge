@@ -94,7 +94,7 @@ typedef struct I2cError
     /// Error type.
     uint8_t type;
     
-    /// I2C status; refer to I2cGen2Status enum.
+    /// I2C status; refer to I2cTouchStatus enum.
     uint8_t status;
     
     /// The unique callsite ID that describes the function that triggered the
@@ -308,7 +308,7 @@ int error_makeUpdaterErrorMessage(uint8_t buffer[], uint16_t size, uint8_t updat
 }
 
 
-int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cGen2Status i2cStatus, uint16_t callsite)
+int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cTouchStatus i2cStatus, uint16_t callsite)
 {
     int dataSize = -1;
     
@@ -316,8 +316,8 @@ int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cGen2Status i2c
     {
         if (size >= sizeof(I2cError))
         {
-            uint16_t driverStatus = i2cGen2_getLastDriverStatusMask();
-            uint16_t driverReturnValue = i2cGen2_getLastDriverReturnValue();
+            uint16_t driverStatus = i2cTouch_getLastDriverStatusMask();
+            uint16_t driverReturnValue = i2cTouch_getLastDriverReturnValue();
             I2cError error =
             {
                 ErrorType_I2c,

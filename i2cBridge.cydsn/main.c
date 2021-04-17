@@ -22,7 +22,7 @@
 #include "bridgeFsm.h"
 #include "debug.h"
 #include "hwSystemTime.h"
-#include "i2cGen2.h"
+#include "i2cTouch.h"
 #include "project.h"
 #include "uartFrameProtocol.h"
 
@@ -41,7 +41,7 @@ static void init(void)
     // Initialize the hardware resources.
     debug_init();
     hwSystemTime_init(DEFAULT_SYSTICK_PERIOD_MS);
-    i2cGen2_init();
+    i2cTouch_init();
     uartFrameProtocol_init();
     
     // Initialize state machines and system controls.

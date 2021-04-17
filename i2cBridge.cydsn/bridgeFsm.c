@@ -16,7 +16,7 @@
 
 #include "alarm.h"
 #include "error.h"
-#include "i2cGen2.h"
+#include "i2cTouch.h"
 #include "project.h"
 #include "uartFrameProtocol.h"
 
@@ -134,13 +134,13 @@ void processInitSlaveTranslator(void)
 {
     uint16_t offset = uartFrameProtocol_activate(g_scratchBuffer, SCRATCH_BUFFER_SIZE);
     if (offset > 0)
-        offset = i2cGen2_activate(&g_scratchBuffer[offset], SCRATCH_BUFFER_SIZE - offset);
+        offset = i2cTouch_activate(&g_scratchBuffer[offset], SCRATCH_BUFFER_SIZE - offset);
         
     if (offset <= 0)
     {
         // Since one of the comm modules could not activate, deactivate both and
         uartFrameProtocol_deactivate();
-        i2cGen2_deactivate();
+        i2cTouch_deactivate();
         // @TODO: perform some additional error handling here.
     }
 }
@@ -154,7 +154,7 @@ void processSlaveTranslator(void)
     uint32_t const I2cProcessTimeoutMS = 5u;
     
     uartFrameProtocol_processRx(UartProcessRxTimeoutMS);
-    i2cGen2_process(I2cProcessTimeoutMS);
+    i2cTouch_process(I2cProcessTimeoutMS);
     uartFrameProtocol_processTx(UartProcessTxTimeoutMS);
 }
 

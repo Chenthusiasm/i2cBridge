@@ -28,7 +28,7 @@
     // === TYPE DEFINES ========================================================
     
     /// Structure that holds the status of I2C gen 2 functions.
-    typedef union I2cGen2Status
+    typedef union I2cTouchStatus
     {        
         /// General flag indicating an error occured; if false, no error
         /// occurred.
@@ -73,27 +73,27 @@
             
         };
         
-    } I2cGen2Status;
+    } I2cTouchStatus;
     
     /// Definition of the receive callback function that should be invoked when
     /// data is received. Note that if the callback function needs to copy the
     /// received data into its own buffer if the callback needs to perform any
     /// action to the data (like modify the data).
-    typedef bool (*I2cGen2_RxCallback)(uint8_t const*, uint16_t);
+    typedef bool (*I2cTouch_RxCallback)(uint8_t const*, uint16_t);
     
     /// Definition of the error callback function that should be invoked when
     /// an error occurs.
-    typedef void (*I2cGen2_ErrorCallback)(I2cGen2Status, uint16_t);
+    typedef void (*I2cTouch_ErrorCallback)(I2cTouchStatus, uint16_t);
     
     
     // === FUNCTIONS ===========================================================
     
     /// Initialize the slave I2C hardware.
-    void i2cGen2_init(void);
+    void i2cTouch_init(void);
     
     /// Accessor to get the number of bytes required for global variables.
     /// @return The number of bytes need for global variables.
-    uint16_t i2cGen2_getMemoryRequirement(void);
+    uint16_t i2cTouch_getMemoryRequirement(void);
     
     /// Activates the slave I2C gen 2 module and sets up its globals. This must
     /// be invoked before using any processRx or processTx-like functions.
@@ -103,39 +103,39 @@
     /// @param[in]  size    The size (in 32-bit words) of the memory array.
     /// @return The number of 32-bit words the module used for its globals. If 0
     ///         Then there was an error and the module hasn't started.
-    uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size);
+    uint16_t i2cTouch_activate(uint32_t memory[], uint16_t size);
     
     /// Deactivates the slave I2C module and effectively deallocates the memory.
-    void i2cGen2_deactivate(void);
+    void i2cTouch_deactivate(void);
     
     /// Registers the receive callback function that should be invoked when
     /// data is received.
     /// @param[in]  callback    The callback function.
-    void i2cGen2_registerRxCallback(I2cGen2_RxCallback callback);
+    void i2cTouch_registerRxCallback(I2cTouch_RxCallback callback);
     
     /// Registers the error callback function that should be invoked when an
     /// error occurs.
     /// @param[in]  callback    The callback function.
-    void i2cGen2_registerErrorCallback(I2cGen2_ErrorCallback callback);
+    void i2cTouch_registerErrorCallback(I2cTouch_ErrorCallback callback);
     
     /// Registers a new slave address which ensures the write I2C slave device
     /// is addressed when attempting to read when the slaveIRQ line is asserted.
     /// @param[in]  address The new slave address to set.
-    void i2cGen2_setSlaveAddress(uint8_t address);
+    void i2cTouch_setSlaveAddress(uint8_t address);
     
     /// Resets the slave address to the default. The slave address is used when
     /// the IRQ line is asserted and a slave read is to be performed.
-    void i2cGen2_resetSlaveAddress(void);
+    void i2cTouch_resetSlaveAddress(void);
     
     /// Accessor to get the driver status mask from the last low-level I2C
     /// driver transaction.
     /// @return The most recent driver status mask.
-    uint16_t i2cGen2_getLastDriverStatusMask(void);
+    uint16_t i2cTouch_getLastDriverStatusMask(void);
     
     /// Accessor to get the driver function return value mask from the last
     /// low-level I2C driver function call.
     /// @return The most recent driver function return value.
-    uint16_t i2cGen2_getLastDriverReturnValue(void);
+    uint16_t i2cTouch_getLastDriverReturnValue(void);
     
     /// Process any pending receive or transmit transactions.
     /// @param[in]  timeoutMS   The amount of time the process can occur before
@@ -143,25 +143,25 @@
     ///                         no timeout and the function blocks until all
     ///                         pending actions are completed.
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cGen2Status union.
-    I2cGen2Status i2cGen2_process(uint32_t timeoutMS);
+    ///         I2cTouchStatus union.
+    I2cTouchStatus i2cTouch_process(uint32_t timeoutMS);
     
-    /// Queue up a read from the I2C bus. The i2cGen2_registerRxCallback
+    /// Queue up a read from the I2C bus. The i2cTouch_registerRxCallback
     /// function must be invoked with a valid callback function to handle the
     /// received data.
     /// @param[in]  address The 7-bit I2C address.
     /// @param[in]  size    The number of bytes to read.
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cGen2Status union.
-    I2cGen2Status i2cGen2_read(uint8_t address, uint16_t size);
+    ///         I2cTouchStatus union.
+    I2cTouchStatus i2cTouch_read(uint8_t address, uint16_t size);
     
     /// Queue up a write to the I2C bus.
     /// @param[in]  address The 7-bit I2C address.
     /// @param[in]  data    The data buffer to that contains the data to write.
     /// @param[in]  size    The number of bytes to write.
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cGen2Status union.
-    I2cGen2Status i2cGen2_write(uint8_t address, uint8_t const data[], uint16_t size);
+    ///         I2cTouchStatus union.
+    I2cTouchStatus i2cTouch_write(uint8_t address, uint8_t const data[], uint16_t size);
     
     /// Perform an ACK handshake with a specific slave device on the I2C bus.
     /// @param[in]  address The 7-bit I2C address.
@@ -170,8 +170,8 @@
     ///                     out. If 0, then the function will wait for a default
     ///                     timeout period.
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cGen2Status union.
-    I2cGen2Status i2cGen2_ack(uint8_t address, uint32_t timeoutMS);
+    ///         I2cTouchStatus union.
+    I2cTouchStatus i2cTouch_ack(uint8_t address, uint32_t timeoutMS);
     
     /// Perform an ACK handshake with the slave app.
     /// @param[in]  timeout The amount of time in milliseconds the function
@@ -179,8 +179,8 @@
     ///                     out. If 0, then the function will wait for a default
     ///                     timeout period.
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cGen2Status union.
-    I2cGen2Status i2cGen2_ackApp(uint32_t timeoutMS);
+    ///         I2cTouchStatus union.
+    I2cTouchStatus i2cTouch_ackApp(uint32_t timeoutMS);
     
     
     #ifdef __cplusplus

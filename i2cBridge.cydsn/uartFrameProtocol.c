@@ -21,7 +21,7 @@
 #include "debug.h"
 #include "error.h"
 #include "hwSystemTime.h"
-#include "i2cGen2.h"
+#include "i2cTouch.h"
 #include "project.h"
 #include "queue.h"
 #include "utility.h"
@@ -570,7 +570,7 @@ static bool __attribute__((unused)) txEnqueueUartError(uint16_t callsite)
 /// @param[in]  callsite    Unique callsite ID to distinguish different
 ///                         functions that triggered the error.
 /// @return If the error response was successfully enqueued.
-static bool txEnqueueI2cError(I2cGen2Status status, uint16_t callsite)
+static bool txEnqueueI2cError(I2cTouchStatus status, uint16_t callsite)
 {
     bool result = false;
     if (!queue_isFull(&g_heap->txQueue))
@@ -593,11 +593,11 @@ static bool txEnqueueI2cError(I2cGen2Status status, uint16_t callsite)
 /// Processes errors from the I2C gen 2 module, specifically prep an error
 /// message to send to the host.
 /// @param[in]  status      Status indicating if an error occured during the I2c
-///                         transaction. See the definition of the I2cGen2Status
+///                         transaction. See the definition of the I2cTouchStatus
 ///                         union.
 /// @param[in]  callsite    Unique callsite ID to distinguish different
 ///                         functions that triggered the error.
-static void processI2cErrors(I2cGen2Status status, uint16_t callsite)
+static void processI2cErrors(I2cTouchStatus status, uint16_t callsite)
 {
     
     if (error_getMode() == ErrorMode_Global)
@@ -680,7 +680,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             case BridgeCommand_SlaveAddress:
             {
                 if (size > PacketOffset_I2cAddress)
-                    i2cGen2_setSlaveAddress(data[PacketOffset_I2cAddress]);
+                    i2cTouch_setSlaveAddress(data[PacketOffset_I2cAddress]);
                 else
                     status = false;
                 break;
@@ -689,7 +689,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             case BridgeCommand_SlaveRead:
             {
                 if (size > PacketOffset_I2cData)
-                    i2cGen2_read(data[PacketOffset_I2cAddress], data[PacketOffset_I2cData]);
+                    i2cTouch_read(data[PacketOffset_I2cAddress], data[PacketOffset_I2cData]);
                 break;
             }
             
@@ -702,17 +702,17 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             case BridgeCommand_SlaveWrite:
             {
                 if (size > PacketOffset_I2cData)
-                    i2cGen2_write(data[PacketOffset_I2cAddress], &data[PacketOffset_I2cData], size - PacketOffset_I2cData);
+                    i2cTouch_write(data[PacketOffset_I2cAddress], &data[PacketOffset_I2cData], size - PacketOffset_I2cData);
                 break;
             }
             
             case BridgeCommand_SlaveAck:
             {
-                I2cGen2Status i2cStatus;
+                I2cTouchStatus i2cStatus;
                 if (size > PacketOffset_BridgeData)
-                    i2cStatus = i2cGen2_ack(data[PacketOffset_BridgeData], 0);
+                    i2cStatus = i2cTouch_ack(data[PacketOffset_BridgeData], 0);
                 else
-                    i2cStatus = i2cGen2_ackApp(0);
+                    i2cStatus = i2cTouch_ackApp(0);
                 if (!i2cStatus.errorOccurred)
                     txEnqueueCommandResponse(BridgeCommand_SlaveAck, NULL, 0);
                 break;
@@ -875,8 +875,8 @@ static void initTxQueue()
 /// Register the callback functions for I2C-related events.
 static void registerI2cCallbacks(void)
 {
-    i2cGen2_registerRxCallback(uartFrameProtocol_txEnqueueData);
-    i2cGen2_registerErrorCallback(processI2cErrors);
+    i2cTouch_registerRxCallback(uartFrameProtocol_txEnqueueData);
+    i2cTouch_registerErrorCallback(processI2cErrors);
 }
 
 

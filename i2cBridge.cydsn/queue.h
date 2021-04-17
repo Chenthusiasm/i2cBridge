@@ -45,7 +45,7 @@
     } QueueElement;
     
     
-    /// Definition of the queue object.
+    /// Definition of the queue object. Size (32-bit) = 20.
     typedef struct Queue
     {
         /// Data array that holds the raw data of each member of the queue.
