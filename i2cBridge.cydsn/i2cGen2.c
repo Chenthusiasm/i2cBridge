@@ -481,9 +481,6 @@ static uint8_t const G_MaxRecoveryAttempts = 10u;
 
 // === GLOBALS =================================================================
 
-/// @TODO: remove this when ready to use the dynamic memory allocation.
-static Heap g_tempHeap;
-
 /// Heap-like memory that points to the global variables used by the module that
 /// was dynamically allocated. If NULL, then the module's global variables
 /// have not been dynamically allocated and the module has not started.
@@ -1405,9 +1402,6 @@ uint16_t i2cGen2_activate(uint32_t memory[], uint16_t size)
     if ((memory != NULL) && (sizeof(Heap) <= (sizeof(uint32_t) * size)))
     {
         g_heap = (Heap*)memory;
-        // @TODO: remove the following line when the dynamic memory allocation
-        // is ready.
-        g_heap = &g_tempHeap;
         initTxQueue();
         allocatedSize = i2cGen2_getMemoryRequirement() / sizeof(uint32_t);
         reinitAll();

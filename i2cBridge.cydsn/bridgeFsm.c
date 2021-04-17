@@ -26,7 +26,7 @@
 /// The size of the scratch buffer. Note that the scratch buffer contains data
 /// of type uint32_t to keek word aligned; therefore, we divide by the size of
 /// a uint32_t.
-#define SCRATCH_BUFFER_SIZE             (2500u / sizeof(uint32_t))
+#define SCRATCH_BUFFER_SIZE             (2800u / sizeof(uint32_t))
 
 
 // === TYPE DEFINES ============================================================
@@ -64,13 +64,7 @@ typedef enum State
 static State g_state = State_InitHostComm;
 
 /// Scratch buffer used for dynamic memory allocation by the comm modules.
-/// @TODO: remove the temporary small scratch buffer when we're ready to use
-/// the full scratch buffer.
-#if 0
 static uint32_t __attribute__((used)) g_scratchBuffer[SCRATCH_BUFFER_SIZE];
-#else
-static uint32_t __attribute__((used)) g_scratchBuffer[1];
-#endif
 
 /// The offset into the scratch buffer that indicates the start of free space
 static uint16_t g_scratchOffset = 0u;
