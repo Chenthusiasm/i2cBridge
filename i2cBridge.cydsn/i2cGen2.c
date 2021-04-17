@@ -217,8 +217,11 @@ typedef enum CommState
     /// type of transfer.
     CommState_XferDequeueAndAct,
     
-    /// Check if the last transfer queue transaction has completed.
-    CommState_XferCheckComplete,
+    /// Check if the last read transfer queue transaction has completed.
+    CommState_XferRxCheckComplete,
+    
+    /// Check if the last write transfer queue transaction has completed.
+    CommState_XferTxCheckComplete,
     
 } CommState;
 
@@ -742,10 +745,6 @@ static bool isBusLocked(void)
 #else
     bool locked = false;
 #endif // ENABLE_LOCKED_BUS_DETECTION
-    if (locked)
-        debug_setPin1(false);
-    else
-        debug_setPin1(true);
     return locked;
 }
 
@@ -756,12 +755,10 @@ static bool isBusLocked(void)
     /// alarms associated with the locked bus.
     static void resetLockedBusStructure(void)
     {
-        debug_setPin0(false);
         alarm_disarm(&g_lockedBus.detectAlarm);
         alarm_disarm(&g_lockedBus.recoverAlarm);
         g_lockedBus.recoveryAttempts = 0;
         g_lockedBus.locked = false;
-        debug_setPin0(true);
     }
     
 #endif // ENABLE_LOCKED_BUS_DETECTIONS
@@ -875,15 +872,8 @@ static I2cGen2Status write(uint8_t address, uint8_t const data[], uint16_t size)
         {
             if (g_lockedBus.recoveryAttempts >= G_MaxRecoveryAttempts)
             {
-                debug_setPin1(true);
-                debug_setPin1(false);
-                debug_setPin1(true);
-                debug_setPin1(false);
                 //CySoftwareReset();
             }
-            
-            debug_setPin1(true);
-            
             // Rearm the alarm for the next attempt.
             alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMS, AlarmType_ContinuousNotification);
             
@@ -899,7 +889,6 @@ static I2cGen2Status write(uint8_t address, uint8_t const data[], uint16_t size)
             status = i2cGen2_ackApp(0);
             #endif
             g_lockedBus.recoveryAttempts++;
-            debug_setPin1(false);
         }
         if (status.errorOccurred)
             g_callsite.recoverFromLockedBus = true;
@@ -1095,9 +1084,8 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
                 g_callsite.subCall = 6u;
                 if (isBusReady(&status))
                 {
-                    uint16_t length = g_commFsm.pendingRxSize;
                     if (g_rxCallback != NULL)
-                        g_rxCallback(g_heap->rxBuffer, length);
+                        g_rxCallback(g_heap->rxBuffer, g_commFsm.pendingRxSize);
                     g_commFsm.state = CommState_RxClearIrq;
                 }
                 break;
@@ -1134,12 +1122,32 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
                     uint16_t size = queue_dequeue(&g_heap->xferQueue, &data);
                     if (size > HostXferQueueDataOffset_Data)
                     {
+                        g_commFsm.pendingRxSize = 0u;
                         I2cXfer xfer = { data[HostXferQueueDataOffset_Xfer] };
                         if (xfer.direction == I2cDirection_Write)
-                            status = write(xfer.address, &data[HostXferQueueDataOffset_Data], size - 1u);
+                        {
+                            // Exclude the I2cXfer byte in the transmit size.
+                            size--;
+                            alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMS(size));
+                            status = write(xfer.address, &data[HostXferQueueDataOffset_Data], size);
+                        }
                         else if (xfer.direction == I2cDirection_Read)
+                        {
+                            g_commFsm.pendingRxSize = data[HostXferQueueDataOffset_Data];
+                            alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMS(g_commFsm.pendingRxSize));
                             status = read(xfer.address, g_heap->rxBuffer, data[HostXferQueueDataOffset_Data]);
-                        g_commFsm.state = CommState_XferCheckComplete;
+                        }
+                        if (!status.errorOccurred)
+                        {
+                            // If pendingRxSize > 0, then a read is occurring,
+                            // otherwise a write is occurring.
+                            if (g_commFsm.pendingRxSize > 0)
+                                g_commFsm.state = CommState_XferRxCheckComplete;
+                            else
+                                g_commFsm.state = CommState_XferTxCheckComplete;
+                        }
+                        else
+                            g_commFsm.state = CommState_Waiting;
                     }
                     else
                     {
@@ -1150,7 +1158,20 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
                 break;
             }
             
-            case CommState_XferCheckComplete:
+            case CommState_XferRxCheckComplete:
+            {
+                g_callsite.subValue = 0u;
+                g_callsite.subCall = 10u;
+                if (isBusReady(&status))
+                {
+                    if (g_rxCallback != NULL)
+                        g_rxCallback(g_heap->rxBuffer, g_commFsm.pendingRxSize);
+                    g_commFsm.state = CommState_Waiting;
+                }
+                break;
+            }
+            
+            case CommState_XferTxCheckComplete:
             {
                 g_callsite.subValue = 0u;
                 g_callsite.subCall = 10u;
