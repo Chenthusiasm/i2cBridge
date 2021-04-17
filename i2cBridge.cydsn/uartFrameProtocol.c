@@ -47,6 +47,17 @@
 /// queue.
 #define TX_QUEUE_DATA_SIZE              (800u)
 
+/// The size of the data array that holds the queue element data in the receive
+/// queue when in updater mode.
+/// Note: in the previous implementation of the bridge, the Rx FIFO was
+/// allocated 2052 bytes; this should be larger than that.
+#define UPDATER_RX_QUEUE_DATA_SIZE      (2100u)
+
+/// The size of the data array that holds the queue element data in the transmit
+/// queue. This should be smaller than the receive queue data size to account
+/// for the change in the receive/transmit balance.
+#define UPDATER_TX_QUEUE_DATA_SIZE      (100u)
+
 
 // === TYPE DEFINES ============================================================
 
@@ -209,6 +220,46 @@ typedef struct Heap
     uint8_t txQueueData[TX_QUEUE_DATA_SIZE];
     
 } Heap;
+
+
+typedef struct UpdaterHeap
+{
+    /// Decoded receive queue.
+    volatile Queue decodedRxQueue;
+    
+    /// Transmit queue.
+    Queue txQueue;
+    
+    /// Array of decoded receive queue elements for the receive queue; these
+    /// elements have been received but are pending processing.
+    QueueElement decodedRxQueueElements[RX_QUEUE_MAX_SIZE];
+    
+    /// Array of transmit queue elements for the transmit queue.
+    QueueElement txQueueElements[TX_QUEUE_MAX_SIZE];
+    
+    /// The last time data was received in milliseconds.
+    volatile uint32_t lastRxTimeMS;
+    
+    /// The current state in the protocol state machine for receive processing.
+    /// frame.
+    volatile RxState rxState;
+    /// The type flags of the data that is waiting to be enqueued into the
+    /// transmit queue. This must be set prior to enqueueing data into the
+    /// transmit queue.
+    Flags pendingTxEnqueueFlags;
+    
+    /// The command associated with the data that is watiting to be enqueued
+    /// into the transmit queue. This must be set prior to enqueueing data into
+    /// the transmit queue.
+    BridgeCommand pendingTxEnqueueCommand;
+    
+    /// Array to hold the decoded data of elements in the receive queue.
+    uint8_t decodedRxQueueData[UPDATER_RX_QUEUE_DATA_SIZE];
+    
+    /// Array to hold the data of the elements in the transmit queue.
+    uint8_t txQueueData[UPDATER_TX_QUEUE_DATA_SIZE];
+    
+} UpdaterHeap;
 
 
 // === CONSTANTS ===============================================================
