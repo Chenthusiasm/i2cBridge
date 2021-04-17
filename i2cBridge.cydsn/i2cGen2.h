@@ -146,35 +146,12 @@
     ///         I2cGen2Status union.
     I2cGen2Status i2cGen2_process(uint32_t timeoutMS);
     
-    /// Process any pending data to be received.
-    /// @param[in]  timeoutMS   The amount of time the process can occur before
-    ///                         it times out and must finish. If 0, then there's
-    ///                         no timeout and the function blocks until all
-    ///                         pending actions are completed.
-    /// @return If pending data was successfully received and processed. If
-    ///         nothing is pending, the function will also return false.
-    bool i2cGen2_processRx(uint32_t timeoutMS);
-    
-    /// Process any pending transmits in the transmits.
-    /// @param[in]  timeoutMS   The amount of time the process can occur before
-    ///                         it times out and must finish. If 0, then there's
-    ///                         no timeout and the function blocks until all
-    ///                         pending actions are completed.
-    /// @param[in]  quitIfBusy  Flag indicating if the function should quit if
-    ///                         the bus is busy and not timeout.
-    /// @return The number of packets that were transmitted. If 0, then no
-    ///         packets are pending to transmit. If -1, a timeout occurred or if
-    ///         the quitIfBusy flag is set, then the bus was busy so the
-    ///         function ended early.
-    int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy);
-    
     /// Post-process and check on the status of the previous transfer. This
     /// needs to be invoked at a regular interval in case no receive or transmit
     /// transfers have been set up.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cGen2Status union.
     I2cGen2Status i2cGen2_postProcessPreviousTransfer(void);
-    
     
     /// Read from the I2C bus.
     /// @param[in]  address The 7-bit I2C address.

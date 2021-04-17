@@ -912,7 +912,6 @@ static I2cGen2Status changeSlaveAppToResponseBuffer(void)
 static I2cGen2Status processCommFsm(uint32_t timeoutMS)
 {
     I2cGen2Status status = { false };
-    
     if (timeoutMS > 0)
         alarm_arm(&g_commFsm.timeoutAlarm, timeoutMS, AlarmType_ContinuousNotification);
     else
@@ -921,7 +920,7 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
     // Determine the next state when waiting.
     if (g_commFsm.state == CommState_Waiting)
     {
-        if (g_commFsm.rxPending)
+        if (g_commFsm.rxPending && isIrqAsserted())
             g_commFsm.state = CommState_RxPending;
         else if (!queue_isEmpty(&g_heap->txQueue))
             g_commFsm.state = CommState_TxDequeueAndWrite;
@@ -1020,9 +1019,7 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
                         {    
                         #if !ENABLE_ALL_CHANGE_TO_RESPONSE
                             if (lengthResult.invalidAppBuffer)
-                            {
                                 g_commFsm.state = CommState_RxSwitchToResponseBuffer;
-                            }
                             else
                         #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
                             {
@@ -1144,189 +1141,6 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
         if (g_commFsm.state == CommState_Waiting)
             alarm_disarm(&g_commFsm.timeoutAlarm);
     }
-    return status;
-}
-
-
-/// State machine to process the IRQ indicating that the slave app has data
-/// ready to be received by the host.
-/// @param[in]  timeoutMS   The amount of time the process can occur before it
-///                         times out and must finish. If 0, then there's no
-///                         timeout and the function blocks until all pending
-///                         actions are completed.
-/// @return Status indicating if an error occured. See the definition of the
-///         I2cGen2Status union.
-static I2cGen2Status processAppRxStateMachine(uint32_t timeoutMS)
-{
-    I2cGen2Status status = { false };
-    
-    if (timeoutMS > 0)
-        alarm_arm(&g_commFsm.timeoutAlarm, timeoutMS, AlarmType_ContinuousNotification);
-    else
-        alarm_disarm(&g_commFsm.timeoutAlarm);
-        
-    g_commFsm.state = CommState_RxPending;
-    while (g_commFsm.state != CommState_Waiting)
-    {
-        if (g_commFsm.timeoutAlarm.armed && alarm_hasElapsed(&g_commFsm.timeoutAlarm))
-        {
-            status.timedOut = true;
-            g_commFsm.state = CommState_Waiting;
-            break;
-        }
-        
-        switch (g_commFsm.state)
-        {
-            case CommState_RxPending:
-            {
-                g_commFsm.rxSwitchToResponseBuffer = false;
-                g_commFsm.pendingRxSize = G_AppRxPacketLengthSize;
-                if (switchToAppResponseBuffer())
-                {
-                    g_commFsm.rxSwitchToResponseBuffer = true;
-                    g_commFsm.state = CommState_RxSwitchToResponseBuffer;
-                }
-                else
-                    g_commFsm.state = CommState_RxReadLength;
-                break;
-            }
-            
-            case CommState_RxSwitchToResponseBuffer:
-            {
-                if (isBusReady(NULL))
-                {
-                    status = changeSlaveAppToResponseBuffer();
-                    if (!status.errorOccurred)
-                        g_commFsm.state = CommState_RxReadLength;
-                    else
-                        g_commFsm.state = CommState_Waiting;
-                }
-                break;
-            }
-            
-            case CommState_RxReadLength:
-            {
-                if (isBusReady(NULL))
-                {
-                    status = read(g_slaveAddress, g_heap->rxBuffer, g_commFsm.pendingRxSize);
-                    if (!status.errorOccurred)
-                        g_commFsm.state = CommState_RxProcessLength;
-                    else
-                        g_commFsm.state = CommState_Waiting;
-                }
-                break;
-            }
-            
-            case CommState_RxProcessLength:
-            {
-                if (isBusReady(NULL))
-                {
-                    AppRxLengthResult lengthResult = processAppRxLength(g_heap->rxBuffer, g_commFsm.pendingRxSize);
-                    if (!lengthResult.invalid)
-                    {
-                        g_commFsm.pendingRxSize += lengthResult.dataPayloadSize;
-                        if (lengthResult.dataPayloadSize <= 0)
-                            g_commFsm.state = CommState_RxProcessExtraData;
-                        else
-                        {
-                            alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMS(g_commFsm.pendingRxSize));
-                            g_commFsm.state = CommState_RxReadExtraData;
-                        }
-                    }
-                    else if (lengthResult.invalidParameters)
-                    {
-                        status.invalidInputParameters = true;
-                        g_commFsm.state = CommState_Waiting;
-                    }
-                    else
-                    {
-                        // No issue with the I2C transaction; there's an issue
-                        // with the data, so still clear the IRQ. Also, set the
-                        // next state first because depending on the length
-                        // result, the next state will be different.
-                        g_commFsm.state = CommState_RxClearIrq;
-                        
-                        if (lengthResult.invalidCommand)
-                        {    
-                        #if !ENABLE_ALL_CHANGE_TO_RESPONSE
-                            if (lengthResult.invalidAppBuffer)
-                            {
-                                g_commFsm.state = CommState_RxSwitchToResponseBuffer;
-                            }
-                            else
-                        #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
-                            {
-                                status.invalidRead = true;
-                                // No issue with the I2C transaction; there's an issue
-                                // with the data, so still clear the IRQ.
-                                g_commFsm.state = CommState_RxClearIrq;
-                            }
-                        }
-                        if (lengthResult.invalidLength)
-                        {
-                            if (!g_commFsm.rxSwitchToResponseBuffer)
-                            {
-                                g_commFsm.rxSwitchToResponseBuffer = true;
-                                g_commFsm.state = CommState_RxSwitchToResponseBuffer;
-                            }
-                            else
-                                status.invalidRead = true;
-                        }
-                    }
-                }
-                break;
-            }
-            
-            case CommState_RxReadExtraData:
-            {
-                if (isBusReady(NULL))
-                {
-                    status = read(g_slaveAddress, g_heap->rxBuffer, g_commFsm.pendingRxSize);
-                    if (!status.errorOccurred)
-                        g_commFsm.state = CommState_RxProcessExtraData;
-                    else
-                        g_commFsm.state = CommState_Waiting;
-                }
-                break;
-            }
-            
-            case CommState_RxProcessExtraData:
-            {
-                if (isBusReady(NULL))
-                {
-                    uint16_t length = g_commFsm.pendingRxSize;
-                    if (g_rxCallback != NULL)
-                        g_rxCallback(g_heap->rxBuffer, length);
-                    g_commFsm.state = CommState_RxClearIrq;
-                }
-                break;
-            }
-            
-            case CommState_RxClearIrq:
-            {
-                if (isBusReady(NULL))
-                {
-                    status = resetIrq();
-                    g_commFsm.state = CommState_Waiting;
-                }
-                break;
-            }
-            
-            default:
-            {
-                // Should never get here.
-                alarm_disarm(&g_commFsm.timeoutAlarm);
-                g_commFsm.state = CommState_Waiting;
-            }
-        }
-        
-        // The state machine can only be in the waiting state in the while loop
-        // if it transitioned to it because the receive is complete. If this
-        // occurs, disarm the alarm.
-        if (g_commFsm.state == CommState_Waiting)
-            alarm_disarm(&g_commFsm.timeoutAlarm);
-    }
-    g_commFsm.rxPending = false;
     return status;
 }
 
@@ -1494,99 +1308,6 @@ I2cGen2Status i2cGen2_process(uint32_t timeoutMS)
     }
     processError(status);
     return status;
-}
-
-
-bool i2cGen2_processRx(uint32_t timeoutMS)
-{
-    g_callsite.value = 0u;
-    g_callsite.topCall = 250u;
-    
-    bool result = false;
-    I2cGen2Status status = { false };
-#if ENABLE_LOCKED_BUS_DETECTION
-    if (isBusLocked())
-        status = recoverFromLockedBus();
-    else
-#endif // ENABLE_LOCKED_BUS_DETECTION
-    {
-        if (g_heap != NULL)
-        {
-            if (g_commFsm.rxPending)
-            {
-                if (isIrqAsserted())
-                {
-                    status = processAppRxStateMachine(timeoutMS);
-                    if (!status.errorOccurred)
-                        result = true;
-                }
-                else
-                    g_commFsm.state = CommState_Waiting;
-            }
-        }
-        else
-            status.deactivated = true;
-    }
-    processError(status);
-    return result;
-}
-
-
-int i2cGen2_processTxQueue(uint32_t timeoutMS, bool quitIfBusy)
-{
-    g_callsite.value = 0u;
-    g_callsite.topCall = 251u;
-    
-    int count = 0;
-    I2cGen2Status status = { false };
-#if ENABLE_LOCKED_BUS_DETECTION
-    if (isBusLocked())
-        status = recoverFromLockedBus();
-    else
-#endif // ENABLE_LOCKED_BUS_DETECTION
-    {
-        if (g_heap != NULL)
-        {
-            Alarm alarm;
-            if (timeoutMS > 0)
-                alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
-            else
-                alarm_disarm(&alarm);
-                
-            int count = 0;
-            while (!queue_isEmpty(&g_heap->txQueue))
-            {
-                if (alarm.armed && alarm_hasElapsed(&alarm))
-                {
-                    count = -1;
-                    break;
-                }
-                if (isBusReady(NULL))
-                {
-                    uint8_t* data;
-                    uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
-                    if (size > 0)
-                    {
-                        i2cGen2_write(data[TxQueueDataOffset_Address], &data[TxQueueDataOffset_Data], size - 1);
-                        ++count;
-                    }
-                }
-                else if (quitIfBusy)
-                {
-                    status.timedOut = true;
-                    count = -1;
-                    break;
-                }
-            }
-        }
-        else
-        {
-            status.deactivated = true;
-            count = -1;
-        }
-    }
-    processError(status);
-    return count;
 }
 
 
