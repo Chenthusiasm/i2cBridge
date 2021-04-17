@@ -48,12 +48,12 @@
 /// Size of the raw receive data buffer.
 #define RX_BUFFER_SIZE                  (260u)
 
-/// The max size of the host transfer queue (the max number of queue elements).
-#define HOST_XFER_QUEUE_MAX_SIZE        (8u)
+/// The max size of the transfer queue (the max number of queue elements).
+#define XFER_QUEUE_MAX_SIZE             (8u)
 
-/// The size of the data array that holds the queue element data in the host
-/// transfer queue.
-#define HOST_XFER_QUEUE_DATA_SIZE       (600u)
+/// The size of the data array that holds the queue element data in the transfer
+/// queue.
+#define XFER_QUEUE_DATA_SIZE            (600u)
 
 
 // === TYPE DEFINES ============================================================
@@ -356,18 +356,18 @@ typedef struct CommFsm
 typedef struct Heap
 {
     /// Host transfer queue.
-    Queue hostXferQueue;
+    Queue xferQueue;
     
-    /// Array of host transfer queue elements for the host transfer queue.
-    QueueElement hostXferQueueElements[HOST_XFER_QUEUE_MAX_SIZE];
+    /// Array of transfer queue elements for the transfer queue.
+    QueueElement xferQueueElements[XFER_QUEUE_MAX_SIZE];
     
-    /// Array to hold the data of the elements in the host transfer queue. Note
-    /// that each transfer queue element has at least 2 bytes:
+    /// Array to hold the data of the elements in the transfer queue. Note that
+    /// each transfer queue element has at least 2 bytes:
     /// [0]: I2cXfer (adress and direction)
     /// [1]:
     ///     read: number of bytes to read.
     ///     write: data payload...
-    uint8_t hostXferQueueData[HOST_XFER_QUEUE_DATA_SIZE];
+    uint8_t xferQueueData[XFER_QUEUE_DATA_SIZE];
     
     /// The raw receive buffer.
     uint8_t rxBuffer[RX_BUFFER_SIZE];
@@ -565,12 +565,12 @@ static uint16_t prepareXferQueueData(uint8_t target[], uint16_t targetSize, uint
 /// Initializes the transmit queue.
 static void initTxQueue(void)
 {
-    queue_registerEnqueueCallback(&g_heap->hostXferQueue, prepareXferQueueData);
-    g_heap->hostXferQueue.data = g_heap->hostXferQueueData;
-    g_heap->hostXferQueue.elements = g_heap->hostXferQueueElements;
-    g_heap->hostXferQueue.maxDataSize = HOST_XFER_QUEUE_DATA_SIZE;
-    g_heap->hostXferQueue.maxSize = HOST_XFER_QUEUE_MAX_SIZE;
-    queue_empty(&g_heap->hostXferQueue);
+    queue_registerEnqueueCallback(&g_heap->xferQueue, prepareXferQueueData);
+    g_heap->xferQueue.data = g_heap->xferQueueData;
+    g_heap->xferQueue.elements = g_heap->xferQueueElements;
+    g_heap->xferQueue.maxDataSize = XFER_QUEUE_DATA_SIZE;
+    g_heap->xferQueue.maxSize = XFER_QUEUE_MAX_SIZE;
+    queue_empty(&g_heap->xferQueue);
 }
 
 
@@ -952,7 +952,7 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
     {
         if (g_commFsm.rxPending && isIrqAsserted())
             g_commFsm.state = CommState_RxPending;
-        else if (!queue_isEmpty(&g_heap->hostXferQueue))
+        else if (!queue_isEmpty(&g_heap->xferQueue))
             g_commFsm.state = CommState_XferDequeueAndAct;
     }
     
@@ -1131,7 +1131,7 @@ static I2cGen2Status processCommFsm(uint32_t timeoutMS)
                 if (isBusReady(&status))
                 {
                     uint8_t* data;
-                    uint16_t size = queue_dequeue(&g_heap->hostXferQueue, &data);
+                    uint16_t size = queue_dequeue(&g_heap->xferQueue, &data);
                     if (size > HostXferQueueDataOffset_Data)
                     {
                         I2cXfer xfer = { data[HostXferQueueDataOffset_Xfer] };
@@ -1355,12 +1355,12 @@ I2cGen2Status i2cGen2_read(uint8_t address, uint16_t size)
     {
         if ((size > 0) && (size <= UINT8_MAX))
         {
-            if (!queue_isFull(&g_heap->hostXferQueue))
+            if (!queue_isFull(&g_heap->xferQueue))
             {
                 uint8_t readSize = size;
                 g_heap->pendingQueueXfer.address = address;
                 g_heap->pendingQueueXfer.direction = I2cDirection_Read;
-                if (!queue_enqueue(&g_heap->hostXferQueue, &readSize, sizeof(readSize)))
+                if (!queue_enqueue(&g_heap->xferQueue, &readSize, sizeof(readSize)))
                     status.queueFull = true;
             }
             else
@@ -1386,11 +1386,11 @@ I2cGen2Status i2cGen2_write(uint8_t address, uint8_t data[], uint16_t size)
     {
         if ((data != NULL) && (size > 0))
         {
-            if (!queue_isFull(&g_heap->hostXferQueue))
+            if (!queue_isFull(&g_heap->xferQueue))
             {
                 g_heap->pendingQueueXfer.address = address;
                 g_heap->pendingQueueXfer.direction = I2cDirection_Write;
-                if (!queue_enqueue(&g_heap->hostXferQueue, data, size))
+                if (!queue_enqueue(&g_heap->xferQueue, data, size))
                     status.queueFull = true;
             }
             else
