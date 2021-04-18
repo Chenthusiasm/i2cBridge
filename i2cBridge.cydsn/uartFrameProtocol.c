@@ -495,8 +495,8 @@ static bool txEnqueueLegacyVersion(void)
     uint32_t const UartBaud = 1000000u;
     static uint8_t const Version[] =
     {
-        (uint8_t)VERSION_LEGACY_MAJOR,
-        (uint8_t)VERSION_LEGACY_MINOR,
+        (uint8_t)VERSION_MAJOR,
+        (uint8_t)VERSION_MINOR,
         (uint8_t)((UartBaud >> 24) & 0xff),
         (uint8_t)((UartBaud >> 16) & 0xff),
         (uint8_t)((UartBaud >>  8) & 0xff),
@@ -520,14 +520,13 @@ static bool txEnqueueLegacyVersion(void)
 /// @return If the version response was successfully enqueued.
 static bool txEnqueueVersion(void)
 {
+    //static char const* Format = "v%u.%u [FW%03u%03u%02u%02X]";
     static uint8_t const Version[] =
     {
         HI_BYTE_16_BIT(VERSION_MAJOR),
         LO_BYTE_16_BIT(VERSION_MAJOR),
         HI_BYTE_16_BIT(VERSION_MINOR),
         LO_BYTE_16_BIT(VERSION_MINOR),
-        HI_BYTE_16_BIT(VERSION_UPDATE),
-        LO_BYTE_16_BIT(VERSION_UPDATE),
     };
     
     bool status = false;
@@ -690,6 +689,9 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             {
                 if (size > PacketOffset_I2cData)
                     i2cTouch_read(data[PacketOffset_I2cAddress], data[PacketOffset_I2cData]);
+                else if (size > PacketOffset_I2cAddress)
+                    // Read at least one byte.
+                    i2cTouch_read(data[PacketOffset_I2cAddress], 1u);
                 break;
             }
             

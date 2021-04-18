@@ -35,23 +35,22 @@
     /// Format: unsigned 16-bit integer, represented as decimal.
     #define VERSION_MAJOR               (0u)
     
-    /// Defines any minor releases that added new features, functions, or
-    /// significant bug fixes but backwards compatibility has been maintained.
+    /// Defines any minor releases that added new features, functions, or bug
+    /// fixes; backwards compatibility has been maintained.
     /// Format: unsigned 16-bit integer, represented as decimal.
-    #define VERSION_MINOR               (0u)
+    #define VERSION_MINOR               (28u)
     
-    /// Defines any small bug fixes or code rework.
-    /// Format: unsigned 16-bit integer, represented as decimal.
-    #define VERSION_UPDATE              (27u)
+    /// UICO customer number. 999 = internal.
+    #define CUSTOMER_NUMBER             (999u)
     
-    /// Defines the legacy variation of the version; major release. The legacy
-    /// major version is hard-coded to 250 (0xfa).
-    /// DO NOT MODIFY.
-    #define VERSION_LEGACY_MAJOR        (0xfa)
+    /// UICO product number.
+    #define PRODUCT_NUMBER              (10u)
     
-    /// Defines the legacy variation of the version; minor release. The le
-    /// DO NOT MODIFY.
-    #define VERSION_LEGACY_MINOR        (VERSION_UPDATE)
+    /// UICO feature number.
+    #define FEATURE_NUMBER              (3u)
+    
+    /// UICO revision number. Show as hex value.
+    #define REVISION_NUMBER             (0xa0)
     
     
     #ifdef __cplusplus
