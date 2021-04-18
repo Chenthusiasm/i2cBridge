@@ -58,10 +58,12 @@ int main(void)
     
     init();
     
-    for(int i = 0; ; ++i)
+    while (true)
     {
         bridgeFsm_process();
     }
+    
+    return 0;
 }
 
 
