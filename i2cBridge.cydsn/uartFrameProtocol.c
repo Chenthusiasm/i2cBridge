@@ -288,6 +288,9 @@ static uint16_t const RxResetTimeoutMS = 2000u;
 /// have not been dynamically allocated and the module has not started.
 static Heap* g_heap = NULL;
 
+/// Flag indicating if the updater mode is enabled.
+static bool g_updaterEnabled = false;
+
 /// Callback function that is invoked when data is received out of the frame
 /// state machine.
 static UartFrameProtocol_RxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
@@ -961,6 +964,8 @@ static void isr(void)
 
 void uartFrameProtocol_init(void)
 {
+    uartFrameProtocol_deactivate();
+    
     // Setup the UART hardware.
     COMPONENT(HOST_UART, SetCustomInterruptHandler)(isr);
     COMPONENT(HOST_UART, Start)();
@@ -969,7 +974,7 @@ void uartFrameProtocol_init(void)
 
 uint16_t uartFrameProtocol_getMemoryRequirement(bool enableUpdater)
 {
-    uint16_t const Mask = sizeof(uint32_t) - 1;
+    uint16_t const Mask = sizeof(uint32_t) - 1u;
     
     uint16_t size = (enableUpdater) ? (sizeof(UpdaterHeap)) : (sizeof(NormalHeap));
     if ((size & Mask) != 0)
@@ -1000,6 +1005,7 @@ uint16_t uartFrameProtocol_activate(uint32_t* memory, uint16_t size, bool enable
             initDecodedRxQueue(heap);
             initTxQueue(heap);
         }
+        g_updaterEnabled = enableUpdater;
     }
     return allocatedSize;
 }
@@ -1007,7 +1013,20 @@ uint16_t uartFrameProtocol_activate(uint32_t* memory, uint16_t size, bool enable
 
 void uartFrameProtocol_deactivate(void)
 {
+    g_updaterEnabled = false;
     g_heap = NULL;
+}
+
+
+bool uartFrameProtocol_isActivated(void)
+{
+    return ((g_heap != NULL) && !g_updaterEnabled);
+}
+
+
+bool uartFrameProtocol_isUpdaterActivated(void)
+{
+    return ((g_heap != NULL) && g_updaterEnabled);
 }
 
 

@@ -45,6 +45,10 @@
             /// Invalid state.
             bool invalidState : 1;
             
+            /// The action associated with the bridge finite state machine
+            /// failed.
+            bool actionFailed : 1;
+            
             /// Invalid scratch buffer offset.
             bool invalidScratchOffset : 1;
             

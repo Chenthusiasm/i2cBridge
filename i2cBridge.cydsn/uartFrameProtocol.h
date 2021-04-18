@@ -68,6 +68,14 @@
     /// the global memory.
     void uartFrameProtocol_deactivate(void);
     
+    /// Checks if the module is activated in normal mode.
+    /// @return If normal mode is active
+    bool uartFrameProtocol_isActivated(void);
+    
+    /// Checks if the module is activated in updater mode.
+    /// @return If normal mode is active
+    bool uartFrameProtocol_isUpdaterActivated(void);
+    
     /// Registers the receive callback function that should be invoked when
     /// data is received out of frame.
     /// @param[in]  callback    Pointer to the callback function.
