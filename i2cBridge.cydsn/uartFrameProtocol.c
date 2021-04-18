@@ -222,44 +222,30 @@ typedef struct Heap
 } Heap;
 
 
-typedef struct UpdaterHeap
+/// Data extension for the Heap structure. Defines the data buffers when in the
+/// normal/standard mode.
+typedef struct HeapData
 {
-    /// Decoded receive queue.
-    volatile Queue decodedRxQueue;
+    /// Array to hold the decoded data of elements in the receive queue.
+    uint8_t decodedRxQueueData[RX_QUEUE_DATA_SIZE];
     
-    /// Transmit queue.
-    Queue txQueue;
+    /// Array to hold the data of the elements in the transmit queue.
+    uint8_t txQueueData[TX_QUEUE_DATA_SIZE];
     
-    /// Array of decoded receive queue elements for the receive queue; these
-    /// elements have been received but are pending processing.
-    QueueElement decodedRxQueueElements[RX_QUEUE_MAX_SIZE];
-    
-    /// Array of transmit queue elements for the transmit queue.
-    QueueElement txQueueElements[TX_QUEUE_MAX_SIZE];
-    
-    /// The last time data was received in milliseconds.
-    volatile uint32_t lastRxTimeMS;
-    
-    /// The current state in the protocol state machine for receive processing.
-    /// frame.
-    volatile RxState rxState;
-    /// The type flags of the data that is waiting to be enqueued into the
-    /// transmit queue. This must be set prior to enqueueing data into the
-    /// transmit queue.
-    Flags pendingTxEnqueueFlags;
-    
-    /// The command associated with the data that is watiting to be enqueued
-    /// into the transmit queue. This must be set prior to enqueueing data into
-    /// the transmit queue.
-    BridgeCommand pendingTxEnqueueCommand;
-    
+} HeapData;
+
+
+/// Data extension for the Heap structure. Defines the data buffers when in
+/// updater mode.
+typedef struct UpdaterData
+{
     /// Array to hold the decoded data of elements in the receive queue.
     uint8_t decodedRxQueueData[UPDATER_RX_QUEUE_DATA_SIZE];
     
     /// Array to hold the data of the elements in the transmit queue.
     uint8_t txQueueData[UPDATER_TX_QUEUE_DATA_SIZE];
     
-} UpdaterHeap;
+} UpdaterData;
 
 
 // === CONSTANTS ===============================================================

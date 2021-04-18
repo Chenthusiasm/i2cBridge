@@ -69,6 +69,15 @@
     /// machine.
     void bridgeFsm_process(void);
     
+    /// Prep the bridge to change to touch firmware translator mode.
+    void bridgeFsm_requestTranslatorMode(void);
+    
+    /// Prep the bridge to change to touch firmware updater mode.
+    void bridgeFsm_requestUpdaterMode(void);
+    
+    /// Prep the bridge to change to touch firmware updater mode.
+    void bridgeFsm_requestReset(void);
+    
     
     #ifdef __cplusplus
         } // extern "C"

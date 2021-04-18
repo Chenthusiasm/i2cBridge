@@ -58,6 +58,31 @@ typedef enum State
 } State;
 
 
+/// Union that provides flags to indicate if a bridge finite state machine mode
+/// change needs to be done (pending).
+typedef union ModeChange
+{
+    /// Flag indicating that a mode change is pending.
+    bool pending;
+    
+    /// Anonymous struct that encapsulates different bits indicating if a mode
+    /// change is requested.
+    struct
+    {
+        /// Change to touch firmware translator mode is pending.
+        bool translatorPending : 1;
+        
+        /// Change to touch firmware updater mode is pending.
+        bool updaterPending : 1;
+        
+        /// Reset request is pending.
+        bool resetPending : 1;
+        
+    };
+    
+} ModeChange;
+
+
 // === GLOBAL VARIABLES ========================================================
 
 /// The current state of the state machine.
@@ -68,6 +93,10 @@ static uint32_t __attribute__((used)) g_scratchBuffer[SCRATCH_BUFFER_SIZE];
 
 /// The offset into the scratch buffer that indicates the start of free space
 static uint16_t g_scratchOffset = 0u;
+
+/// Flags indicating if a mode change was requested and is pending action. Also
+/// indicates the specific mode.
+static ModeChange g_modeChange = { false };
 
 /// An alarm used to indicate how long to hold the slave device in reset.
 static Alarm g_resetAlarm;
@@ -240,6 +269,27 @@ void bridgeFsm_process(void)
             // Should not get here.
         }
     }
+}
+
+
+void bridgeFsm_requestTranslatorMode(void)
+{
+    g_modeChange.pending = false;
+    g_modeChange.translatorPending = true;
+}
+
+
+void bridgeFsm_requestUpdaterMode(void)
+{
+    g_modeChange.pending = false;
+    g_modeChange.updaterPending = true;
+}
+
+
+void bridgeFsm_requestReset(void)
+{
+    g_modeChange.pending = false;
+    g_modeChange.resetPending = true;
 }
 
 
