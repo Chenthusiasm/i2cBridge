@@ -55,6 +55,10 @@ typedef enum State
     /// Processes tasks related to the I2C slave update mode.
     State_SlaveUpdater,
     
+    /// General error state: repeatedly send out an error message to the host
+    /// comm interface indicating an error occurred.
+    State_GeneralError,
+    
 } State;
 
 
@@ -238,6 +242,13 @@ bool processSlaveUpdater(void)
 }
 
 
+/// Processes a general error: intermittently transmit an ASCII error message
+/// over the host UART bus.
+void processGeneralError(void)
+{
+}
+
+
 // === PUBLIC FUNCTIONS ========================================================
 
 void bridgeFsm_reset(void)
@@ -299,6 +310,12 @@ void bridgeFsm_process(void)
         case State_SlaveUpdater:
         {
             processSlaveUpdater();
+            break;
+        }
+        
+        case State_GeneralError:
+        {
+            // Do not transition out of this state.
             break;
         }
         

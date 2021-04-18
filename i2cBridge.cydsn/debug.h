@@ -24,7 +24,7 @@
     #endif
     #include <stdint.h>
     
-    #include "configProject.h"
+    #include "config.h"
     #include "project.h"
     
     
@@ -34,7 +34,7 @@
     // the debug functions are properly compiled in and out of code based on
     // enabling/disabling the debug components in the *.cysch file. Either
     // disable the component in the *.cysch file or disable the debug option in
-    // "configProject.h".
+    // "config.h".
     
     #define ACTIVE_DEBUG_PIN_0          (false)
     #define ACTIVE_DEBUG_PIN_1          (false)

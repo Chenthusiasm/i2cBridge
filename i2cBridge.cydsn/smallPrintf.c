@@ -19,23 +19,14 @@
     #include <stdbool.h>
 #endif
 
+#include "config.h"
+
 
 // === DEFINES =================================================================
 
-/// Enable the optimized decimal divide and modulo; this doesn't use the
-/// standard divide and modulo operators.
-#define ENABLE_OPTIMIZED_DECIMAL_DIVIDE (true)
 
-/// Enable the binary (base 2) formatter.
-#define ENABLE_BINARY                   (true)
 
-/// Enable the octal (base 8) formatter.
-#define ENABLE_OCTAL                    (true)
-
-/// Enable the hexadecimal (base 16) formatter.
-#define ENABLE_HEX                      (true)
-
-#if ENABLE_BINARY
+#if ENABLE_PRINTF_BINARY
 
     /// The number of bits to right shift (divide) to perform the itoa
     /// conversion in binary.
@@ -45,9 +36,9 @@
     /// conversion in binary.
     #define BINARY_MASK                 ((1u << BINARY_SHIFT) - 1u)
 
-#endif // ENABLE_BINARY
+#endif // ENABLE_PRINTF_BINARY
 
-#if ENABLE_OCTAL
+#if ENABLE_PRINTF_OCTAL
     
     /// The number of bits to right shift (divide) to perform the itoa
     /// conversion in binary.
@@ -57,10 +48,10 @@
     /// conversion in binary.
     #define OCTAL_MASK                  ((1u << OCTAL_SHIFT) - 1u)
     
-#endif // ENABLE_OCTAL
+#endif // ENABLE_PRINTF_OCTAL
 
-// Do not encapsulate the following defines in #if ENABLE_HEX; these are needed
-// for the pointer to string conversion.
+// Do not encapsulate the following defines in #if ENABLE_PRINTF_HEX; these are
+// needed for the pointer to string conversion.
 
 /// The number of bits to right shift (divide) to perform the itoa
 /// conversion in hexadecimal.
@@ -110,21 +101,21 @@ typedef enum Base
     /// Base 10.
     Base_Decimal,
 
-#if ENABLE_BINARY
+#if ENABLE_PRINTF_BINARY
 
     /// Base 2.
     Base_Binary,
 
-#endif // ENABLE_BINARY
+#endif // ENABLE_PRINTF_BINARY
 
-#if ENABLE_OCTAL
+#if ENABLE_PRINTF_OCTAL
 
     /// Base 8.
     Base_Octal,
 
-#endif // ENABLE_OCTAL
+#endif // ENABLE_PRINTF_OCTAL
 
-#if ENABLE_HEX
+#if ENABLE_PRINTF_HEX
 
     /// Base 16 with lowercase alpha characters.
     Base_Hex,
@@ -132,7 +123,7 @@ typedef enum Base
     /// Base 16 with uppercase alpha characters.
     Base_UpperHex,
 
-#endif // ENABLE_HEX
+#endif // ENABLE_PRINTF_HEX
 
 } Base;
 
@@ -195,14 +186,14 @@ static uint32_t const G_DecimalDivisor = 10u;
 /// Integer to character conversion table, lowercase (default).
 static char const G_CharTable[] = "0123456789abcdef";
 
-#if ENABLE_BINARY
+#if ENABLE_PRINTF_BINARY
     
     /// Binary prefix.
     static char const G_BinaryPrefix[] = "0b";
     
-#endif // ENABLE_BINARY
+#endif // ENABLE_PRINTF_BINARY
 
-#if ENABLE_OCTAL
+#if ENABLE_PRINTF_OCTAL
     
     /// Octal prefix.
     static char const G_OctalPrefix[] = "0";
@@ -212,7 +203,7 @@ static char const G_CharTable[] = "0123456789abcdef";
 /// Standard hex prefix.
 static char const G_HexPrefix[] = "0x";
 
-#if ENABLE_HEX
+#if ENABLE_PRINTF_HEX
     
     /// Uppercase hex perfix.
     static char const G_UpperHexPrefix[] = "0X";
@@ -220,7 +211,7 @@ static char const G_HexPrefix[] = "0x";
     /// Integer to character conversion table, uppercase.
     static char const G_UpperCharTable[] = "0123456789ABCDEF";
     
-#endif // ENABLE_HEX
+#endif // ENABLE_PRINTF_HEX
 
 
 // === PRIVATE FUNCTIONS =======================================================
@@ -316,7 +307,7 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
         uint32_t n = value;
         switch (base)
         {
-        #if ENABLE_BINARY
+        #if ENABLE_PRINTF_BINARY
 
             case Base_Binary:
             {
@@ -334,9 +325,9 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                 break;
             }
 
-        #endif // ENABLE_BINARY
+        #endif // ENABLE_PRINTF_BINARY
 
-        #if ENABLE_OCTAL
+        #if ENABLE_PRINTF_OCTAL
 
             case Base_Octal:
             {
@@ -354,9 +345,9 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                 break;
             }
 
-        #endif // ENABLE_OCTAL
+        #endif // ENABLE_PRINTF_OCTAL
 
-        #if ENABLE_HEX
+        #if ENABLE_PRINTF_HEX
 
             case Base_Hex:
             {
@@ -390,7 +381,7 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                 break;
             }
 
-        #endif // ENABLE_HEX
+        #endif // ENABLE_PRINTF_HEX
 
             default:
             {
@@ -398,7 +389,7 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                 {
                     uint32_t r;
 
-                #if ENABLE_OPTIMIZED_DECIMAL_DIVIDE
+                #if ENABLE_PRINTF_FAST_DIVIDE_BY_10
 
                     n = divideBy10(n, &r);
 
@@ -407,7 +398,7 @@ static ItoaResult simpleItoa(uint32_t value, char buffer[], uint8_t size, Base b
                     r = n % G_DecimalDivisor;
                     n /= G_DecimalDivisor;
 
-                #endif // ENABLE_OPTIMIZED_DECIMAL_DIVIDE
+                #endif // ENABLE_PRINTF_FAST_DIVIDE_BY_10
 
                     buffer[--i] = G_CharTable[r];
                 }
@@ -609,7 +600,7 @@ int smallPrintf(PutChar putChar, char const* format, va_list args)
                         break;
                     }
 
-                #if ENABLE_HEX
+                #if ENABLE_PRINTF_HEX
 
                     case 'X':
                     {
@@ -618,9 +609,9 @@ int smallPrintf(PutChar putChar, char const* format, va_list args)
                         break;
                     }
 
-                #endif // ENABLE_HEX
+                #endif // ENABLE_PRINTF_HEX
 
-                #if ENABLE_BINARY
+                #if ENABLE_PRINTF_BINARY
 
                     case 'b':
                     {
@@ -629,7 +620,7 @@ int smallPrintf(PutChar putChar, char const* format, va_list args)
                         break;
                     }
 
-                #endif // ENABLE_BINARY
+                #endif // ENABLE_PRINTF_BINARY
 
                     case 'c':
                     {
@@ -675,7 +666,7 @@ int smallPrintf(PutChar putChar, char const* format, va_list args)
                         break;
                     }
 
-                #if ENABLE_OCTAL
+                #if ENABLE_PRINTF_OCTAL
 
                     case 'o':
                     {
@@ -684,7 +675,7 @@ int smallPrintf(PutChar putChar, char const* format, va_list args)
                         break;
                     }
 
-                #endif // ENABLE_OCTAL
+                #endif // ENABLE_PRINTF_OCTAL
 
                     case 'p':
                     {
@@ -739,7 +730,7 @@ int smallPrintf(PutChar putChar, char const* format, va_list args)
                         break;
                     }
 
-                #if ENABLE_HEX
+                #if ENABLE_PRINTF_HEX
 
                     case 'x':
                     {
@@ -748,7 +739,7 @@ int smallPrintf(PutChar putChar, char const* format, va_list args)
                         break;
                     }
 
-                #endif // ENABLE_HEX
+                #endif // ENABLE_PRINTF_HEX
 
                     default:
                     {

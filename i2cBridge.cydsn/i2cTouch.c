@@ -190,12 +190,12 @@ static uint8_t g_slaveAddress = SlaveAddress_App;
 /// App receive state machine variables.
 static CommFsm g_commFsm;
 
-#if ENABLE_LOCKED_BUS_DETECTION
+#if ENABLE_I2C_LOCKED_BUS_DETECTION
     
     /// Container for locked-bus related variables.
     static LockedBus g_lockedBus;
     
-#endif // ENABLE_LOCKED_BUS_DETECTION
+#endif // ENABLE_I2C_LOCKED_BUS_DETECTION
 
 #if !ENABLE_ALL_CHANGE_TO_RESPONSE
     
@@ -434,16 +434,16 @@ static bool isBusReady(I2cTouchStatus* status)
 /// @return If the bus is locked.
 static bool isBusLocked(void)
 {
-#if ENABLE_LOCKED_BUS_DETECTION
+#if ENABLE_I2C_LOCKED_BUS_DETECTION
     bool locked = g_lockedBus.locked;
 #else
     bool locked = false;
-#endif // ENABLE_LOCKED_BUS_DETECTION
+#endif // ENABLE_I2C_LOCKED_BUS_DETECTION
     return locked;
 }
 
 
-#if ENABLE_LOCKED_BUS_DETECTION
+#if ENABLE_I2C_LOCKED_BUS_DETECTION
     
     /// Reset the locked bus structure to the default values. Also disables all
     /// alarms associated with the locked bus.
@@ -455,7 +455,7 @@ static bool isBusLocked(void)
         g_lockedBus.locked = false;
     }
     
-#endif // ENABLE_LOCKED_BUS_DETECTIONS
+#endif // ENABLE_I2C_LOCKED_BUS_DETECTIONS
 
 
 /// Updates the driver status and generates the I2cTouchStatus that corresponds
@@ -473,7 +473,7 @@ I2cTouchStatus updateDriverStatus(mreturn_t result)
             status.nak = true;
         if ((result & COMPONENT(SLAVE_I2C, I2C_MSTR_ERR_TIMEOUT)) > 0)
             status.timedOut = true;
-    #if ENABLE_LOCKED_BUS_DETECTION
+    #if ENABLE_I2C_LOCKED_BUS_DETECTION
         if ((result & (COMPONENT(SLAVE_I2C, I2C_MSTR_BUS_BUSY) | COMPONENT(SLAVE_I2C, I2C_MSTR_NOT_READY))) > 0)
         {
             g_lockedBus.locked = isBusLocked() ||
@@ -484,7 +484,7 @@ I2cTouchStatus updateDriverStatus(mreturn_t result)
             if (g_lockedBus.locked && !g_lockedBus.recoverAlarm.armed)
                 alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMS, AlarmType_ContinuousNotification);
         }
-    #endif // ENABLE_LOCKED_BUS_DETECTION
+    #endif // ENABLE_I2C_LOCKED_BUS_DETECTION
     }
     else
     {
@@ -551,7 +551,7 @@ static I2cTouchStatus write(uint8_t address, uint8_t const data[], uint16_t size
 }
 
 
-#if ENABLE_LOCKED_BUS_DETECTION
+#if ENABLE_I2C_LOCKED_BUS_DETECTION
     
     /// Attempts to recover from the bus lock error in the case that the I2C bus
     /// gets locked by either the SCL or SDA being held low for extended
@@ -590,7 +590,7 @@ static I2cTouchStatus write(uint8_t address, uint8_t const data[], uint16_t size
         return status;
     }
     
-#endif // ENABLE_LOCKED_BUS_DETECTION
+#endif // ENABLE_I2C_LOCKED_BUS_DETECTION
 
 
 /// Create and sends the packet to the slave to instruct it to reset/clear the
@@ -1053,9 +1053,9 @@ static void reinitAll(void)
 {
     resetCommFsm();
     resetSlaveStatusFlags();
-#if ENABLE_LOCKED_BUS_DETECTION
+#if ENABLE_I2C_LOCKED_BUS_DETECTION
     resetLockedBusStructure();
-#endif // ENABLE_LOCKED_BUS_DETECTION
+#endif // ENABLE_I2C_LOCKED_BUS_DETECTION
 }
 
 
@@ -1168,11 +1168,11 @@ I2cTouchStatus i2cTouch_process(uint32_t timeoutMS)
     
     I2cTouchStatus status = { false };
     
-#if ENABLE_LOCKED_BUS_DETECTION
+#if ENABLE_I2C_LOCKED_BUS_DETECTION
     if (isBusLocked())
         status = recoverFromLockedBus();
     else
-#endif // ENABLE_LOCKED_BUS_DETECTION
+#endif // ENABLE_I2C_LOCKED_BUS_DETECTION
     {
         if (g_heap != NULL)
             status = processCommFsm(timeoutMS);

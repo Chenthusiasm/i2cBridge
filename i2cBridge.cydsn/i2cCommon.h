@@ -24,6 +24,7 @@
     #include <stdint.h>
     
     #include "alarm.h"
+    #include "config.h"
     #include "error.h"
     #include "project.h"
     #include "queue.h"
@@ -31,9 +32,6 @@
     
     
     // === DEFINES =============================================================
-    
-    /// Enable/disable the locked I2C bus detection and recovery.
-    #define ENABLE_LOCKED_BUS_DETECTION     (true)
     
     /// Name of the slave I2C component.
     #define SLAVE_I2C                       slaveI2c_
@@ -316,7 +314,7 @@
     } CommFsm;
     
     
-    #if ENABLE_LOCKED_BUS_DETECTION
+    #if ENABLE_I2C_LOCKED_BUS_DETECTION
         
         /// Locked bus variables.
         typedef struct LockedBus
@@ -340,7 +338,7 @@
             
         } LockedBus;
 
-    #endif // ENABLE_LOCKED_BUS_DETECTION
+    #endif // ENABLE_I2C_LOCKED_BUS_DETECTION
     
         
     #ifdef __cplusplus
