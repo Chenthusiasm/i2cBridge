@@ -213,17 +213,11 @@ typedef struct Heap
     /// the transmit queue.
     BridgeCommand pendingTxEnqueueCommand;
     
-    /// Array to hold the decoded data of elements in the receive queue.
-    uint8_t decodedRxQueueData[RX_QUEUE_DATA_SIZE];
-    
-    /// Array to hold the data of the elements in the transmit queue.
-    uint8_t txQueueData[TX_QUEUE_DATA_SIZE];
-    
 } Heap;
 
 
 /// Data extension for the Heap structure. Defines the data buffers when in the
-/// normal/standard mode.
+/// normal mode.
 typedef struct HeapData
 {
     /// Array to hold the decoded data of elements in the receive queue.
@@ -246,6 +240,35 @@ typedef struct UpdaterData
     uint8_t txQueueData[UPDATER_TX_QUEUE_DATA_SIZE];
     
 } UpdaterData;
+
+
+
+/// Structure used to define the memory allocation of the heap + associated
+/// heap data in normal mode. Only used to determine the organization of the
+/// two data structures in unallocated memory to ensure alignment.
+typedef struct NormalHeap
+{
+    /// Heap data structure.
+    Heap heap;
+    
+    /// HeapData data structure when in normal mode.
+    HeapData heapData;
+    
+} NormalHeap;
+
+
+/// Structure used to define the memory allocation of the heap + associated
+/// heap data in updater mode. Only used to determine the organization of the
+/// two data structures in unallocated memory to ensure alignment.
+typedef struct UpdaterHeap
+{
+    /// Heap data structure.
+    Heap heap;
+    
+    /// HeapData data structure when in updater mode.
+    UpdaterData heapData;
+    
+} UpdaterHeap;
 
 
 // === CONSTANTS ===============================================================
@@ -835,10 +858,14 @@ static void initRx(void)
 }
 
 
-/// Initializes the decoded receive queue.
-static void initDecodedRxQueue(void)
+/// Initializes the decoded receive queue when in standard/normal mode.
+/// @param[in]  heap    Pointer to the specific normal heap data structure that
+///                     defines the address offset for the heap data,
+///                     specifically the queue data.
+static void initDecodedRxQueue(NormalHeap* heap)
 {
-    g_heap->decodedRxQueue.data = g_heap->decodedRxQueueData;
+    queue_deregisterEnqueueCallback(&g_heap->decodedRxQueue);
+    g_heap->decodedRxQueue.data = heap->heapData.decodedRxQueueData;
     g_heap->decodedRxQueue.elements = g_heap->decodedRxQueueElements;
     g_heap->decodedRxQueue.maxDataSize = RX_QUEUE_DATA_SIZE;
     g_heap->decodedRxQueue.maxSize = RX_QUEUE_MAX_SIZE;
@@ -847,11 +874,46 @@ static void initDecodedRxQueue(void)
 }
 
 
-/// Initializes the transmit queue.
-static void initTxQueue()
+/// Initializes the transmit queue when in standard/normal mode.
+/// @param[in]  heap    Pointer to the specific normal heap data structure that
+///                     defines the address offset for the heap data,
+///                     specifically the queue data.
+static void initTxQueue(NormalHeap* heap)
 {
     queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
-    g_heap->txQueue.data = g_heap->txQueueData;
+    g_heap->txQueue.data = heap->heapData.txQueueData;
+    g_heap->txQueue.elements = g_heap->txQueueElements;
+    g_heap->txQueue.maxDataSize = TX_QUEUE_DATA_SIZE;
+    g_heap->txQueue.maxSize = TX_QUEUE_MAX_SIZE;
+    queue_empty(&g_heap->txQueue);
+    resetPendingTxEnqueue();
+}
+
+
+/// Initializes the decoded receive queue when in updater mode.
+/// @param[in]  heap    Pointer to the specific updater heap data structure that
+///                     defines the address offset for the heap data,
+///                     specifically the queue data.
+static void initUpdaterDecodedRxQueue(UpdaterHeap* heap)
+{
+    queue_deregisterEnqueueCallback(&g_heap->decodedRxQueue);
+    g_heap->decodedRxQueue.data = heap->heapData.decodedRxQueueData;
+    g_heap->decodedRxQueue.elements = g_heap->decodedRxQueueElements;
+    g_heap->decodedRxQueue.maxDataSize = RX_QUEUE_DATA_SIZE;
+    g_heap->decodedRxQueue.maxSize = RX_QUEUE_MAX_SIZE;
+    queue_empty(&g_heap->decodedRxQueue);
+    resetRxTime();
+}
+
+
+/// Initializes the transmit queue when in updater mode.
+/// @param[in]  heap    Pointer to the specific updater heap data structure that
+///                     defines the address offset for the heap data,
+///                     specifically the queue data.
+static void initUpdaterTxQueue(UpdaterHeap* heap)
+{
+    queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
+    g_heap->txQueue.data = heap->heapData.txQueueData;
     g_heap->txQueue.elements = g_heap->txQueueElements;
     g_heap->txQueue.maxDataSize = TX_QUEUE_DATA_SIZE;
     g_heap->txQueue.maxSize = TX_QUEUE_MAX_SIZE;
@@ -905,28 +967,39 @@ void uartFrameProtocol_init(void)
 }
 
 
-uint16_t uartFrameProtocol_getMemoryRequirement(void)
+uint16_t uartFrameProtocol_getMemoryRequirement(bool enableUpdater)
 {
     uint16_t const Mask = sizeof(uint32_t) - 1;
     
-    uint16_t size = sizeof(Heap);
+    uint16_t size = (enableUpdater) ? (sizeof(UpdaterHeap)) : (sizeof(NormalHeap));
     if ((size & Mask) != 0)
         size = (size + sizeof(uint32_t)) & ~Mask;
     return size;
 }
 
 
-uint16_t uartFrameProtocol_activate(uint32_t* memory, uint16_t size)
+uint16_t uartFrameProtocol_activate(uint32_t* memory, uint16_t size, bool enableUpdater)
 {
     uint16_t allocatedSize = 0;
-    if ((memory != NULL) && (sizeof(Heap) <= (sizeof(uint32_t) * size)))
+    uint16_t requiredSize = uartFrameProtocol_getMemoryRequirement(enableUpdater) / sizeof(uint32_t);
+    if ((memory != NULL) && (size >= requiredSize))
     {
-        g_heap = (Heap*)memory;
         initRx();
-        initDecodedRxQueue();
-        initTxQueue();
         registerI2cCallbacks();
-        allocatedSize = uartFrameProtocol_getMemoryRequirement() / sizeof(uint32_t);
+        allocatedSize = requiredSize;
+        g_heap = (Heap*)memory;
+        if (enableUpdater)
+        {
+            UpdaterHeap* heap = (UpdaterHeap*)g_heap;
+            initUpdaterDecodedRxQueue(heap);
+            initUpdaterTxQueue(heap);
+        }
+        else
+        {
+            NormalHeap* heap = (NormalHeap*)g_heap;
+            initDecodedRxQueue(heap);
+            initTxQueue(heap);
+        }
     }
     return allocatedSize;
 }

@@ -120,11 +120,11 @@ void processInitHostComm(void)
     SystemStatus status = { false };
     g_scratchOffset = uartFrameProtocol_activate(
         &g_scratchBuffer[g_scratchOffset],
-        SCRATCH_BUFFER_SIZE - g_scratchOffset);
+        SCRATCH_BUFFER_SIZE - g_scratchOffset, false);
     if (g_scratchOffset <= 0)
     {
         status.invalidScratchOffset = true;
-        uint16_t requirement = uartFrameProtocol_getMemoryRequirement();
+        uint16_t requirement = uartFrameProtocol_getMemoryRequirement(false);
         if (sizeof(g_scratchBuffer) < requirement)
             status.invalidScratchBuffer = true;
     }
@@ -161,7 +161,7 @@ State processSlaveReset(void)
 /// Processes all tasks associated with initializing the I2C slave translator.
 void processInitSlaveTranslator(void)
 {
-    uint16_t offset = uartFrameProtocol_activate(g_scratchBuffer, SCRATCH_BUFFER_SIZE);
+    uint16_t offset = uartFrameProtocol_activate(g_scratchBuffer, SCRATCH_BUFFER_SIZE, false);
     if (offset > 0)
         offset = i2cTouch_activate(&g_scratchBuffer[offset], SCRATCH_BUFFER_SIZE - offset);
         

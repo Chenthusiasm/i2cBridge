@@ -45,19 +45,24 @@
     void uartFrameProtocol_init(void);
     
     /// Accessor to get the number of bytes required for global variables.
+    /// @param[in]  enableUpdater   Flag indicating if updater mode is enabled,
+    ///                             otherwise normal mode is enabled.
     /// @return The number of bytes need for global variables.
-    uint16_t uartFrameProtocol_getMemoryRequirement(void);
+    uint16_t uartFrameProtocol_getMemoryRequirement(bool enableUpdater);
     
     /// Activates the UART frame protocol module and sets up its globals.
     /// This must be invoked before using any processRx or processTx-like
     /// functions.
-    /// @param[in]  memory  Memory buffer that is available for the module's
-    ///                     globals. This is an array of 32-bit words to help
-    ///                     preserve word alignment.
-    /// @param[in]  size    The size (in 32-bit words) of the memory array.
+    /// @param[in]  memory          Memory buffer that is available for the
+    ///                             module's globals. This is an array of 32-bit
+    ///                             worlds to help preserve word alignment.
+    /// @param[in]  size            The size (in 32-bit words) of the memory
+    ///                             array.
+    /// @param[in]  enableUpdater   Flag indicating if updater mode is enabled,
+    ///                             otherwise normal mode is enabled.
     /// @return The number of 32-bit words the module used for its globals. If 0
     ///         Then there was an error and the module hasn't started.
-    uint16_t uartFrameProtocol_activate(uint32_t memory[], uint16_t size);
+    uint16_t uartFrameProtocol_activate(uint32_t memory[], uint16_t size, bool enableUpdater);
     
     /// Deactivates the UART frame protocol module and effectively deallocates
     /// the global memory.
