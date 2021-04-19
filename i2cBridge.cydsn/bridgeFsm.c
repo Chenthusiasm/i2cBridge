@@ -268,7 +268,7 @@ bool processSlaveUpdater(void)
 /// UART bus.
 void processHostTranslatorFailed(void)
 {
-    static char const* ErrorMessage = "ERROR: slave translator failed initialization!\r\n";
+    static char const* ErrorMessage = "ERROR: slave translator failed init!\r\n";
     
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
     if (!messageAlarm.armed)
@@ -286,7 +286,7 @@ void processHostTranslatorFailed(void)
 /// UART bus.
 void processHostUpdaterFailed(void)
 {
-    static char const* ErrorMessage = "ERROR: slave updater failed initialization!\r\n";
+    static char const* ErrorMessage = "ERROR: slave updater failed init!\r\n";
     
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
     if (!messageAlarm.armed)
@@ -303,7 +303,7 @@ void processHostUpdaterFailed(void)
 /// will intermittently transmit an ASCII error message over the host UART bus.
 void processHostCommFailed(void)
 {
-    static char const* ErrorMessage = "ERROR: heap memory shortage!\r\n";
+    static char const* ErrorMessage = "ERROR: heap memory low!\r\n";
     static char const* ErrorDetailFormat = "\tH=%d  N=%d  U=%d\r\n";
     
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
