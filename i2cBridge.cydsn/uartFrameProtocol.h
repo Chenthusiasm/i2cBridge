@@ -44,11 +44,11 @@
     /// Initializes the communications interface.
     void uartFrameProtocol_init(void);
     
-    /// Accessor to get the number of bytes required for global variables.
+    /// Accessor to get the number of heap words required for global variables.
     /// @param[in]  enableUpdater   Flag indicating if updater mode is enabled,
     ///                             otherwise normal mode is enabled.
-    /// @return The number of bytes need for global variables.
-    uint16_t uartFrameProtocol_getMemoryRequirement(bool enableUpdater);
+    /// @return The number of heap words needed for global variables.
+    uint16_t uartFrameProtocol_getHeapWordRequirement(bool enableUpdater);
     
     /// Activates the UART frame protocol module and sets up its globals.
     /// This must be invoked before using any processRx or processTx-like

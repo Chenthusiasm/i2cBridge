@@ -1084,21 +1084,16 @@ void i2cTouch_init(void)
 }
 
 
-uint16_t i2cTouch_getMemoryRequirement(void)
+uint16_t i2cTouch_getHeapWordRequirement(void)
 {
-    uint16_t const Mask = sizeof(heapWord_t) - 1;
-    
-    uint16_t size = sizeof(Heap);
-    if ((size & Mask) != 0)
-        size = (size + sizeof(heapWord_t)) & ~Mask;
-    return size;
+    return heap_calculateHeapWordRequirement(sizeof(Heap));
 }
 
 
 uint16_t i2cTouch_activate(uint32_t memory[], uint16_t size)
 {
     uint16_t allocatedSize = 0;
-    uint16_t requiredSize = i2cTouch_getMemoryRequirement() / sizeof(heapWord_t);
+    uint16_t requiredSize = i2cTouch_getHeapWordRequirement();
     if ((memory != NULL) && (size >= requiredSize))
     {
         g_heap = (Heap*)memory;

@@ -149,9 +149,9 @@ static heapWord_t g_scratchBuffer[SCRATCH_BUFFER_SIZE];
 /// Find the remaining size of the scratch buffer that is free for heap
 /// allocation.
 /// @return The size, in bytes, that is free in the scratch buffer.
-uint16_t getFreeScratchBufferSize(void)
+uint16_t getFreeScratchBufferWordSize(void)
 {
-    return (sizeof(g_scratchBuffer) - (g_freeScratchOffset * sizeof(heapWord_t)));
+    return (SCRATCH_BUFFER_SIZE - g_freeScratchOffset);
 }
 
 
@@ -186,8 +186,8 @@ SystemStatus initHostComm(void)
         else
         {
             status.invalidScratchOffset = true;
-            uint16_t requirement = uartFrameProtocol_getMemoryRequirement(EnableUpdater);
-            if (sizeof(g_scratchBuffer) < requirement)
+            uint16_t requirement = uartFrameProtocol_getHeapWordRequirement(EnableUpdater);
+            if (getFreeScratchBufferWordSize() < requirement)
                 status.invalidScratchBuffer = true;
         }
     }
@@ -252,8 +252,8 @@ bool processInitSlaveTranslator(void)
             uartFrameProtocol_deactivate();
             i2cTouch_deactivate();
             status.invalidScratchOffset = true;
-            uint16_t requirement = i2cTouch_getMemoryRequirement();
-            if (getFreeScratchBufferSize() < requirement)
+            uint16_t requirement = i2cTouch_getHeapWordRequirement();
+            if (getFreeScratchBufferWordSize() < requirement)
                 status.invalidScratchBuffer = true;
             status.translatorError = true;
         }
@@ -343,7 +343,7 @@ void processHostUpdaterFailed(void)
 void processHostCommFailed(void)
 {
     static char const* ErrorMessage = "ERROR: heap memory low!\r\n";
-    static char const* ErrorDetailFormat = "\tH=%d  N=%d  U=%d\r\n";
+    static char const* ErrorDetailFormat = "\t%d [%d|%d]\r\n";
     
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
     if (!messageAlarm.armed)
@@ -351,11 +351,11 @@ void processHostCommFailed(void)
     if (alarm_hasElapsed(&messageAlarm))
     {
         alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
-        uint16_t normalRequiredSize = uartFrameProtocol_getMemoryRequirement(false);
-        uint16_t updaterRequiredSize = uartFrameProtocol_getMemoryRequirement(true);
+        uint16_t normalRequiredSize = uartFrameProtocol_getHeapWordRequirement(false);
+        uint16_t updaterRequiredSize = uartFrameProtocol_getHeapWordRequirement(true);
         uartFrameProtocol_write(ErrorMessage);
         char message[ERROR_MESSAGE_BUFFER_SIZE];
-        smallSprintf(message, ErrorDetailFormat, sizeof(g_scratchBuffer), normalRequiredSize, updaterRequiredSize);
+        smallSprintf(message, ErrorDetailFormat, SCRATCH_BUFFER_SIZE, normalRequiredSize, updaterRequiredSize);
         uartFrameProtocol_write(message);
     }
 }
