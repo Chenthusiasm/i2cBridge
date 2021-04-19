@@ -29,13 +29,10 @@
 /// a uint32_t.
 #define SCRATCH_BUFFER_SIZE             (2800u / sizeof(uint32_t))
 
-/// The size of the error message buffer. Do not make generic error messages
-/// larger than this, otherwise a buffer overflow will occur.
+/// The size of the error message buffer (for use with smallSprintf). Do not
+/// make generic error messages larger than this, otherwise a buffer overflow
+/// will occur.
 #define ERROR_MESSAGE_BUFFER_SIZE       (64u)
-
-/// The default period between writing of error messages to the host UART bus
-/// when a general error occurs.
-#define ERROR_MESSAGE_PERIOD_MS         (5000u)
 
 
 // === TYPE DEFINES ============================================================
@@ -102,6 +99,13 @@ typedef union ModeChange
     };
     
 } ModeChange;
+
+
+// === CONSTANTS ===============================================================
+
+/// The default period between writing of error messages to the host UART bus
+/// when a general error occurs.
+static uint32_t G_ErrorMessagePeriodMS = 5000u;
 
 
 // === GLOBAL VARIABLES ========================================================
@@ -264,21 +268,15 @@ bool processSlaveUpdater(void)
 /// UART bus.
 void processHostTranslatorFailed(void)
 {
-    static uint32_t const MessagePeriodMS = ERROR_MESSAGE_PERIOD_MS;
+    static char const* ErrorMessage = "ERROR: slave translator failed initialization!\r\n";
     
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
     if (!messageAlarm.armed)
-        alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
+        alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
     if (alarm_hasElapsed(&messageAlarm))
     {
-        alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
-        uint16_t normalRequiredSize = uartFrameProtocol_getMemoryRequirement(false);
-        uint16_t updaterRequiredSize = uartFrameProtocol_getMemoryRequirement(true);
-        char message[ERROR_MESSAGE_BUFFER_SIZE];
-        smallSprintf(message, "ERROR: heap memory shortage!\r\n");
-        uartFrameProtocol_write(message);
-        smallSprintf(message, "\tH=%d  N=%d  U=%d\r\n", sizeof(g_scratchBuffer), normalRequiredSize, updaterRequiredSize);
-        uartFrameProtocol_write(message);
+        alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
+        uartFrameProtocol_write(ErrorMessage);
     }
 }
 
@@ -288,21 +286,15 @@ void processHostTranslatorFailed(void)
 /// UART bus.
 void processHostUpdaterFailed(void)
 {
-    static uint32_t const MessagePeriodMS = ERROR_MESSAGE_PERIOD_MS;
+    static char const* ErrorMessage = "ERROR: slave updater failed initialization!\r\n";
     
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
     if (!messageAlarm.armed)
-        alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
+        alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
     if (alarm_hasElapsed(&messageAlarm))
     {
-        alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
-        uint16_t normalRequiredSize = uartFrameProtocol_getMemoryRequirement(false);
-        uint16_t updaterRequiredSize = uartFrameProtocol_getMemoryRequirement(true);
-        char message[ERROR_MESSAGE_BUFFER_SIZE];
-        smallSprintf(message, "ERROR: heap memory shortage!\r\n");
-        uartFrameProtocol_write(message);
-        smallSprintf(message, "\tH=%d  N=%d  U=%d\r\n", sizeof(g_scratchBuffer), normalRequiredSize, updaterRequiredSize);
-        uartFrameProtocol_write(message);
+        alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
+        uartFrameProtocol_write(ErrorMessage);
     }
 }
 
@@ -311,20 +303,20 @@ void processHostUpdaterFailed(void)
 /// will intermittently transmit an ASCII error message over the host UART bus.
 void processHostCommFailed(void)
 {
-    static uint32_t const MessagePeriodMS = ERROR_MESSAGE_PERIOD_MS;
+    static char const* ErrorMessage = "ERROR: heap memory shortage!\r\n";
+    static char const* ErrorDetailFormat = "\tH=%d  N=%d  U=%d\r\n";
     
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
     if (!messageAlarm.armed)
-        alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
+        alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
     if (alarm_hasElapsed(&messageAlarm))
     {
-        alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
+        alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
         uint16_t normalRequiredSize = uartFrameProtocol_getMemoryRequirement(false);
         uint16_t updaterRequiredSize = uartFrameProtocol_getMemoryRequirement(true);
+        uartFrameProtocol_write(ErrorMessage);
         char message[ERROR_MESSAGE_BUFFER_SIZE];
-        smallSprintf(message, "ERROR: heap memory shortage!\r\n");
-        uartFrameProtocol_write(message);
-        smallSprintf(message, "\tH=%d  N=%d  U=%d\r\n", sizeof(g_scratchBuffer), normalRequiredSize, updaterRequiredSize);
+        smallSprintf(message, ErrorDetailFormat, sizeof(g_scratchBuffer), normalRequiredSize, updaterRequiredSize);
         uartFrameProtocol_write(message);
     }
 }
