@@ -38,7 +38,7 @@
     /// Defines any minor releases that added new features, functions, or bug
     /// fixes; backwards compatibility has been maintained.
     /// Format: unsigned 16-bit integer, represented as decimal.
-    #define VERSION_MINOR               (28u)
+    #define VERSION_MINOR               (29u)
     
     /// UICO customer number. 999 = internal.
     #define CUSTOMER_NUMBER             (999u)

@@ -903,7 +903,7 @@ static void initUpdaterDecodedRxQueue(UpdaterHeap* heap)
     queue_deregisterEnqueueCallback(&g_heap->decodedRxQueue);
     g_heap->decodedRxQueue.data = heap->heapData.decodedRxQueueData;
     g_heap->decodedRxQueue.elements = g_heap->decodedRxQueueElements;
-    g_heap->decodedRxQueue.maxDataSize = RX_QUEUE_DATA_SIZE;
+    g_heap->decodedRxQueue.maxDataSize = UPDATER_RX_QUEUE_DATA_SIZE;
     g_heap->decodedRxQueue.maxSize = RX_QUEUE_MAX_SIZE;
     queue_empty(&g_heap->decodedRxQueue);
     resetRxTime();
@@ -919,7 +919,7 @@ static void initUpdaterTxQueue(UpdaterHeap* heap)
     queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
     g_heap->txQueue.data = heap->heapData.txQueueData;
     g_heap->txQueue.elements = g_heap->txQueueElements;
-    g_heap->txQueue.maxDataSize = TX_QUEUE_DATA_SIZE;
+    g_heap->txQueue.maxDataSize = UPDATER_TX_QUEUE_DATA_SIZE;
     g_heap->txQueue.maxSize = TX_QUEUE_MAX_SIZE;
     queue_empty(&g_heap->txQueue);
     resetPendingTxEnqueue();
@@ -986,9 +986,6 @@ uint16_t uartFrameProtocol_activate(uint32_t* memory, uint16_t size, bool enable
     uint16_t requiredSize = uartFrameProtocol_getHeapWordRequirement(enableUpdater);
     if ((memory != NULL) && (size >= requiredSize))
     {
-        initRx();
-        registerI2cCallbacks();
-        allocatedSize = requiredSize;
         g_heap = (Heap*)memory;
         if (enableUpdater)
         {
@@ -1003,6 +1000,9 @@ uint16_t uartFrameProtocol_activate(uint32_t* memory, uint16_t size, bool enable
             initTxQueue(heap);
         }
         g_updaterEnabled = enableUpdater;
+        initRx();
+        registerI2cCallbacks();
+        allocatedSize = requiredSize;
     }
     return allocatedSize;
 }
