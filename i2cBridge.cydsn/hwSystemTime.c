@@ -61,7 +61,7 @@ void hwSystemTime_init(uint16_t periodMS)
     g_periodMS = periodMS;
     
     // Configure the ISR for the system tick.
-    CyIntSetSysVector((SysTick_IRQn + 16), SysTickIsr);
+    CyIntSetSysVector((SysTick_IRQn + 16u), SysTickIsr);
     
     // Configure and enable the system tick.
     SysTick_Config(periodMS * ONE_MILLISECOND);

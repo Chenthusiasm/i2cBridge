@@ -81,7 +81,11 @@
     ///                             alarm "fires".
     void alarm_snooze(Alarm volatile* alarm, uint32_t additionalTimeMS);
     
-    /// Check if an alarm has elapsed.
+    /// Check if an alarm has elapsed. Note, the alarm must also be armed in
+    /// order for the result to indicate that the alarm has elapsed. In the case
+    /// of a single notification alarm, when the check to elapse indicates the
+    /// alarm has elapsed, the alarm will be disabled so subsequent checks will
+    /// return false unless the alarm is rearmed.
     /// @param  alarm  The alarm to check if it has elapsed.
     /// @return Whether the alarm has elapsed (true) or not (false).
     /// @note   This function call will disarm a SingleNotification alarm if it
