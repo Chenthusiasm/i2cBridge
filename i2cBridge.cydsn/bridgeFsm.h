@@ -45,6 +45,12 @@
             /// Invalid state.
             bool invalidState : 1;
             
+            /// The error pertains to the translator.
+            bool translatorError: 1;
+            
+            /// The error pertains to the updater.
+            bool updaterError : 1;
+            
             /// The action associated with the bridge finite state machine
             /// failed.
             bool actionFailed : 1;

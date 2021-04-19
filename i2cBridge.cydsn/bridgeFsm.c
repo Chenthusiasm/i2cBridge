@@ -129,6 +129,15 @@ static uint32_t g_scratchBuffer[SCRATCH_BUFFER_SIZE];
 
 // === PRIVATE FUNCTIONS =======================================================
 
+/// Find the remaining size of the scratch buffer that is free for heap
+/// allocation.
+/// @return The size, in bytes, that is free in the scratch buffer.
+uint16_t getFreeScratchBufferSize(void)
+{
+    return (sizeof(g_scratchBuffer) - (g_freeScratchOffset * sizeof(uint32_t)));
+}
+
+
 /// Processes any system errors that may have occurred.
 void processError(SystemStatus status)
 {
@@ -140,22 +149,27 @@ void processError(SystemStatus status)
 /// Initializes the host comm in translator mode.
 /// @return Status indicating if an error occured. See the definition of the
 ///         SystemStatus union.
-SystemStatus initializeHostComm(void)
+SystemStatus initHostComm(void)
 {
     static bool const EnableUpdater = false;
     
     SystemStatus status = { false };
-    uint16_t size = uartFrameProtocol_activate(
-        &g_scratchBuffer[g_freeScratchOffset],
-        SCRATCH_BUFFER_SIZE - g_freeScratchOffset, EnableUpdater);
-    if (size > 0)
-        g_freeScratchOffset += size;
-    else
+    if (uartFrameProtocol_isUpdaterActivated())
+        uartFrameProtocol_deactivate();
+    if (!uartFrameProtocol_isActivated())
     {
-        status.invalidScratchOffset = true;
-        uint16_t requirement = uartFrameProtocol_getMemoryRequirement(EnableUpdater);
-        if (sizeof(g_scratchBuffer) < requirement)
-            status.invalidScratchBuffer = true;
+        uint16_t size = uartFrameProtocol_activate(
+            &g_scratchBuffer[g_freeScratchOffset],
+            SCRATCH_BUFFER_SIZE - g_freeScratchOffset, EnableUpdater);
+        if (size > 0)
+            g_freeScratchOffset += size;
+        else
+        {
+            status.invalidScratchOffset = true;
+            uint16_t requirement = uartFrameProtocol_getMemoryRequirement(EnableUpdater);
+            if (sizeof(g_scratchBuffer) < requirement)
+                status.invalidScratchBuffer = true;
+        }
     }
     return status;
 }
@@ -165,7 +179,7 @@ SystemStatus initializeHostComm(void)
 /// @return If host was initialized.
 bool processInitHostComm(void)
 {
-    SystemStatus status = initializeHostComm();
+    SystemStatus status = initHostComm();
     processError(status);
     return !status.errorOccurred;;
 }
@@ -207,19 +221,24 @@ bool processSlaveReset(void)
 bool processInitSlaveTranslator(void)
 {
     bool processed = false;
-    if (true)
+    SystemStatus status = initHostComm();
+    if (!status.errorOccurred)
     {
-        uint16_t offset = uartFrameProtocol_activate(g_scratchBuffer, SCRATCH_BUFFER_SIZE, false);
-        if (offset > 0)
-            offset = i2cTouch_activate(&g_scratchBuffer[offset], SCRATCH_BUFFER_SIZE - offset);
+        uint16_t size = i2cTouch_activate(&g_scratchBuffer[g_freeScratchOffset], SCRATCH_BUFFER_SIZE - g_freeScratchOffset);
             
-        if (offset <= 0)
+        if (size <= 0)
         {
             // Since one of the comm modules could not activate, deactivate both and
             uartFrameProtocol_deactivate();
             i2cTouch_deactivate();
-            // @TODO: perform some additional error handling here.
+            status.invalidScratchOffset = true;
+            uint16_t requirement = i2cTouch_getMemoryRequirement();
+            if (getFreeScratchBufferSize() < requirement)
+                status.invalidScratchBuffer = true;
+            status.translatorError = true;
         }
+        else
+            g_freeScratchOffset += size;
     }
     return processed;
 }
