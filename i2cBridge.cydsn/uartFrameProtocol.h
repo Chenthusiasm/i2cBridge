@@ -66,7 +66,10 @@
     
     /// Deactivates the UART frame protocol module and effectively deallocates
     /// the global memory.
-    void uartFrameProtocol_deactivate(void);
+    /// @return The heap word size that was freed by deactivating. If 0, then
+    ///         the module was probably not activated upon this function call so
+    ///         there was nothing to deallocate.
+    uint16_t uartFrameProtocol_deactivate(void);
     
     /// Checks if the module is activated and the heap has been allocated for
     /// normal mode.

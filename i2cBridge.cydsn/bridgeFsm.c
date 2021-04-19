@@ -127,12 +127,6 @@ typedef struct Heap
     /// The buffer where "dynamically" allocated memory units are located.
     heapWord_t data[HEAP_SIZE];
     
-    /// The status of the heap allocation unit for the host UART communication.
-    HeapUnitStatus host;
-    
-    /// The status of the heap allocation unit for the slave I2C communication.
-    HeapUnitStatus slave;
-    
     /// The offset into the heap that indicates the start of free space.
     uint16_t freeOffset;
     
@@ -164,20 +158,6 @@ static Heap g_heap;
 
 // === PRIVATE FUNCTIONS =======================================================
 
-/// Resets the heap to the default value. Additionally deactivates/deallocates
-/// the heaps used by the host and slave communications.
-void resetHeap(void)
-{
-    g_heap.freeOffset = 0u;
-    g_heap.host.size = 0;
-    g_heap.host.offset = 0;
-    g_heap.host.active = false;
-    g_heap.slave.size = 0;
-    g_heap.slave.offset = 0;
-    g_heap.slave.active = false;
-}
-
-
 /// Get the remaining size in words of the heap, free for memory allocation.
 /// @return The size, in words, that is free in the heap.
 uint16_t getFreeHeapWordSize(void)
@@ -194,6 +174,28 @@ void processError(SystemStatus status)
 }
 
 
+/// Resets the heap to the default value. Additionally deactivates/deallocates
+/// the heaps used by the host and slave communications.
+/// @return Status indicating if an error occured. See the definition of the
+///         SystemStatus union.
+SystemStatus resetHeap(void)
+{
+    SystemStatus status = { false };
+    
+    // Deactivate/deallocate the communication sub systems if they're activated.
+    uint16_t deactivationSize = 0;
+    if (i2cTouch_isActivated())
+        deactivationSize += i2cTouch_deactivate();
+    if (uartFrameProtocol_isActivated() || uartFrameProtocol_isUpdaterActivated())
+        deactivationSize += uartFrameProtocol_deactivate();
+        
+    if (deactivationSize != g_heap.freeOffset)
+        status.memoryLeak = true;
+    g_heap.freeOffset = 0u;
+    return status;
+}
+
+
 /// Initializes the host comm in translator mode.
 /// @return Status indicating if an error occured. See the definition of the
 ///         SystemStatus union.
@@ -203,10 +205,7 @@ SystemStatus initHostComm(void)
     
     SystemStatus status = { false };
     if (uartFrameProtocol_isUpdaterActivated())
-    {
-        // @TODO: call updater deactivate
-        uartFrameProtocol_deactivate();
-    }
+        status = resetHeap();
     if (!uartFrameProtocol_isActivated())
     {
         uint16_t size = uartFrameProtocol_activate(

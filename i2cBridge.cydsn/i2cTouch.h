@@ -106,7 +106,10 @@
     uint16_t i2cTouch_activate(uint32_t memory[], uint16_t size);
     
     /// Deactivates the slave I2C module and effectively deallocates the memory.
-    void i2cTouch_deactivate(void);
+    /// @return The heap word size that was freed by deactivating. If 0, then
+    ///         the module was probably not activated upon this function call so
+    ///         there was nothing to deallocate.
+    uint16_t i2cTouch_deactivate(void);
     
     /// Checks if the module is activated and the heap has been allocated.
     /// @return If the module is activated.

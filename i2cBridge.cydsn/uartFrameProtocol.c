@@ -1008,10 +1008,16 @@ uint16_t uartFrameProtocol_activate(uint32_t* memory, uint16_t size, bool enable
 }
 
 
-void uartFrameProtocol_deactivate(void)
+uint16_t uartFrameProtocol_deactivate(void)
 {
+    uint16_t size = 0u;
+    if (g_heap != NULL)
+    {
+        size = uartFrameProtocol_getHeapWordRequirement(g_updaterEnabled);
+        g_heap = NULL;
+    }
     g_updaterEnabled = false;
-    g_heap = NULL;
+    return size;
 }
 
 

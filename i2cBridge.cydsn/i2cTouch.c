@@ -1105,10 +1105,16 @@ uint16_t i2cTouch_activate(uint32_t memory[], uint16_t size)
 }
  
 
-void i2cTouch_deactivate(void)
+uint16_t i2cTouch_deactivate(void)
 {
-    g_heap = NULL;
+    uint16_t size = 0u;
+    if (g_heap != NULL)
+    {
+        size = i2cTouch_getHeapWordRequirement();
+        g_heap = NULL;
+    }
     reinitAll();
+    return size;
 }
 
 

@@ -42,9 +42,6 @@
         /// Anonymous struct of 1-bit flags indicating specific errors.
         struct
         {
-            /// Invalid state.
-            bool invalidState : 1;
-            
             /// The error pertains to the translator.
             bool translatorError: 1;
             
@@ -60,6 +57,13 @@
             
             /// Invalid scratch buffer operation.
             bool invalidScratchBuffer : 1;
+            
+            /// Potential memory leak has occurred due to allocation and
+            /// deallocation of heap units for the heap.
+            bool memoryLeak : 1;
+            
+            /// Invalid state.
+            bool invalidState : 1;
             
         };
         
