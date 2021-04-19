@@ -108,6 +108,10 @@
     /// Deactivates the slave I2C module and effectively deallocates the memory.
     void i2cTouch_deactivate(void);
     
+    /// Checks if the module is activated and the heap has been allocated.
+    /// @return If the module is activated.
+    bool i2cTouch_isActivated(void);
+    
     /// Registers the receive callback function that should be invoked when
     /// data is received.
     /// @param[in]  callback    The callback function.

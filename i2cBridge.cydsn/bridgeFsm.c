@@ -164,7 +164,8 @@ static Heap g_heap;
 
 // === PRIVATE FUNCTIONS =======================================================
 
-/// Resets the heap to the default value.
+/// Resets the heap to the default value. Additionally deactivates/deallocates
+/// the heaps used by the host and slave communications.
 void resetHeap(void)
 {
     g_heap.freeOffset = 0u;

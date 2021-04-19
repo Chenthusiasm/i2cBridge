@@ -1112,6 +1112,12 @@ void i2cTouch_deactivate(void)
 }
 
 
+bool i2cTouch_isActivated(void)
+{
+    return (g_heap != NULL);
+}
+
+
 void i2cTouch_setSlaveAddress(uint8_t address)
 {
     if (address != g_slaveAddress)
