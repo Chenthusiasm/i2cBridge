@@ -84,6 +84,16 @@
     ///                     format specifiers with associated flags.
     int smallPrintf(PutChar putChar, char const* format, va_list args);
     
+    /// An sprintf function using smallPrintf. The sprintf function allows for
+    /// the creation of a formatted string.
+    /// @param[in]  string  The pointer to a c-string to store the formatted
+    ///                     string. This must 
+    /// @param[in]  format  The format string with % formatters for the variadic
+    ///                     arguments.
+    /// @param[in]  ...     The variadiac argument list representing the list of
+    ///                     format specifiers with associated flags.
+    int smallSprintf(char* string, char const* format, ...);
+    
     
     #ifdef __cplusplus
         } // extern "C"

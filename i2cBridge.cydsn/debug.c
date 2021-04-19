@@ -43,6 +43,7 @@
     
     /// Implementation of the PutChar function used by smallPrintf to perform the
     /// a specific action on a post-formatted character.
+    /// @param[in]  c   The character in the formatted string to "put".
     static void putChar(char c)
     {
         PUTCHAR(c);

@@ -139,8 +139,7 @@
         ///     %   % character.
         ///
         /// @param[in]  format  The format string with % formatters for the
-        ///                     variadic
-        ///                     arguments.
+        ///                     variadic arguments.
         /// @param[in]  ...     The variadiac argument list representing the
         ///                     list of format specifiers with associated flags.
         void debug_printf(char const* format, ...);

@@ -24,8 +24,6 @@
 
 // === DEFINES =================================================================
 
-
-
 #if ENABLE_PRINTF_BINARY
 
     /// The number of bits to right shift (divide) to perform the itoa
@@ -212,6 +210,17 @@ static char const G_HexPrefix[] = "0x";
     static char const G_UpperCharTable[] = "0123456789ABCDEF";
     
 #endif // ENABLE_PRINTF_HEX
+
+
+// === GLOBAL VARIABLES ========================================================
+
+/// String used to hold the results of the sprintf function. Needed for the
+/// PutChar callback function.
+static char* g_sprintfString = NULL;
+
+/// Buffer offset used to place the next character in the PutChar callback
+/// callback function.
+static int g_sprintfOffset = 0;
 
 
 // === PRIVATE FUNCTIONS =======================================================
@@ -539,6 +548,15 @@ static ItoaResult simplePtoa(void* pointer, char buffer[], uint8_t size,FormatFl
 }
 
 
+/// Implementation of the PutChar function used by smallPrintf to perform the a
+/// specific action on a post-formatted character.
+/// @param[in]  c   The character in the formatted string to "put".
+static void sprintfPutChar(char c)
+{
+    g_sprintfString[g_sprintfOffset++] = c;
+}
+
+
 // === PUBLIC FUNCTIONS ========================================================
 
 int smallPrintf(PutChar putChar, char const* format, va_list args)
@@ -786,6 +804,25 @@ int smallPrintf(PutChar putChar, char const* format, va_list args)
     // Uncomment the following line if the function needs to return the
     // number of characters that were printed.
     return n;
+}
+
+
+int smallSprintf(char* string, char const* format, ...)
+{
+    g_sprintfOffset = 0;
+    g_sprintfString = string;
+    if (g_sprintfString != NULL)
+    {
+        va_list args;
+        va_start(args, format);
+        smallPrintf(sprintfPutChar, format, args);
+        g_sprintfString[g_sprintfOffset] = 0;
+        va_end(args);
+    }
+    else
+        g_sprintfOffset = -1;
+    
+    return g_sprintfOffset;
 }
 
 

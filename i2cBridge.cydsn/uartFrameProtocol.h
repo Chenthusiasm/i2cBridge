@@ -122,6 +122,12 @@
     /// @return If the data was successfully enqueued.
     bool uartFrameProtocol_txEnqueueError(uint8_t const data[], uint16_t size);
     
+    /// Directly write a string to the UART. The write only occurs if the
+    /// the module is deactivated; use the txEnqueData and processTx if the
+    /// module is activated.
+    /// @param[in]  string  The string to write to the UART.
+    void uartFrameProtocol_write(char const string[]);
+    
     
     #ifdef __cplusplus
         } // extern "C"

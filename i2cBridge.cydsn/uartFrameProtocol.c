@@ -1141,4 +1141,11 @@ bool uartFrameProtocol_txEnqueueError(uint8_t const data[], uint16_t size)
 }
 
 
+void uartFrameProtocol_write(char const string[])
+{
+    if (g_heap == NULL)
+        COMPONENT(HOST_UART, UartPutString)(string);
+}
+
+
 /* [] END OF FILE */

@@ -18,6 +18,7 @@
 #include "error.h"
 #include "i2cTouch.h"
 #include "project.h"
+#include "smallPrintf.h"
 #include "uartFrameProtocol.h"
 
 
@@ -55,9 +56,9 @@ typedef enum State
     /// Processes tasks related to the I2C slave update mode.
     State_SlaveUpdater,
     
-    /// General error state: repeatedly send out an error message to the host
-    /// comm interface indicating an error occurred.
-    State_GeneralError,
+    /// Host communication failed to initialize. Send a generic error message
+    /// to the host.
+    State_HostCommFailed,
     
 } State;
 
@@ -246,6 +247,22 @@ bool processSlaveUpdater(void)
 /// over the host UART bus.
 void processGeneralError(void)
 {
+    static uint32_t const MessagePeriodMS = 2000u;
+    
+    static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
+    if (!messageAlarm.armed)
+        alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
+    if (alarm_hasElapsed(&messageAlarm))
+    {
+        alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
+        uint16_t normalRequiredSize = uartFrameProtocol_getMemoryRequirement(false);
+        uint16_t updaterRequiredSize = uartFrameProtocol_getMemoryRequirement(true);
+        char message[64u];
+        smallSprintf(message, "ERROR: heap memory shortage!\r\n");
+        uartFrameProtocol_write(message);
+        smallSprintf(message, "\tH=%d  N=%d  U=%d\r\n", sizeof(g_scratchBuffer), normalRequiredSize, updaterRequiredSize);
+        uartFrameProtocol_write(message);
+    }
 }
 
 
@@ -313,8 +330,9 @@ void bridgeFsm_process(void)
             break;
         }
         
-        case State_GeneralError:
+        case State_HostCommFailed:
         {
+            processGeneralError();
             // Do not transition out of this state.
             break;
         }
