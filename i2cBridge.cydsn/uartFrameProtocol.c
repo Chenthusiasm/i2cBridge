@@ -20,6 +20,7 @@
 #include "alarm.h"
 #include "debug.h"
 #include "error.h"
+#include "heap.h"
 #include "hwSystemTime.h"
 #include "i2cTouch.h"
 #include "project.h"
@@ -974,11 +975,11 @@ void uartFrameProtocol_init(void)
 
 uint16_t uartFrameProtocol_getMemoryRequirement(bool enableUpdater)
 {
-    uint16_t const Mask = sizeof(uint32_t) - 1u;
+    uint16_t const Mask = sizeof(heapWord_t) - 1u;
     
     uint16_t size = (enableUpdater) ? (sizeof(UpdaterHeap)) : (sizeof(NormalHeap));
     if ((size & Mask) != 0)
-        size = (size + sizeof(uint32_t)) & ~Mask;
+        size = (size + sizeof(heapWord_t)) & ~Mask;
     return size;
 }
 
@@ -986,7 +987,7 @@ uint16_t uartFrameProtocol_getMemoryRequirement(bool enableUpdater)
 uint16_t uartFrameProtocol_activate(uint32_t* memory, uint16_t size, bool enableUpdater)
 {
     uint16_t allocatedSize = 0;
-    uint16_t requiredSize = uartFrameProtocol_getMemoryRequirement(enableUpdater) / sizeof(uint32_t);
+    uint16_t requiredSize = uartFrameProtocol_getMemoryRequirement(enableUpdater) / sizeof(heapWord_t);
     if ((memory != NULL) && (size >= requiredSize))
     {
         initRx();

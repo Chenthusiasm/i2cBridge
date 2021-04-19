@@ -19,6 +19,7 @@
 #include "alarm.h"
 #include "debug.h"
 #include "error.h"
+#include "heap.h"
 #include "i2cCommon.h"
 #include "project.h"
 #include "queue.h"
@@ -1085,23 +1086,24 @@ void i2cTouch_init(void)
 
 uint16_t i2cTouch_getMemoryRequirement(void)
 {
-    uint16_t const Mask = sizeof(uint32_t) - 1;
+    uint16_t const Mask = sizeof(heapWord_t) - 1;
     
     uint16_t size = sizeof(Heap);
     if ((size & Mask) != 0)
-        size = (size + sizeof(uint32_t)) & ~Mask;
+        size = (size + sizeof(heapWord_t)) & ~Mask;
     return size;
 }
 
 
 uint16_t i2cTouch_activate(uint32_t memory[], uint16_t size)
 {
-    uint32_t allocatedSize = 0;
-    if ((memory != NULL) && (sizeof(Heap) <= (sizeof(uint32_t) * size)))
+    uint16_t allocatedSize = 0;
+    uint16_t requiredSize = i2cTouch_getMemoryRequirement() / sizeof(heapWord_t);
+    if ((memory != NULL) && (size >= requiredSize))
     {
         g_heap = (Heap*)memory;
         initTxQueue();
-        allocatedSize = i2cTouch_getMemoryRequirement() / sizeof(uint32_t);
+        allocatedSize = requiredSize;
         reinitAll();
     }
     return allocatedSize;

@@ -16,6 +16,7 @@
 
 #include "alarm.h"
 #include "error.h"
+#include "heap.h"
 #include "i2cTouch.h"
 #include "project.h"
 #include "smallPrintf.h"
@@ -25,9 +26,9 @@
 // === DEFINES =================================================================
 
 /// The size of the scratch buffer. Note that the scratch buffer contains data
-/// of type uint32_t to keek word aligned; therefore, we divide by the size of
-/// a uint32_t.
-#define SCRATCH_BUFFER_SIZE             (2800u / sizeof(uint32_t))
+/// of type heapWord_t to keep word aligned; therefore, we divide by the size of
+/// a heapWord_t. In the case of a 32-bit MCU, the heapWord_t is a uint32_t.
+#define SCRATCH_BUFFER_SIZE             (2800u / sizeof(heapWord_t))
 
 /// The size of the error message buffer (for use with smallSprintf). Do not
 /// make generic error messages larger than this, otherwise a buffer overflow
@@ -140,7 +141,7 @@ static Alarm g_resetAlarm;
 static uint16_t g_freeScratchOffset = 0u;
 
 /// Scratch buffer used for dynamic memory allocation by the comm modules.
-static uint32_t g_scratchBuffer[SCRATCH_BUFFER_SIZE];
+static heapWord_t g_scratchBuffer[SCRATCH_BUFFER_SIZE];
 
 
 // === PRIVATE FUNCTIONS =======================================================
@@ -150,7 +151,7 @@ static uint32_t g_scratchBuffer[SCRATCH_BUFFER_SIZE];
 /// @return The size, in bytes, that is free in the scratch buffer.
 uint16_t getFreeScratchBufferSize(void)
 {
-    return (sizeof(g_scratchBuffer) - (g_freeScratchOffset * sizeof(uint32_t)));
+    return (sizeof(g_scratchBuffer) - (g_freeScratchOffset * sizeof(heapWord_t)));
 }
 
 
