@@ -155,7 +155,10 @@ SystemStatus initHostComm(void)
     
     SystemStatus status = { false };
     if (uartFrameProtocol_isUpdaterActivated())
+    {
+        // @TODO: call updater deactivate
         uartFrameProtocol_deactivate();
+    }
     if (!uartFrameProtocol_isActivated())
     {
         uint16_t size = uartFrameProtocol_activate(
