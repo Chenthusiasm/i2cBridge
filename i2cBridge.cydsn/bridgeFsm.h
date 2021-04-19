@@ -65,6 +65,9 @@
             /// Invalid state.
             bool invalidState : 1;
             
+            /// Attempt(s) to reset the slave failed.
+            bool slaveResetFailed : 1;
+            
         };
         
     } SystemStatus;

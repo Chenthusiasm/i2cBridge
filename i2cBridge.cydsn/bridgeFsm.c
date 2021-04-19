@@ -21,9 +21,13 @@
 #include "project.h"
 #include "smallPrintf.h"
 #include "uartFrameProtocol.h"
+#include "utility.h"
 
 
 // === DEFINES =================================================================
+
+/// Name of the slave reset component.
+#define SLAVE_RESET                     slaveReset_
 
 /// The size of the heap for "dynamic" memory allocation in bytes.
 #define HEAP_BYTE_SIZE                  (2800u)
@@ -158,6 +162,26 @@ static Heap g_heap;
 
 // === PRIVATE FUNCTIONS =======================================================
 
+/// Checks if the slave is resetting.
+/// Note, the slave reset is configured as an open drain drives low GPIO. The
+/// slave device's XRES line has an internal pull-up and is an active low reset.
+/// @return If the slave is currently resetting (active low).
+bool isSlaveResetting(void)
+{
+    return (COMPONENT(SLAVE_RESET, Read)() <= 0);
+}
+
+
+/// Puts the slave in reset or takes it out of reset, depending on the reset
+/// input parameter.
+/// @param[in]  reset   Flag indicating if the slave should be put in reset or
+///                     not.
+void resetSlave(bool reset)
+{
+    COMPONENT(SLAVE_RESET, Write)((reset) ? (0u) : (1u));
+}
+
+
 /// Get the remaining size in words of the heap, free for memory allocation.
 /// @return The size, in words, that is free in the heap.
 uint16_t getFreeHeapWordSize(void)
@@ -206,19 +230,22 @@ SystemStatus initHostComm(void)
     SystemStatus status = { false };
     if (uartFrameProtocol_isUpdaterActivated())
         status = resetHeap();
-    if (!uartFrameProtocol_isActivated())
+    if (!status.errorOccurred)
     {
-        uint16_t size = uartFrameProtocol_activate(
-            &g_heap.data[g_heap.freeOffset],
-            HEAP_SIZE - g_heap.freeOffset, EnableUpdater);
-        if (size > 0)
-            g_heap.freeOffset += size;
-        else
+        if (!uartFrameProtocol_isActivated())
         {
-            status.invalidScratchOffset = true;
-            uint16_t requirement = uartFrameProtocol_getHeapWordRequirement(EnableUpdater);
-            if (getFreeHeapWordSize() < requirement)
-                status.invalidScratchBuffer = true;
+            uint16_t size = uartFrameProtocol_activate(
+                &g_heap.data[g_heap.freeOffset],
+                getFreeHeapWordSize(), EnableUpdater);
+            if (size > 0)
+                g_heap.freeOffset += size;
+            else
+            {
+                status.invalidScratchOffset = true;
+                uint16_t requirement = uartFrameProtocol_getHeapWordRequirement(EnableUpdater);
+                if (getFreeHeapWordSize() < requirement)
+                    status.invalidScratchBuffer = true;
+            }
         }
     }
     return status;
@@ -239,30 +266,39 @@ bool processInitHostComm(void)
 /// @return If the slave reset was initialized successfully.
 bool processInitSlaveReset(void)
 {
-    bool processed = false;
-    if (true)
+    SystemStatus status = { false };
+    if (!isSlaveResetting())
     {
-        processed = true;
         static uint32_t const DefaultResetTimeoutMS = 100u;
         alarm_arm(&g_resetAlarm, DefaultResetTimeoutMS, AlarmType_ContinuousNotification);
-        slaveReset_Write(0);
+        resetSlave(true);
     }
-    return processed;
+    else
+        status.slaveResetFailed = true;
+    return !status.errorOccurred;
 }
 
 
-/// Processes all tasks associated with resetting the I2C slave.
+/// Processes checking if the slave reset is complete.
 /// @return If the slave reset completed.
-bool processSlaveReset(void)
+bool processSlaveResetComplete(void)
 {
-    bool processed = false;
+    bool complete = false;
+    SystemStatus status = { false };
     if (!g_resetAlarm.armed || alarm_hasElapsed(&g_resetAlarm))
     {
-        slaveReset_Write(1);
-        alarm_disarm(&g_resetAlarm);
-        processed = true;
+        resetSlave(false);
+        CyDelayUs(50u);
+        if (!isSlaveResetting())
+        {
+            alarm_disarm(&g_resetAlarm);
+            complete = true;
+        }
+        else
+            status.slaveResetFailed = true;
     }
-    return processed;
+    processError(status);
+    return complete;
 }
 
 
@@ -274,13 +310,10 @@ bool processInitSlaveTranslator(void)
     SystemStatus status = initHostComm();
     if (!status.errorOccurred)
     {
-        uint16_t size = i2cTouch_activate(&g_heap.data[g_heap.freeOffset], HEAP_SIZE - g_heap.freeOffset);
+        uint16_t size = i2cTouch_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
             
         if (size <= 0)
         {
-            // Since one of the comm modules could not activate, deactivate both and
-            uartFrameProtocol_deactivate();
-            i2cTouch_deactivate();
             status.invalidScratchOffset = true;
             uint16_t requirement = i2cTouch_getHeapWordRequirement();
             if (getFreeHeapWordSize() < requirement)
@@ -290,6 +323,7 @@ bool processInitSlaveTranslator(void)
         else
             g_heap.freeOffset += size;
     }
+    processError(status);
     return processed;
 }
 
@@ -447,8 +481,13 @@ void bridgeFsm_process(void)
         
         case State_CheckSlaveResetComplete:
         {
-            if (processSlaveReset())
+            if (processSlaveResetComplete())
                 g_state = State_InitSlaveTranslator;
+            else if (alarm_hasElapsed(&g_resetAlarm))
+            {
+                alarm_disarm(&g_resetAlarm);
+                g_state = State_InitSlaveTranslator;
+            }
             break;
         }
         
