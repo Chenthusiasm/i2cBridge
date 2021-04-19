@@ -106,24 +106,37 @@ typedef union ModeChange
 } ModeChange;
 
 
-/// General status of the communication module: host UART or slave I2C.
-typedef struct ModuleStatus
+/// General status of an allocation unit in the heap.
+typedef struct HeapUnitStatus
 {
     /// The size of the communication module heap (in words);
-    uint16_t heapWordSize;
+    uint16_t size;
     
     /// The offset in the heap for the communication module (in words).
-    uint16_t heapWordOffset;
+    uint16_t offset;
     
     /// Flag indicating if the communication module is active.
     bool active;
     
-} ModuleStatus;
+} HeapUnitStatus;
 
 
-typedef struct HeapStatus
+/// Data structure that encapsulates the heap.
+typedef struct Heap
 {
-} HeapStatus;
+    /// The buffer where "dynamically" allocated memory units are located.
+    heapWord_t data[HEAP_SIZE];
+    
+    /// The status of the heap allocation unit for the host UART communication.
+    HeapUnitStatus host;
+    
+    /// The status of the heap allocation unit for the slave I2C communication.
+    HeapUnitStatus slave;
+    
+    /// The offset into the heap that indicates the start of free space.
+    uint16_t freeOffset;
+    
+} Heap;
 
 
 // === CONSTANTS ===============================================================
@@ -145,20 +158,30 @@ static ModeChange g_modeChange = { false };
 /// An alarm used to indicate how long to hold the slave device in reset.
 static Alarm g_resetAlarm;
 
-/// The offset into the heap that indicates the start of free space.
-static uint16_t g_freeHeapOffset = 0u;
-
-/// Heap used for "dynamic" memory allocation by the comm modules.
-static heapWord_t g_heap[HEAP_SIZE];
+/// Heap data structure used for "dynamic" memory allocation.
+static Heap g_heap;
 
 
 // === PRIVATE FUNCTIONS =======================================================
+
+/// Resets the heap to the default value.
+void resetHeap(void)
+{
+    g_heap.freeOffset = 0u;
+    g_heap.host.size = 0;
+    g_heap.host.offset = 0;
+    g_heap.host.active = false;
+    g_heap.slave.size = 0;
+    g_heap.slave.offset = 0;
+    g_heap.slave.active = false;
+}
+
 
 /// Get the remaining size in words of the heap, free for memory allocation.
 /// @return The size, in words, that is free in the heap.
 uint16_t getFreeHeapWordSize(void)
 {
-    return (HEAP_SIZE - g_freeHeapOffset);
+    return (HEAP_SIZE - g_heap.freeOffset);
 }
 
 
@@ -186,10 +209,10 @@ SystemStatus initHostComm(void)
     if (!uartFrameProtocol_isActivated())
     {
         uint16_t size = uartFrameProtocol_activate(
-            &g_heap[g_freeHeapOffset],
-            HEAP_SIZE - g_freeHeapOffset, EnableUpdater);
+            &g_heap.data[g_heap.freeOffset],
+            HEAP_SIZE - g_heap.freeOffset, EnableUpdater);
         if (size > 0)
-            g_freeHeapOffset += size;
+            g_heap.freeOffset += size;
         else
         {
             status.invalidScratchOffset = true;
@@ -251,7 +274,7 @@ bool processInitSlaveTranslator(void)
     SystemStatus status = initHostComm();
     if (!status.errorOccurred)
     {
-        uint16_t size = i2cTouch_activate(&g_heap[g_freeHeapOffset], HEAP_SIZE - g_freeHeapOffset);
+        uint16_t size = i2cTouch_activate(&g_heap.data[g_heap.freeOffset], HEAP_SIZE - g_heap.freeOffset);
             
         if (size <= 0)
         {
@@ -265,7 +288,7 @@ bool processInitSlaveTranslator(void)
             status.translatorError = true;
         }
         else
-            g_freeHeapOffset += size;
+            g_heap.freeOffset += size;
     }
     return processed;
 }
@@ -368,17 +391,19 @@ void processHostCommFailed(void)
 }
 
 
-// === PUBLIC FUNCTIONS ========================================================
-
-void bridgeFsm_reset(void)
+/// Resets the bridge finits state machine (FSM) to the default state.
+void reset(void)
 {
-    g_state = State_InitHostComm;    
+    g_state = State_InitHostComm;
+    resetHeap();
 }
 
 
+// === PUBLIC FUNCTIONS ========================================================
+
 void bridgeFsm_init(void)
 {
-    bridgeFsm_reset();
+    reset();
 }
 
 

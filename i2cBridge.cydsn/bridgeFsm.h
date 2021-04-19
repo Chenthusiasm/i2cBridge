@@ -68,9 +68,6 @@
     
     // === FUNCTIONS ===========================================================
     
-    /// Reset the bridge state machine.
-    void bridgeFsm_reset(void);
-    
     /// Initialize the bridge state machine. This will also reset the bridge
     /// state machine.
     void bridgeFsm_init(void);
