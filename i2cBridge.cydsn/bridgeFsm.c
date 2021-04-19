@@ -15,6 +15,7 @@
 #include "bridgeFsm.h"
 
 #include "alarm.h"
+#include "debug.h"
 #include "error.h"
 #include "heap.h"
 #include "i2cTouch.h"
@@ -291,11 +292,15 @@ bool processSlaveResetComplete(void)
         CyDelayUs(50u);
         if (!isSlaveResetting())
         {
-            alarm_disarm(&g_resetAlarm);
+            debug_uartWriteByte(0xf0);
             complete = true;
         }
         else
+        {
+            debug_uartWriteByte(0xf1);
             status.slaveResetFailed = true;
+        }
+        alarm_disarm(&g_resetAlarm);
     }
     processError(status);
     return complete;
@@ -306,14 +311,16 @@ bool processSlaveResetComplete(void)
 /// @return If the initialization was successful.
 bool processInitSlaveTranslator(void)
 {
-    bool processed = false;
     SystemStatus status = initHostComm();
+    debug_uartWriteByte(0xa0);
     if (!status.errorOccurred)
     {
+        debug_uartWriteByte(0xa1);
         uint16_t size = i2cTouch_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
             
         if (size <= 0)
         {
+            debug_uartWriteByte(0xa2);
             status.invalidScratchOffset = true;
             uint16_t requirement = i2cTouch_getHeapWordRequirement();
             if (getFreeHeapWordSize() < requirement)
@@ -321,10 +328,13 @@ bool processInitSlaveTranslator(void)
             status.translatorError = true;
         }
         else
+        {
+            debug_uartWriteByte(0xa3);
             g_heap.freeOffset += size;
+        }
     }
     processError(status);
-    return processed;
+    return !status.errorOccurred;
 }
 
 
@@ -448,27 +458,45 @@ void bridgeFsm_process(void)
         case State_InitHostComm:
         {
             if (processInitHostComm())
+            {
+                debug_uartWriteByte(0);
                 g_state = State_InitSlaveReset;
+            }
             else
+            {
+                debug_uartWriteByte(1);
                 g_state = State_HostCommFailed;
+            }
             break;
         }
         
         case State_InitSlaveReset:
         {
             if (processInitSlaveReset())
+            {
+                debug_uartWriteByte(2);
                 g_state = State_CheckSlaveResetComplete;
+            }
             else
+            {
+                debug_uartWriteByte(3);
                 g_state = State_InitSlaveTranslator;
+            }
             break;
         }
         
         case State_InitSlaveTranslator:
         {
             if (processInitSlaveTranslator())
+            {
+                debug_uartWriteByte(4);
                 g_state = State_SlaveTranslator;
+            }
             else
+            {
+                debug_uartWriteByte(5);
                 g_state = State_SlaveTranslatorFailed;
+            }
             break;
         }
         
@@ -482,10 +510,13 @@ void bridgeFsm_process(void)
         case State_CheckSlaveResetComplete:
         {
             if (processSlaveResetComplete())
-                g_state = State_InitSlaveTranslator;
-            else if (alarm_hasElapsed(&g_resetAlarm))
             {
-                alarm_disarm(&g_resetAlarm);
+                debug_uartWriteByte(6);
+                g_state = State_InitSlaveTranslator;
+            }
+            else if (!g_resetAlarm.armed)
+            {
+                debug_uartWriteByte(7);
                 g_state = State_InitSlaveTranslator;
             }
             break;
@@ -526,6 +557,7 @@ void bridgeFsm_process(void)
         
         default:
         {
+            debug_uartWriteByte(0xff);
             // Should not get here.
         }
     }
