@@ -101,6 +101,22 @@ typedef union ModeChange
 } ModeChange;
 
 
+/// General status of the communication module: host UART or slave I2C.
+typedef struct ModuleStatus
+{
+    /// The size of the communication module heap (in words);
+    uint16_t heapWordSize;
+    
+    /// The offset for the heap in the scratch buffer for the communication
+    /// module (in words).
+    uint16_t heapWordOffset;
+    
+    /// Flag indicating if the communication module is active.
+    bool active;
+    
+} ModuleStatus;
+
+
 // === CONSTANTS ===============================================================
 
 /// The default period between writing of error messages to the host UART bus
