@@ -25,10 +25,14 @@
 
 // === DEFINES =================================================================
 
-/// The size of the scratch buffer. Note that the scratch buffer contains data
-/// of type heapWord_t to keep word aligned; therefore, we divide by the size of
-/// a heapWord_t. In the case of a 32-bit MCU, the heapWord_t is a uint32_t.
-#define SCRATCH_BUFFER_SIZE             (2800u / sizeof(heapWord_t))
+/// The size of the heap for "dynamic" memory allocation in bytes.
+#define HEAP_BYTE_SIZE                  (2800u)
+
+/// The size of the heap for "dynamic" memory allocation. Note that the heap
+/// contains data of type heapWord_t to keep word aligned; therefore, the byte
+/// size is divided by the size of the heapWord_t. In the case of a 32-bit MCU,
+/// the heapWord_t is a uint32_t (see heapWord_t).
+#define HEAP_SIZE                       (HEAP_BYTE_SIZE / sizeof(heapWord_t))
 
 /// The size of the error message buffer (for use with smallSprintf). Do not
 /// make generic error messages larger than this, otherwise a buffer overflow
@@ -108,14 +112,18 @@ typedef struct ModuleStatus
     /// The size of the communication module heap (in words);
     uint16_t heapWordSize;
     
-    /// The offset for the heap in the scratch buffer for the communication
-    /// module (in words).
+    /// The offset in the heap for the communication module (in words).
     uint16_t heapWordOffset;
     
     /// Flag indicating if the communication module is active.
     bool active;
     
 } ModuleStatus;
+
+
+typedef struct HeapStatus
+{
+} HeapStatus;
 
 
 // === CONSTANTS ===============================================================
@@ -137,21 +145,20 @@ static ModeChange g_modeChange = { false };
 /// An alarm used to indicate how long to hold the slave device in reset.
 static Alarm g_resetAlarm;
 
-/// The offset into the scratch buffer that indicates the start of free space.
-static uint16_t g_freeScratchOffset = 0u;
+/// The offset into the heap that indicates the start of free space.
+static uint16_t g_freeHeapOffset = 0u;
 
-/// Scratch buffer used for dynamic memory allocation by the comm modules.
-static heapWord_t g_scratchBuffer[SCRATCH_BUFFER_SIZE];
+/// Heap used for "dynamic" memory allocation by the comm modules.
+static heapWord_t g_heap[HEAP_SIZE];
 
 
 // === PRIVATE FUNCTIONS =======================================================
 
-/// Find the remaining size of the scratch buffer that is free for heap
-/// allocation.
-/// @return The size, in bytes, that is free in the scratch buffer.
-uint16_t getFreeScratchBufferWordSize(void)
+/// Get the remaining size in words of the heap, free for memory allocation.
+/// @return The size, in words, that is free in the heap.
+uint16_t getFreeHeapWordSize(void)
 {
-    return (SCRATCH_BUFFER_SIZE - g_freeScratchOffset);
+    return (HEAP_SIZE - g_freeHeapOffset);
 }
 
 
@@ -179,15 +186,15 @@ SystemStatus initHostComm(void)
     if (!uartFrameProtocol_isActivated())
     {
         uint16_t size = uartFrameProtocol_activate(
-            &g_scratchBuffer[g_freeScratchOffset],
-            SCRATCH_BUFFER_SIZE - g_freeScratchOffset, EnableUpdater);
+            &g_heap[g_freeHeapOffset],
+            HEAP_SIZE - g_freeHeapOffset, EnableUpdater);
         if (size > 0)
-            g_freeScratchOffset += size;
+            g_freeHeapOffset += size;
         else
         {
             status.invalidScratchOffset = true;
             uint16_t requirement = uartFrameProtocol_getHeapWordRequirement(EnableUpdater);
-            if (getFreeScratchBufferWordSize() < requirement)
+            if (getFreeHeapWordSize() < requirement)
                 status.invalidScratchBuffer = true;
         }
     }
@@ -244,7 +251,7 @@ bool processInitSlaveTranslator(void)
     SystemStatus status = initHostComm();
     if (!status.errorOccurred)
     {
-        uint16_t size = i2cTouch_activate(&g_scratchBuffer[g_freeScratchOffset], SCRATCH_BUFFER_SIZE - g_freeScratchOffset);
+        uint16_t size = i2cTouch_activate(&g_heap[g_freeHeapOffset], HEAP_SIZE - g_freeHeapOffset);
             
         if (size <= 0)
         {
@@ -253,12 +260,12 @@ bool processInitSlaveTranslator(void)
             i2cTouch_deactivate();
             status.invalidScratchOffset = true;
             uint16_t requirement = i2cTouch_getHeapWordRequirement();
-            if (getFreeScratchBufferWordSize() < requirement)
+            if (getFreeHeapWordSize() < requirement)
                 status.invalidScratchBuffer = true;
             status.translatorError = true;
         }
         else
-            g_freeScratchOffset += size;
+            g_freeHeapOffset += size;
     }
     return processed;
 }
@@ -355,7 +362,7 @@ void processHostCommFailed(void)
         uint16_t updaterRequiredSize = uartFrameProtocol_getHeapWordRequirement(true);
         uartFrameProtocol_write(ErrorMessage);
         char message[ERROR_MESSAGE_BUFFER_SIZE];
-        smallSprintf(message, ErrorDetailFormat, SCRATCH_BUFFER_SIZE, normalRequiredSize, updaterRequiredSize);
+        smallSprintf(message, ErrorDetailFormat, HEAP_SIZE, normalRequiredSize, updaterRequiredSize);
         uartFrameProtocol_write(message);
     }
 }
