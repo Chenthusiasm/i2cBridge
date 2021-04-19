@@ -243,9 +243,9 @@ bool processSlaveUpdater(void)
 }
 
 
-/// Processes a general error: intermittently transmit an ASCII error message
-/// over the host UART bus.
-void processGeneralError(void)
+/// Processes the case where the host comm initialization failed. The function
+/// will intermittently transmit an ASCII error message over the host UART bus.
+void processHostCommFailed(void)
 {
     static uint32_t const MessagePeriodMS = 2000u;
     
@@ -286,8 +286,10 @@ void bridgeFsm_process(void)
     {
         case State_InitHostComm:
         {
-            processInitHostComm();
-            g_state = State_InitSlaveReset;
+            if (processInitHostComm())
+                g_state = State_InitSlaveReset;
+            else
+                g_state = State_HostCommFailed;
             break;
         }
         
@@ -332,7 +334,7 @@ void bridgeFsm_process(void)
         
         case State_HostCommFailed:
         {
-            processGeneralError();
+            processHostCommFailed();
             // Do not transition out of this state.
             break;
         }
