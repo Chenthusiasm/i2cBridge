@@ -29,6 +29,14 @@
 /// a uint32_t.
 #define SCRATCH_BUFFER_SIZE             (2800u / sizeof(uint32_t))
 
+/// The size of the error message buffer. Do not make generic error messages
+/// larger than this, otherwise a buffer overflow will occur.
+#define ERROR_MESSAGE_BUFFER_SIZE       (64u)
+
+/// The default period between writing of error messages to the host UART bus
+/// when a general error occurs.
+#define ERROR_MESSAGE_PERIOD_MS         (5000u)
+
 
 // === TYPE DEFINES ============================================================
 
@@ -55,6 +63,14 @@ typedef enum State
     
     /// Processes tasks related to the I2C slave update mode.
     State_SlaveUpdater,
+    
+    /// The slave translator failed to initialize. Send a generic error message
+    /// to the host.
+    State_SlaveTranslatorFailed,
+    
+    /// The slave updater failed to initialize. Send a generic error message to
+    /// the host.
+    State_SlaveUpdaterFailed,
     
     /// Host communication failed to initialize. Send a generic error message
     /// to the host.
@@ -243,11 +259,12 @@ bool processSlaveUpdater(void)
 }
 
 
-/// Processes the case where the host comm initialization failed. The function
-/// will intermittently transmit an ASCII error message over the host UART bus.
-void processHostCommFailed(void)
+/// Processes the case where the slave translator initialization failed. The
+/// function will intermittently transmit an ASCII error message over the host
+/// UART bus.
+void processHostTranslatorFailed(void)
 {
-    static uint32_t const MessagePeriodMS = 2000u;
+    static uint32_t const MessagePeriodMS = ERROR_MESSAGE_PERIOD_MS;
     
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
     if (!messageAlarm.armed)
@@ -257,7 +274,54 @@ void processHostCommFailed(void)
         alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
         uint16_t normalRequiredSize = uartFrameProtocol_getMemoryRequirement(false);
         uint16_t updaterRequiredSize = uartFrameProtocol_getMemoryRequirement(true);
-        char message[64u];
+        char message[ERROR_MESSAGE_BUFFER_SIZE];
+        smallSprintf(message, "ERROR: heap memory shortage!\r\n");
+        uartFrameProtocol_write(message);
+        smallSprintf(message, "\tH=%d  N=%d  U=%d\r\n", sizeof(g_scratchBuffer), normalRequiredSize, updaterRequiredSize);
+        uartFrameProtocol_write(message);
+    }
+}
+
+
+/// Processes the case where the slave updater initialization failed. The
+/// function will intermittently transmit an ASCII error message over the host
+/// UART bus.
+void processHostUpdaterFailed(void)
+{
+    static uint32_t const MessagePeriodMS = ERROR_MESSAGE_PERIOD_MS;
+    
+    static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
+    if (!messageAlarm.armed)
+        alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
+    if (alarm_hasElapsed(&messageAlarm))
+    {
+        alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
+        uint16_t normalRequiredSize = uartFrameProtocol_getMemoryRequirement(false);
+        uint16_t updaterRequiredSize = uartFrameProtocol_getMemoryRequirement(true);
+        char message[ERROR_MESSAGE_BUFFER_SIZE];
+        smallSprintf(message, "ERROR: heap memory shortage!\r\n");
+        uartFrameProtocol_write(message);
+        smallSprintf(message, "\tH=%d  N=%d  U=%d\r\n", sizeof(g_scratchBuffer), normalRequiredSize, updaterRequiredSize);
+        uartFrameProtocol_write(message);
+    }
+}
+
+
+/// Processes the case where the host comm initialization failed. The function
+/// will intermittently transmit an ASCII error message over the host UART bus.
+void processHostCommFailed(void)
+{
+    static uint32_t const MessagePeriodMS = ERROR_MESSAGE_PERIOD_MS;
+    
+    static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
+    if (!messageAlarm.armed)
+        alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
+    if (alarm_hasElapsed(&messageAlarm))
+    {
+        alarm_arm(&messageAlarm, MessagePeriodMS, AlarmType_ContinuousNotification);
+        uint16_t normalRequiredSize = uartFrameProtocol_getMemoryRequirement(false);
+        uint16_t updaterRequiredSize = uartFrameProtocol_getMemoryRequirement(true);
+        char message[ERROR_MESSAGE_BUFFER_SIZE];
         smallSprintf(message, "ERROR: heap memory shortage!\r\n");
         uartFrameProtocol_write(message);
         smallSprintf(message, "\tH=%d  N=%d  U=%d\r\n", sizeof(g_scratchBuffer), normalRequiredSize, updaterRequiredSize);
@@ -295,14 +359,19 @@ void bridgeFsm_process(void)
         
         case State_InitSlaveReset:
         {
-            g_state = processInitSlaveReset();
+            if (processInitSlaveReset())
+                g_state = State_CheckSlaveResetComplete;
+            else
+                g_state = State_InitSlaveTranslator;
             break;
         }
         
         case State_InitSlaveTranslator:
         {
-            processInitSlaveTranslator();
-            g_state = State_SlaveTranslator;
+            if (processInitSlaveTranslator())
+                g_state = State_SlaveTranslator;
+            else
+                g_state = State_SlaveTranslatorFailed;
             break;
         }
         
@@ -329,6 +398,20 @@ void bridgeFsm_process(void)
         case State_SlaveUpdater:
         {
             processSlaveUpdater();
+            break;
+        }
+        
+        case State_SlaveTranslatorFailed:
+        {
+            processHostTranslatorFailed();
+            // Do not transition out of this state.
+            break;
+        }
+        
+        case State_SlaveUpdaterFailed:
+        {
+            processHostUpdaterFailed();
+            // Do not transition out of this state.
             break;
         }
         
