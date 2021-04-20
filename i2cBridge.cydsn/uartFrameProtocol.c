@@ -642,7 +642,7 @@ static void processI2cErrors(I2cTouchStatus status, uint16_t callsite)
 /// @return If the appropriate response was successfully enqueued.
 static bool processErrorCommand(uint8_t const* data, uint16_t size)
 {
-    if (size > 0)
+    if ((data != NULL) && (size > 0))
         error_setMode((data[0] != 0) ? (ErrorMode_Global) : (ErrorMode_Legacy));
     
     bool status = false;
@@ -660,6 +660,11 @@ static bool processErrorCommand(uint8_t const* data, uint16_t size)
         }
     }
     return status;
+}
+
+
+static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
+{
 }
 
 
