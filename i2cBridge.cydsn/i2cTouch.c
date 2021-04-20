@@ -566,6 +566,7 @@ static I2cTouchStatus write(uint8_t address, uint8_t const data[], uint16_t size
         I2cTouchStatus status = { false };
         if (g_lockedBus.recoverAlarm.armed && alarm_hasElapsed(&g_lockedBus.recoverAlarm))
         {
+            debug_setPin1(false);
             if (g_lockedBus.recoveryAttempts >= G_MaxRecoveryAttempts)
             {
                 //CySoftwareReset();
@@ -585,6 +586,7 @@ static I2cTouchStatus write(uint8_t address, uint8_t const data[], uint16_t size
             status = i2cTouch_ackApp(0);
             #endif
             g_lockedBus.recoveryAttempts++;
+            debug_setPin1(true);
         }
         if (status.errorOccurred)
             g_callsite.recoverFromLockedBus = true;
