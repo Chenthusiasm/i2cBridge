@@ -75,6 +75,15 @@ typedef enum RxState
     /// a control byte.
     RxState_EscapeCharacter,
     
+    /// Process the update packet's size (high byte).
+    RxState_UpdatePacketSizeHiByte,
+    
+    /// Process the update packet's size (low byte).
+    RxState_UpdatePacketSizeLoByte,
+    
+    /// Process the update packet's data (data to be sent to the slave device).
+    RxState_UpdatePacketData,
+    
 } RxState;
 
 
@@ -204,6 +213,11 @@ typedef struct Heap
     /// The current state in the protocol state machine for receive processing.
     /// frame.
     volatile RxState rxState;
+    
+    /// Flag indicating that each byte received is associated with an update
+    /// packet.
+    volatile bool rxUpdatePacket;
+    
     /// The type flags of the data that is waiting to be enqueued into the
     /// transmit queue. This must be set prior to enqueueing data into the
     /// transmit queue.
@@ -772,7 +786,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
 /// @param[in]  data    The byte to process.
 /// @return If the byte was valid data when processing through the framing
 ///         protocol.
-static bool processReceivedByte(uint8_t data)
+static bool processRxByte(uint8_t data)
 {
     bool status = true;
     switch (g_heap->rxState)
@@ -820,6 +834,21 @@ static bool processReceivedByte(uint8_t data)
             break;
         }
         
+        case RxState_UpdatePacketSizeHiByte:
+        {
+            break;
+        }
+        
+        case RxState_UpdatePacketSizeLoByte:
+        {
+            break;
+        }
+        
+        case RxState_UpdatePacketData:
+        {
+            break;
+        }
+        
         default:
         {
             // We should never get into this state, if we do, something
@@ -847,13 +876,15 @@ static uint16_t __attribute__((unused)) processReceivedData(uint8_t const source
     // Track the number of bytes that was processed.
     uint32_t size = 0;
     
-    // Iterate through all the received bytes via UART.
-    for (uint32_t i = sourceOffset; i < sourceSize; ++i)
+    if (g_heap != NULL)
     {
-        uint8_t data = source[i];
-        ++size;
-        
-        processReceivedByte(data);
+        // Iterate through all the received bytes via UART.
+        for (uint32_t i = sourceOffset; i < sourceSize; ++i)
+        {
+            uint8_t data = source[i];
+            if (processRxByte(data))
+                ++size;
+        }
     }
     return size;
 }
@@ -953,7 +984,7 @@ static void isr(void)
             // @TODO: Error handling.
         }
         else if (g_heap != NULL)
-            processReceivedByte(data);
+            processRxByte(data);
         COMPONENT(HOST_UART, ClearRxInterruptSource)(COMPONENT(HOST_UART, INTR_RX_NOT_EMPTY));
     }
     else if ((source & COMPONENT(HOST_UART, INTR_RX_FRAME_ERROR)) != 0)
