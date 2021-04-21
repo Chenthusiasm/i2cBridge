@@ -740,11 +740,18 @@ static bool processErrorCommand(uint8_t const* data, uint16_t size)
 
 static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
 {
+    static uint16_t const MinChunkDataSize = 8u;
+    static uint16_t const MinChunkHeaderSize = 14u;
+    static uint16_t const MinChunkSize = MinChunkDataSize + MinChunkHeaderSize;
+    static uint16_t const ChunkSizeAdjustment = 256u;
+    
     bool status = false;
     if (size > UpdateSettingsPacketOffset_DelayMS)
     {
         g_heap->updateSettings.fileLength = utility_bigEndianUint16(&data[UpdateSettingsPacketOffset_FileLengthHi]);
         g_heap->updateSettings.chunkSize = data[UpdateSettingsPacketOffset_ChunkSize];
+        if (g_heap->updateSettings.chunkSize < MinChunkSize)
+            g_heap->updateSettings.chunkSize += ChunkSizeAdjustment;
         g_heap->updateSettings.numberOfChunks = data[UpdateSettingsPacketOffset_NumberOfChunks];
         g_heap->updateSettings.delayMS = data[UpdateSettingsPacketOffset_ChunkSize];
     }
