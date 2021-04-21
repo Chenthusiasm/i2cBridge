@@ -175,13 +175,35 @@ typedef enum PacketOffset
 } PacketOffset;
 
 
+/// Enumeration that defines the offsets of the different slave update settings
+/// in the data payload of the Bridgecommand_SlaveUpdate command.
+typedef enum UpdateSettingsPacketOffset
+{
+    /// Offset for the file length, high byte.
+    UpdateSettingsPacketOffset_FileLengthHi     = 0u,
+    
+    /// Offset for the file length, low byte.
+    UpdateSettingsPacketOffset_FileLengthLo     = 1u,
+    
+    /// Offset for the chunk size.
+    UpdateSettingsPacketOffset_ChunkSize        = 2u,
+    
+    /// Offset for total number of chunks.
+    UpdateSettingsPacketOffset_NumberOfChunks   = 3u,
+    
+    /// Offset for the delay in milliseconds (currently not used).
+    UpdateSettingsPacketOffset_DelayMS          = 4u,
+    
+} UpdateSettingsPacketOffset;
+
+
 /// Type flags that describe the type of packet.
 typedef struct Flags
 {
-    // Packet contains a command.
+    /// Flag indicating if the packet contains a command.
     bool command : 1;
     
-    // Packet contains data.
+    /// Flag indicating if the packet contains data.
     bool data : 1;
     
 } Flags;
@@ -719,6 +741,13 @@ static bool processErrorCommand(uint8_t const* data, uint16_t size)
 static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
 {
     bool status = false;
+    if (size > UpdateSettingsPacketOffset_DelayMS)
+    {
+        g_heap->updateSettings.fileLength = utility_bigEndianUint16(&data[UpdateSettingsPacketOffset_FileLengthHi]);
+        g_heap->updateSettings.chunkSize = data[UpdateSettingsPacketOffset_ChunkSize];
+        g_heap->updateSettings.numberOfChunks = data[UpdateSettingsPacketOffset_NumberOfChunks];
+        g_heap->updateSettings.delayMS = data[UpdateSettingsPacketOffset_ChunkSize];
+    }
     return status;
 }
 
