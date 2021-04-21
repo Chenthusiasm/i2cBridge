@@ -187,6 +187,43 @@ typedef struct Flags
 } Flags;
 
 
+/// Settings pertaining to the slave update. Note that these parameters are
+/// determined at runtime via the BridgeCommand_SlaveUpdate bridge command.
+typedef struct UpdateSettings
+{
+    /// The total size of the updater file (raw data only) in bytes.
+    uint16_t fileLength;
+    
+    /// The size of a chunk in bytes.
+    uint16_t chunkSize;
+    
+    /// The number of chunks.
+    uint16_t numberOfChunks;
+    
+    /// The delay in milliseconds (unused).
+    uint16_t delayMS;
+    
+} UpdateSettings;
+
+
+/// The status of the slave update. Helps track the progress of the slave
+/// update.
+typedef struct UpdateStatus
+{
+    /// The current length of update (raw data) in bytes.
+    uint16_t length;
+    
+    /// The current chunk number (zero-indexed).
+    uint16_t chunk;
+    
+    /// Flag indicating if the update packet is enabled. If enabled, each byte
+    /// received should be processed as an update packet instead of the standard
+    /// AA framing mechanism.
+    bool enabled;
+    
+} UpdateStatus;
+
+
 /// Data structure that defines memory used by the module in a similar fashion
 /// to a heap. Globals are contained in this structure that are used when the
 /// module is activated and then "deallocated" when the module is deactivated.
@@ -199,6 +236,12 @@ typedef struct Heap
     
     /// Transmit queue.
     Queue txQueue;
+    
+    /// Settings pertaining to the update.
+    UpdateSettings updateSettings;
+    
+    /// Current status of the update.
+    volatile UpdateStatus updateStatus;
     
     /// Array of decoded receive queue elements for the receive queue; these
     /// elements have been received but are pending processing.
@@ -213,10 +256,6 @@ typedef struct Heap
     /// The current state in the protocol state machine for receive processing.
     /// frame.
     volatile RxState rxState;
-    
-    /// Flag indicating that each byte received is associated with an update
-    /// packet.
-    volatile bool rxUpdatePacket;
     
     /// The type flags of the data that is waiting to be enqueued into the
     /// transmit queue. This must be set prior to enqueueing data into the
@@ -679,6 +718,8 @@ static bool processErrorCommand(uint8_t const* data, uint16_t size)
 
 static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
 {
+    bool status = false;
+    return status;
 }
 
 
@@ -704,7 +745,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_Error:
             {
-                processErrorCommand(&data[PacketOffset_BridgeData], size - 1);
+                processErrorCommand(&data[PacketOffset_BridgeData], size - PacketOffset_BridgeData);
                 break;
             }
             
@@ -754,6 +795,8 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveUpdate:
             {
+                if (size > PacketOffset_BridgeData)
+                    processSlaveUpdateCommand(&data[PacketOffset_BridgeData], size - PacketOffset_BridgeData);
                 break;
             }
             
@@ -796,7 +839,10 @@ static bool processRxByte(uint8_t data)
             if (data == ControlByte_StartFrame)
             {                        
                 resetRxTime();
-                g_heap->rxState = RxState_InFrame;
+                if (g_heap->updateStatus.enabled)
+                    g_heap->rxState = RxState_UpdatePacketSizeHiByte;
+                else
+                    g_heap->rxState = RxState_InFrame;
             }
             else
             {
