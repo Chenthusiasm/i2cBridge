@@ -225,41 +225,42 @@ typedef struct Flags
 } Flags;
 
 
+/// Container of variables pertaining to the current the slave update packet.
+typedef struct UpdatePacket
+{
+    /// The expected size of the chunk, raw data only, in bytes. Used to help
+    /// determine when the chunk has been completely sent.
+    uint16_t expectedSize;
+    
+    /// The current size of the chunk, raw data only, in bytes.
+    uint16_t size;
+    
+    /// The current chunk number (zero-indexed).
+    uint8_t chunk;
+    
+} UpdatePacket;
+
+
 /// Settings pertaining to the slave update. Note that these parameters are
 /// determined at runtime via the BridgeCommand_SlaveUpdate bridge command.
 typedef struct UpdateSettings
 {
+    /// Pointer to the update status packet; if NULL, then not in updater mode.
+    UpdatePacket* updatePacket;
+    
     /// The total size of the updater file (raw data only) in bytes (unused).
     uint16_t fileLength;
     
     /// The size of a chunk in bytes.
     uint16_t chunkSize;
     
-    /// The number of chunks.
-    uint16_t numberOfChunks;
+    /// The number of chunks per update packet.
+    uint8_t numberOfChunks;
     
     /// The delay in milliseconds (unused).
-    uint16_t delayMS;
+    uint8_t delayMS;
     
 } UpdateSettings;
-
-
-/// The status of the slave update. Helps track the progress of the slave
-/// update.
-typedef struct UpdateStatus
-{
-    /// The current length of update (raw data) in bytes.
-    uint16_t length;
-    
-    /// The current chunk number (zero-indexed).
-    uint16_t chunk;
-    
-    /// Flag indicating if the update packet is enabled. If enabled, each byte
-    /// received should be processed as an update packet instead of the standard
-    /// AA framing mechanism.
-    bool enabled;
-    
-} UpdateStatus;
 
 
 /// Data structure that defines memory used by the module in a similar fashion
@@ -277,9 +278,6 @@ typedef struct Heap
     
     /// Settings pertaining to the update.
     UpdateSettings updateSettings;
-    
-    /// Current status of the update.
-    volatile UpdateStatus updateStatus;
     
     /// Array of decoded receive queue elements for the receive queue; these
     /// elements have been received but are pending processing.
@@ -313,7 +311,7 @@ typedef struct Heap
 typedef struct HeapData
 {
     /// Array to hold the decoded data of elements in the receive queue.
-    uint8_t decodedRxQueueData[RX_QUEUE_DATA_SIZE];
+    volatile uint8_t decodedRxQueueData[RX_QUEUE_DATA_SIZE];
     
     /// Array to hold the data of the elements in the transmit queue.
     uint8_t txQueueData[TX_QUEUE_DATA_SIZE];
@@ -325,8 +323,11 @@ typedef struct HeapData
 /// updater mode.
 typedef struct UpdaterData
 {
+    /// Current status of the update.
+    volatile UpdatePacket updatePacket;
+    
     /// Array to hold the decoded data of elements in the receive queue.
-    uint8_t decodedRxQueueData[UPDATER_RX_QUEUE_DATA_SIZE];
+    volatile uint8_t decodedRxQueueData[UPDATER_RX_QUEUE_DATA_SIZE];
     
     /// Array to hold the data of the elements in the transmit queue.
     uint8_t txQueueData[UPDATER_TX_QUEUE_DATA_SIZE];
@@ -891,7 +892,7 @@ static bool processRxByte(uint8_t data)
             if (data == ControlByte_StartFrame)
             {                        
                 resetRxTime();
-                if (g_heap->updateStatus.enabled)
+                if (g_heap->updateSettings.updatePacket != NULL)
                     g_heap->rxState = RxState_UpdatePacketSizeHiByte;
                 else
                     g_heap->rxState = RxState_InFrame;
@@ -934,13 +935,13 @@ static bool processRxByte(uint8_t data)
         
         case RxState_UpdatePacketSizeHiByte:
         {
-            g_heap->updateStatus.length = (uint16_t)data << 8u;
+            g_heap->updateSettings.updatePacket->expectedSize = (uint16_t)data << 8u;
             break;
         }
         
         case RxState_UpdatePacketSizeLoByte:
         {
-            g_heap->updateStatus.length += (uint16_t)data;
+            g_heap->updateSettings.updatePacket->expectedSize += (uint16_t)data;
             break;
         }
         
