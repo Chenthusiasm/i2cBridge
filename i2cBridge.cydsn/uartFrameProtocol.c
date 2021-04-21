@@ -311,7 +311,7 @@ typedef struct Heap
 typedef struct HeapData
 {
     /// Array to hold the decoded data of elements in the receive queue.
-    volatile uint8_t decodedRxQueueData[RX_QUEUE_DATA_SIZE];
+    uint8_t decodedRxQueueData[RX_QUEUE_DATA_SIZE];
     
     /// Array to hold the data of the elements in the transmit queue.
     uint8_t txQueueData[TX_QUEUE_DATA_SIZE];
@@ -324,10 +324,10 @@ typedef struct HeapData
 typedef struct UpdaterData
 {
     /// Current status of the update.
-    volatile UpdatePacket updatePacket;
+    UpdatePacket updatePacket;
     
     /// Array to hold the decoded data of elements in the receive queue.
-    volatile uint8_t decodedRxQueueData[UPDATER_RX_QUEUE_DATA_SIZE];
+    uint8_t decodedRxQueueData[UPDATER_RX_QUEUE_DATA_SIZE];
     
     /// Array to hold the data of the elements in the transmit queue.
     uint8_t txQueueData[UPDATER_TX_QUEUE_DATA_SIZE];
