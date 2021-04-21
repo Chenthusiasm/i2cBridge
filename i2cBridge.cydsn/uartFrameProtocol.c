@@ -953,6 +953,7 @@ static bool processRxByte(uint8_t data)
         
         case RxState_UpdatePacketData:
         {
+            queue_enqueueByte(&g_heap->decodedRxQueue, data, false);
             break;
         }
         
