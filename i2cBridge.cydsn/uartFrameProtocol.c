@@ -896,7 +896,7 @@ static bool processRxByte(uint8_t data)
             if (data == ControlByte_StartFrame)
             {                        
                 resetRxTime();
-                if (g_updateSettings.updatePacket != NULL)
+                if (isUpdateEnabled())
                     g_heap->rxState = RxState_UpdatePacketSizeHiByte;
                 else
                     g_heap->rxState = RxState_InFrame;
@@ -940,12 +940,14 @@ static bool processRxByte(uint8_t data)
         case RxState_UpdatePacketSizeHiByte:
         {
             g_updateSettings.updatePacket->expectedSize = (uint16_t)data << 8u;
+            g_heap->rxState = RxState_UpdatePacketSizeLoByte;
             break;
         }
         
         case RxState_UpdatePacketSizeLoByte:
         {
             g_updateSettings.updatePacket->expectedSize += (uint16_t)data;
+            g_heap->rxState = RxState_UpdatePacketData;
             break;
         }
         

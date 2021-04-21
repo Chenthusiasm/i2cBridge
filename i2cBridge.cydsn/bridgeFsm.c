@@ -426,7 +426,7 @@ void processHostCommFailed(void)
 }
 
 
-/// Resets the bridge finits state machine (FSM) to the default state.
+/// Resets the bridge finite state machine (FSM) to the default state.
 void reset(void)
 {
     g_state = State_InitHostComm;
