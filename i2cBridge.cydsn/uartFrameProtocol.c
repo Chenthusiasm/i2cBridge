@@ -197,6 +197,22 @@ typedef enum UpdateSettingsPacketOffset
 } UpdateSettingsPacketOffset;
 
 
+/// Enumeration that defines the offsets of the different fields in the update
+/// packet.
+typedef enum UpdatePacketOffset
+{
+    /// Offset for the chunk length, high byte.
+    UpdatePacketOffset_ChunkLengthHi    = 0u,
+    
+    /// Offset for the chunk length, low byte.
+    UpdatePacketOffset_ChunkLengthLo    = 1u,
+    
+    /// Offset for the data payload.
+    UpdatePacketOffset_ChunkData        = 2u,
+    
+} UpdatePacketOffset;
+
+
 /// Type flags that describe the type of packet.
 typedef struct Flags
 {
@@ -213,7 +229,7 @@ typedef struct Flags
 /// determined at runtime via the BridgeCommand_SlaveUpdate bridge command.
 typedef struct UpdateSettings
 {
-    /// The total size of the updater file (raw data only) in bytes.
+    /// The total size of the updater file (raw data only) in bytes (unused).
     uint16_t fileLength;
     
     /// The size of a chunk in bytes.
@@ -918,11 +934,13 @@ static bool processRxByte(uint8_t data)
         
         case RxState_UpdatePacketSizeHiByte:
         {
+            g_heap->updateStatus.length = (uint16_t)data << 8u;
             break;
         }
         
         case RxState_UpdatePacketSizeLoByte:
         {
+            g_heap->updateStatus.length += (uint16_t)data;
             break;
         }
         
