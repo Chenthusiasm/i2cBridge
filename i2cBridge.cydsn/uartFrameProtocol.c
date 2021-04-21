@@ -48,7 +48,7 @@
 #define TX_QUEUE_DATA_SIZE              (800u)
 
 /// The size of the data array that holds the queue element data in the receive
-/// queue when in updater mode.
+/// queue when in update mode.
 /// Note: in the previous implementation of the bridge, the Rx FIFO was
 /// allocated 2052 bytes; this should be larger than that.
 #define UPDATER_RX_QUEUE_DATA_SIZE      (2100u)
@@ -244,10 +244,10 @@ typedef struct UpdatePacket
 /// determined at runtime via the BridgeCommand_SlaveUpdate bridge command.
 typedef struct UpdateSettings
 {
-    /// Pointer to the update status packet; if NULL, then not in updater mode.
+    /// Pointer to the update status packet; if NULL, then not in update mode.
     UpdatePacket* updatePacket;
     
-    /// The total size of the updater file (raw data only) in bytes (unused).
+    /// The total size of the update file (raw data only) in bytes (unused).
     uint16_t fileLength;
     
     /// The size of a chunk in bytes.
@@ -318,8 +318,8 @@ typedef struct HeapData
 
 
 /// Data extension for the Heap structure. Defines the data buffers when in
-/// updater mode.
-typedef struct UpdaterData
+/// update mode.
+typedef struct UpdateData
 {
     /// Current status of the update.
     UpdatePacket updatePacket;
@@ -330,7 +330,7 @@ typedef struct UpdaterData
     /// Array to hold the data of the elements in the transmit queue.
     uint8_t txQueueData[UPDATER_TX_QUEUE_DATA_SIZE];
     
-} UpdaterData;
+} UpdateData;
 
 
 
@@ -349,17 +349,17 @@ typedef struct NormalHeap
 
 
 /// Structure used to define the memory allocation of the heap + associated
-/// heap data in updater mode. Only used to determine the organization of the
+/// heap data in update mode. Only used to determine the organization of the
 /// two data structures in unallocated memory to ensure alignment.
-typedef struct UpdaterHeap
+typedef struct UpdateHeap
 {
     /// Heap data structure.
     Heap heap;
     
-    /// HeapData data structure when in updater mode.
-    UpdaterData heapData;
+    /// HeapData data structure when in update mode.
+    UpdateData heapData;
     
-} UpdaterHeap;
+} UpdateHeap;
 
 
 // === CONSTANTS ===============================================================
@@ -379,8 +379,8 @@ static uint16_t const RxResetTimeoutMS = 2000u;
 /// have not been dynamically allocated and the module has not started.
 static Heap* g_heap = NULL;
 
-/// Flag indicating if the updater mode is enabled.
-static bool g_updaterEnabled = false;
+/// Flag indicating if the update mode is enabled.
+static bool g_updateEnabled = false;
 
 /// Settings pertaining to the update.
 UpdateSettings g_updateSettings;
@@ -1032,11 +1032,11 @@ static void initTxQueue(NormalHeap* heap)
 }
 
 
-/// Initializes the decoded receive queue when in updater mode.
-/// @param[in]  heap    Pointer to the specific updater heap data structure that
+/// Initializes the decoded receive queue when in update mode.
+/// @param[in]  heap    Pointer to the specific update heap data structure that
 ///                     defines the address offset for the heap data,
 ///                     specifically the queue data.
-static void initUpdaterDecodedRxQueue(UpdaterHeap* heap)
+static void initUpdateDecodedRxQueue(UpdateHeap* heap)
 {
     queue_deregisterEnqueueCallback(&g_heap->decodedRxQueue);
     g_heap->decodedRxQueue.data = heap->heapData.decodedRxQueueData;
@@ -1048,11 +1048,11 @@ static void initUpdaterDecodedRxQueue(UpdaterHeap* heap)
 }
 
 
-/// Initializes the transmit queue when in updater mode.
-/// @param[in]  heap    Pointer to the specific updater heap data structure that
+/// Initializes the transmit queue when in update mode.
+/// @param[in]  heap    Pointer to the specific update heap data structure that
 ///                     defines the address offset for the heap data,
 ///                     specifically the queue data.
-static void initUpdaterTxQueue(UpdaterHeap* heap)
+static void initUpdateTxQueue(UpdateHeap* heap)
 {
     queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
     g_heap->txQueue.data = heap->heapData.txQueueData;
@@ -1111,25 +1111,25 @@ void uartFrameProtocol_init(void)
 }
 
 
-uint16_t uartFrameProtocol_getHeapWordRequirement(bool enableUpdater)
+uint16_t uartFrameProtocol_getHeapWordRequirement(bool enableUpdate)
 {
-    uint16_t size = (enableUpdater) ? (sizeof(UpdaterHeap)) : (sizeof(NormalHeap));
+    uint16_t size = (enableUpdate) ? (sizeof(UpdateHeap)) : (sizeof(NormalHeap));
     return heap_calculateHeapWordRequirement(size);
 }
 
 
-uint16_t uartFrameProtocol_activate(heapWord_t* memory, uint16_t size, bool enableUpdater)
+uint16_t uartFrameProtocol_activate(heapWord_t* memory, uint16_t size, bool enableUpdate)
 {
     uint16_t allocatedSize = 0;
-    uint16_t requiredSize = uartFrameProtocol_getHeapWordRequirement(enableUpdater);
+    uint16_t requiredSize = uartFrameProtocol_getHeapWordRequirement(enableUpdate);
     if ((memory != NULL) && (size >= requiredSize))
     {
         g_heap = (Heap*)memory;
-        if (enableUpdater)
+        if (enableUpdate)
         {
-            UpdaterHeap* heap = (UpdaterHeap*)g_heap;
-            initUpdaterDecodedRxQueue(heap);
-            initUpdaterTxQueue(heap);
+            UpdateHeap* heap = (UpdateHeap*)g_heap;
+            initUpdateDecodedRxQueue(heap);
+            initUpdateTxQueue(heap);
         }
         else
         {
@@ -1137,7 +1137,7 @@ uint16_t uartFrameProtocol_activate(heapWord_t* memory, uint16_t size, bool enab
             initDecodedRxQueue(heap);
             initTxQueue(heap);
         }
-        g_updaterEnabled = enableUpdater;
+        g_updateEnabled = enableUpdate;
         initRx();
         registerI2cCallbacks();
         allocatedSize = requiredSize;
@@ -1151,23 +1151,23 @@ uint16_t uartFrameProtocol_deactivate(void)
     uint16_t size = 0u;
     if (g_heap != NULL)
     {
-        size = uartFrameProtocol_getHeapWordRequirement(g_updaterEnabled);
+        size = uartFrameProtocol_getHeapWordRequirement(g_updateEnabled);
         g_heap = NULL;
     }
-    g_updaterEnabled = false;
+    g_updateEnabled = false;
     return size;
 }
 
 
 bool uartFrameProtocol_isActivated(void)
 {
-    return ((g_heap != NULL) && !g_updaterEnabled);
+    return ((g_heap != NULL) && !g_updateEnabled);
 }
 
 
-bool uartFrameProtocol_isUpdaterActivated(void)
+bool uartFrameProtocol_isUpdateActivated(void)
 {
-    return ((g_heap != NULL) && g_updaterEnabled);
+    return ((g_heap != NULL) && g_updateEnabled);
 }
 
 

@@ -50,10 +50,10 @@ typedef struct SystemError
 } SystemError;
 
 
-/// General structure for Updater errors.
+/// General structure for Update errors.
 /// Note: these are all defined as uint8_t or uint8_t arrays to ensure a packed
 /// structure.
-typedef struct UpdaterError
+typedef struct UpdateError
 {
     /// Error type.
     uint8_t type;
@@ -65,7 +65,7 @@ typedef struct UpdaterError
     /// error.
     uint8_t callsite[2];
     
-} UpdaterError;
+} UpdateError;
 
 
 /// General structure for UART errors.
@@ -134,8 +134,8 @@ typedef struct Stats
     /// System error count.
     uint8_t systemCount[sizeof(count_t)];
     
-    /// Updater error count.
-    uint8_t updaterCount[sizeof(count_t)];
+    /// Update error count.
+    uint8_t updateCount[sizeof(count_t)];
     
     /// UART protocol error count.
     uint8_t uartCount[sizeof(count_t)];
@@ -176,11 +176,11 @@ MetaData const CliMetaData[] =
         NUM_HEX_CHAR(sizeof(SystemError)),
     },
     
-    // ErrorType_Updater.
+    // ErrorType_Update.
     {
         "Up",
         "[%s|%s] %02x @%04x\r\n",
-        NUM_HEX_CHAR(sizeof(UpdaterError)),
+        NUM_HEX_CHAR(sizeof(UpdateError)),
     },
     
     // ErrorType_System.
@@ -280,17 +280,17 @@ int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, SystemStatus s
 }
 
 
-int error_makeUpdaterErrorMessage(uint8_t buffer[], uint16_t size, uint8_t updaterStatus, uint16_t callsite)
+int error_makeUpdateErrorMessage(uint8_t buffer[], uint16_t size, uint8_t updateStatus, uint16_t callsite)
 {
     int dataSize = -1;
     if (g_mode == ErrorMode_Global)
     {
-        if (size >= sizeof(UpdaterError))
+        if (size >= sizeof(UpdateError))
         {
-            UpdaterError error =
+            UpdateError error =
             {
-                ErrorType_Updater,
-                updaterStatus,
+                ErrorType_Update,
+                updateStatus,
                 {
                     HI_BYTE_16_BIT(callsite),
                     LO_BYTE_16_BIT(callsite),
@@ -414,8 +414,8 @@ int error_makeStatsMessage(uint8_t buffer[], uint16_t size)
                     LO_BYTE_16_BIT(g_errorCount[ErrorType_System]),
                 },
                 {
-                    HI_BYTE_16_BIT(g_errorCount[ErrorType_Updater]),
-                    LO_BYTE_16_BIT(g_errorCount[ErrorType_Updater]),
+                    HI_BYTE_16_BIT(g_errorCount[ErrorType_Update]),
+                    LO_BYTE_16_BIT(g_errorCount[ErrorType_Update]),
                 },
                 {
                     HI_BYTE_16_BIT(g_errorCount[ErrorType_Uart]),

@@ -59,8 +59,8 @@ typedef enum State
     /// Initialize the slave translator mode.
     State_InitSlaveTranslator,
     
-    /// Initialize the slave updater mode.
-    State_InitSlaveUpdater,
+    /// Initialize the slave update mode.
+    State_InitSlaveUpdate,
     
     /// Checks if the slave reset is complete.
     State_CheckSlaveResetComplete,
@@ -69,15 +69,15 @@ typedef enum State
     State_SlaveTranslator,
     
     /// Processes tasks related to the I2C slave update mode.
-    State_SlaveUpdater,
+    State_SlaveUpdate,
     
     /// The slave translator failed to initialize. Send a generic error message
     /// to the host.
     State_SlaveTranslatorFailed,
     
-    /// The slave updater failed to initialize. Send a generic error message to
+    /// The slave update failed to initialize. Send a generic error message to
     /// the host.
-    State_SlaveUpdaterFailed,
+    State_SlaveUpdateFailed,
     
     /// Host communication failed to initialize. Send a generic error message
     /// to the host.
@@ -100,8 +100,8 @@ typedef union ModeChange
         /// Change to touch firmware translator mode is pending.
         bool translatorPending : 1;
         
-        /// Change to touch firmware updater mode is pending.
-        bool updaterPending : 1;
+        /// Change to touch firmware update mode is pending.
+        bool updatePending : 1;
         
         /// Reset request is pending.
         bool resetPending : 1;
@@ -211,7 +211,7 @@ SystemStatus resetHeap(void)
     uint16_t deactivationSize = 0;
     if (i2cTouch_isActivated())
         deactivationSize += i2cTouch_deactivate();
-    if (uartFrameProtocol_isActivated() || uartFrameProtocol_isUpdaterActivated())
+    if (uartFrameProtocol_isActivated() || uartFrameProtocol_isUpdateActivated())
         deactivationSize += uartFrameProtocol_deactivate();
         
     if (deactivationSize != g_heap.freeOffset)
@@ -226,10 +226,10 @@ SystemStatus resetHeap(void)
 ///         SystemStatus union.
 SystemStatus initHostComm(void)
 {
-    static bool const EnableUpdater = false;
+    static bool const EnableUpdate = false;
     
     SystemStatus status = { false };
-    if (uartFrameProtocol_isUpdaterActivated())
+    if (uartFrameProtocol_isUpdateActivated())
         status = resetHeap();
     if (!status.errorOccurred)
     {
@@ -237,14 +237,14 @@ SystemStatus initHostComm(void)
         {
             uint16_t size = uartFrameProtocol_activate(
                 &g_heap.data[g_heap.freeOffset],
-                getFreeHeapWordSize(), EnableUpdater);
+                getFreeHeapWordSize(), EnableUpdate);
             debug_uartPrintHexUint16(size);
             if (size > 0)
                 g_heap.freeOffset += size;
             else
             {
                 status.invalidScratchOffset = true;
-                uint16_t requirement = uartFrameProtocol_getHeapWordRequirement(EnableUpdater);
+                uint16_t requirement = uartFrameProtocol_getHeapWordRequirement(EnableUpdate);
                 if (getFreeHeapWordSize() < requirement)
                     status.invalidScratchBuffer = true;
             }
@@ -349,18 +349,18 @@ bool processSlaveTranslator(void)
 }
 
 
-/// Processes all tasks associated with initializing the I2C slave updater.
+/// Processes all tasks associated with initializing the I2C slave update.
 /// @return If the initialization was successful.
-bool processInitSlaveUpdater(void)
+bool processInitSlaveUpdate(void)
 {
     // @TODO: implement.
     return true;
 }
 
 
-/// Processes all tasks associated with the I2C slave updater.
-/// @return If the updater processed successfully.
-bool processSlaveUpdater(void)
+/// Processes all tasks associated with the I2C slave update.
+/// @return If the update processed successfully.
+bool processSlaveUpdate(void)
 {
     // @TODO: implement.
     return true;
@@ -385,12 +385,12 @@ void processHostTranslatorFailed(void)
 }
 
 
-/// Processes the case where the slave updater initialization failed. The
+/// Processes the case where the slave update initialization failed. The
 /// function will intermittently transmit an ASCII error message over the host
 /// UART bus.
-void processHostUpdaterFailed(void)
+void processHostUpdateFailed(void)
 {
-    static char const* ErrorMessage = "ERROR: slave updater failed init!\r\n";
+    static char const* ErrorMessage = "ERROR: slave update failed init!\r\n";
     
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
     if (!messageAlarm.armed)
@@ -417,10 +417,10 @@ void processHostCommFailed(void)
     {
         alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
         uint16_t normalRequiredSize = uartFrameProtocol_getHeapWordRequirement(false);
-        uint16_t updaterRequiredSize = uartFrameProtocol_getHeapWordRequirement(true);
+        uint16_t updateRequiredSize = uartFrameProtocol_getHeapWordRequirement(true);
         uartFrameProtocol_write(ErrorMessage);
         char message[ERROR_MESSAGE_BUFFER_SIZE];
-        smallSprintf(message, ErrorDetailFormat, HEAP_SIZE, normalRequiredSize, updaterRequiredSize);
+        smallSprintf(message, ErrorDetailFormat, HEAP_SIZE, normalRequiredSize, updateRequiredSize);
         uartFrameProtocol_write(message);
     }
 }
@@ -473,10 +473,10 @@ void bridgeFsm_process(void)
             break;
         }
         
-        case State_InitSlaveUpdater:
+        case State_InitSlaveUpdate:
         {
-            processInitSlaveUpdater();
-            g_state = State_SlaveUpdater;
+            processInitSlaveUpdate();
+            g_state = State_SlaveUpdate;
             break;
         }
         
@@ -495,9 +495,9 @@ void bridgeFsm_process(void)
             break;
         }
         
-        case State_SlaveUpdater:
+        case State_SlaveUpdate:
         {
-            processSlaveUpdater();
+            processSlaveUpdate();
             break;
         }
         
@@ -508,9 +508,9 @@ void bridgeFsm_process(void)
             break;
         }
         
-        case State_SlaveUpdaterFailed:
+        case State_SlaveUpdateFailed:
         {
-            processHostUpdaterFailed();
+            processHostUpdateFailed();
             // Do not transition out of this state.
             break;
         }
@@ -537,10 +537,10 @@ void bridgeFsm_requestTranslatorMode(void)
 }
 
 
-void bridgeFsm_requestUpdaterMode(void)
+void bridgeFsm_requestUpdateMode(void)
 {
     g_modeChange.pending = false;
-    g_modeChange.updaterPending = true;
+    g_modeChange.updatePending = true;
 }
 
 

@@ -47,10 +47,10 @@
     void uartFrameProtocol_init(void);
     
     /// Accessor to get the number of heap words required for global variables.
-    /// @param[in]  enableUpdater   Flag indicating if updater mode is enabled,
+    /// @param[in]  enableUpdate   Flag indicating if update mode is enabled,
     ///                             otherwise normal mode is enabled.
     /// @return The number of heap words needed for global variables.
-    uint16_t uartFrameProtocol_getHeapWordRequirement(bool enableUpdater);
+    uint16_t uartFrameProtocol_getHeapWordRequirement(bool enableUpdate);
     
     /// Activates the UART frame protocol module and sets up its globals.
     /// This must be invoked before using any processRx or processTx-like
@@ -60,11 +60,11 @@
     ///                             worlds to help preserve word alignment.
     /// @param[in]  size            The size (in 32-bit words) of the memory
     ///                             array.
-    /// @param[in]  enableUpdater   Flag indicating if updater mode is enabled,
+    /// @param[in]  enableUpdate   Flag indicating if update mode is enabled,
     ///                             otherwise normal mode is enabled.
     /// @return The number of 32-bit words the module used for its globals. If 0
     ///         Then there was an error and the module hasn't started.
-    uint16_t uartFrameProtocol_activate(heapWord_t memory[], uint16_t size, bool enableUpdater);
+    uint16_t uartFrameProtocol_activate(heapWord_t memory[], uint16_t size, bool enableUpdate);
     
     /// Deactivates the UART frame protocol module and effectively deallocates
     /// the global memory.
@@ -79,9 +79,9 @@
     bool uartFrameProtocol_isActivated(void);
     
     /// Checks if the module is activated and the heap has been allocated for
-    /// updater mode.
+    /// update mode.
     /// @return If normal mode is activated.
-    bool uartFrameProtocol_isUpdaterActivated(void);
+    bool uartFrameProtocol_isUpdateActivated(void);
     
     /// Registers the receive callback function that should be invoked when
     /// data is received out of frame.

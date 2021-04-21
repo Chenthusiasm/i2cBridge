@@ -77,8 +77,8 @@
         /// Overall system-level error in the bridge.
         ErrorType_System,
         
-        /// Error in the updater function.
-        ErrorType_Updater,
+        /// Error in the update function.
+        ErrorType_Update,
         
         /// Error in the UART.
         ErrorType_Uart,
@@ -121,11 +121,11 @@
     /// Generates the system error message.
     /// @param[out] buffer          The buffer to put the I2C error message.
     /// @param[in]  size            The size of the buffer.
-    /// @param[in]  updaterStatus   The updater status.
+    /// @param[in]  updateStatus   The update status.
     /// @param[in]  callsite        The callsite ID.
     /// @return The size of the data payload. If -1, the buffer size was too
     ///         small.
-    int error_makeUpdaterErrorMessage(uint8_t buffer[], uint16_t size, uint8_t updaterStatus, uint16_t callsite);
+    int error_makeUpdateErrorMessage(uint8_t buffer[], uint16_t size, uint8_t updateStatus, uint16_t callsite);
     
     /// Generates the I2C error message.
     /// @param[out] buffer          The buffer to put the I2C error message.

@@ -12,7 +12,7 @@
 
 // === DEPENDENCIES ============================================================
 
-#include "i2cUpdater.h"
+#include "i2cUpdate.h"
 
 #include <limits.h>
 

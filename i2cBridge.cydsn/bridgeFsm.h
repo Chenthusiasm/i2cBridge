@@ -45,8 +45,8 @@
             /// The error pertains to the translator.
             bool translatorError: 1;
             
-            /// The error pertains to the updater.
-            bool updaterError : 1;
+            /// The error pertains to the update.
+            bool updateError : 1;
             
             /// The action associated with the bridge finite state machine
             /// failed.
@@ -86,10 +86,10 @@
     /// Prep the bridge to change to touch firmware translator mode.
     void bridgeFsm_requestTranslatorMode(void);
     
-    /// Prep the bridge to change to touch firmware updater mode.
-    void bridgeFsm_requestUpdaterMode(void);
+    /// Prep the bridge to change to touch firmware update mode.
+    void bridgeFsm_requestUpdateMode(void);
     
-    /// Prep the bridge to change to touch firmware updater mode.
+    /// Prep the bridge to change to touch firmware update mode.
     void bridgeFsm_requestReset(void);
     
     
