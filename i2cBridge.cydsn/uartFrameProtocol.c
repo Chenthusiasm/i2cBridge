@@ -275,8 +275,6 @@ typedef struct Heap
     /// Transmit queue.
     Queue txQueue;
     
-    
-    
     /// Array of decoded receive queue elements for the receive queue; these
     /// elements have been received but are pending processing.
     QueueElement decodedRxQueueElements[RX_QUEUE_MAX_SIZE];
@@ -379,11 +377,8 @@ static uint16_t const RxResetTimeoutMS = 2000u;
 /// have not been dynamically allocated and the module has not started.
 static Heap* g_heap = NULL;
 
-/// Flag indicating if the update mode is enabled.
-static bool g_updateEnabled = false;
-
 /// Settings pertaining to the update.
-UpdateSettings g_updateSettings;
+UpdateSettings g_updateSettings = { NULL, 0, 0, 0, 0 };
 
 /// Callback function that is invoked when data is received out of the frame
 /// state machine.
@@ -395,6 +390,14 @@ static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NUL
 
 
 // === PRIVATE FUNCTIONS =======================================================
+
+/// Checks if update mode is enabled.
+/// @return If update mode is enabled.
+static bool isUpdateEnabled(void)
+{
+    return (g_updateSettings.updatePacket != NULL);
+}
+
 
 /// Sets all the global variables pertaining to the decoded receive buffer to
 /// an initial state.
@@ -1064,6 +1067,16 @@ static void initUpdateTxQueue(UpdateHeap* heap)
 }
 
 
+/// Initializes the update packet when in update mode.
+/// @param[in]  heap    Pointer to the specific update heap data structure that
+///                     defines the address offset for the heap data,
+///                     specifically the queue data.
+static void initUpdatePacket(UpdateHeap* heap)
+{
+    g_updateSettings.updatePacket = &heap->heapData.updatePacket;
+}
+
+
 /// Register the callback functions for I2C-related events.
 static void registerI2cCallbacks(void)
 {
@@ -1130,14 +1143,15 @@ uint16_t uartFrameProtocol_activate(heapWord_t* memory, uint16_t size, bool enab
             UpdateHeap* heap = (UpdateHeap*)g_heap;
             initUpdateDecodedRxQueue(heap);
             initUpdateTxQueue(heap);
+            initUpdatePacket(heap);
         }
         else
         {
             NormalHeap* heap = (NormalHeap*)g_heap;
             initDecodedRxQueue(heap);
             initTxQueue(heap);
+            g_updateSettings.updatePacket = NULL;
         }
-        g_updateEnabled = enableUpdate;
         initRx();
         registerI2cCallbacks();
         allocatedSize = requiredSize;
@@ -1151,23 +1165,23 @@ uint16_t uartFrameProtocol_deactivate(void)
     uint16_t size = 0u;
     if (g_heap != NULL)
     {
-        size = uartFrameProtocol_getHeapWordRequirement(g_updateEnabled);
+        size = uartFrameProtocol_getHeapWordRequirement(isUpdateEnabled());
         g_heap = NULL;
     }
-    g_updateEnabled = false;
+    g_updateSettings.updatePacket = NULL;
     return size;
 }
 
 
 bool uartFrameProtocol_isActivated(void)
 {
-    return ((g_heap != NULL) && !g_updateEnabled);
+    return ((g_heap != NULL) && !isUpdateEnabled());
 }
 
 
 bool uartFrameProtocol_isUpdateActivated(void)
 {
-    return ((g_heap != NULL) && g_updateEnabled);
+    return ((g_heap != NULL) && isUpdateEnabled());
 }
 
 
