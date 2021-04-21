@@ -24,6 +24,8 @@
     #endif
     #include <stdint.h>
     
+    #include "heap.h"
+    
     
     // === TYPE DEFINES ========================================================
     
@@ -62,7 +64,7 @@
     ///                             otherwise normal mode is enabled.
     /// @return The number of 32-bit words the module used for its globals. If 0
     ///         Then there was an error and the module hasn't started.
-    uint16_t uartFrameProtocol_activate(uint32_t memory[], uint16_t size, bool enableUpdater);
+    uint16_t uartFrameProtocol_activate(heapWord_t memory[], uint16_t size, bool enableUpdater);
     
     /// Deactivates the UART frame protocol module and effectively deallocates
     /// the global memory.

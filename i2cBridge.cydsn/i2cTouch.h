@@ -24,6 +24,8 @@
     #endif
     #include <stdint.h>
     
+    #include "heap.h"
+    
     
     // === TYPE DEFINES ========================================================
     
@@ -103,7 +105,7 @@
     /// @param[in]  size    The size (in 32-bit words) of the memory array.
     /// @return The number of 32-bit words the module used for its globals. If 0
     ///         Then there was an error and the module hasn't started.
-    uint16_t i2cTouch_activate(uint32_t memory[], uint16_t size);
+    uint16_t i2cTouch_activate(heapWord_t memory[], uint16_t size);
     
     /// Deactivates the slave I2C module and effectively deallocates the memory.
     /// @return The heap word size that was freed by deactivating. If 0, then

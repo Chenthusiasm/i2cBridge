@@ -19,7 +19,6 @@
 #include "alarm.h"
 #include "debug.h"
 #include "error.h"
-#include "heap.h"
 #include "i2cCommon.h"
 #include "project.h"
 #include "queue.h"
@@ -1092,7 +1091,7 @@ uint16_t i2cTouch_getHeapWordRequirement(void)
 }
 
 
-uint16_t i2cTouch_activate(uint32_t memory[], uint16_t size)
+uint16_t i2cTouch_activate(heapWord_t memory[], uint16_t size)
 {
     uint16_t allocatedSize = 0;
     uint16_t requiredSize = i2cTouch_getHeapWordRequirement();

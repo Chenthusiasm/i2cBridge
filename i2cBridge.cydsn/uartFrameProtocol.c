@@ -20,7 +20,6 @@
 #include "alarm.h"
 #include "debug.h"
 #include "error.h"
-#include "heap.h"
 #include "hwSystemTime.h"
 #include "i2cTouch.h"
 #include "project.h"
@@ -1117,7 +1116,7 @@ uint16_t uartFrameProtocol_getHeapWordRequirement(bool enableUpdater)
 }
 
 
-uint16_t uartFrameProtocol_activate(uint32_t* memory, uint16_t size, bool enableUpdater)
+uint16_t uartFrameProtocol_activate(heapWord_t* memory, uint16_t size, bool enableUpdater)
 {
     uint16_t allocatedSize = 0;
     uint16_t requiredSize = uartFrameProtocol_getHeapWordRequirement(enableUpdater);
