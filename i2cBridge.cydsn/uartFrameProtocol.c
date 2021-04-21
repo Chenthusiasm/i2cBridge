@@ -275,8 +275,7 @@ typedef struct Heap
     /// Transmit queue.
     Queue txQueue;
     
-    /// Settings pertaining to the update.
-    UpdateSettings updateSettings;
+    
     
     /// Array of decoded receive queue elements for the receive queue; these
     /// elements have been received but are pending processing.
@@ -382,6 +381,9 @@ static Heap* g_heap = NULL;
 
 /// Flag indicating if the updater mode is enabled.
 static bool g_updaterEnabled = false;
+
+/// Settings pertaining to the update.
+UpdateSettings g_updateSettings;
 
 /// Callback function that is invoked when data is received out of the frame
 /// state machine.
@@ -764,12 +766,12 @@ static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
     bool status = false;
     if (size > UpdateSettingsPacketOffset_DelayMS)
     {
-        g_heap->updateSettings.fileLength = utility_bigEndianUint16(&data[UpdateSettingsPacketOffset_FileLengthHi]);
-        g_heap->updateSettings.chunkSize = data[UpdateSettingsPacketOffset_ChunkSize];
-        if (g_heap->updateSettings.chunkSize < MinChunkSize)
-            g_heap->updateSettings.chunkSize += ChunkSizeAdjustment;
-        g_heap->updateSettings.numberOfChunks = data[UpdateSettingsPacketOffset_NumberOfChunks];
-        g_heap->updateSettings.delayMS = data[UpdateSettingsPacketOffset_ChunkSize];
+        g_updateSettings.fileLength = utility_bigEndianUint16(&data[UpdateSettingsPacketOffset_FileLengthHi]);
+        g_updateSettings.chunkSize = data[UpdateSettingsPacketOffset_ChunkSize];
+        if (g_updateSettings.chunkSize < MinChunkSize)
+            g_updateSettings.chunkSize += ChunkSizeAdjustment;
+        g_updateSettings.numberOfChunks = data[UpdateSettingsPacketOffset_NumberOfChunks];
+        g_updateSettings.delayMS = data[UpdateSettingsPacketOffset_ChunkSize];
     }
     return status;
 }
@@ -891,7 +893,7 @@ static bool processRxByte(uint8_t data)
             if (data == ControlByte_StartFrame)
             {                        
                 resetRxTime();
-                if (g_heap->updateSettings.updatePacket != NULL)
+                if (g_updateSettings.updatePacket != NULL)
                     g_heap->rxState = RxState_UpdatePacketSizeHiByte;
                 else
                     g_heap->rxState = RxState_InFrame;
@@ -934,13 +936,13 @@ static bool processRxByte(uint8_t data)
         
         case RxState_UpdatePacketSizeHiByte:
         {
-            g_heap->updateSettings.updatePacket->expectedSize = (uint16_t)data << 8u;
+            g_updateSettings.updatePacket->expectedSize = (uint16_t)data << 8u;
             break;
         }
         
         case RxState_UpdatePacketSizeLoByte:
         {
-            g_heap->updateSettings.updatePacket->expectedSize += (uint16_t)data;
+            g_updateSettings.updatePacket->expectedSize += (uint16_t)data;
             break;
         }
         
