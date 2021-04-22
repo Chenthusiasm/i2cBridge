@@ -295,6 +295,9 @@ typedef struct UpdateChunk
     /// The current size of the chunk, update data only, in bytes.
     uint16_t size;
     
+    /// The current size of the subchunk, update data only, in bytes.
+    uint16_t subchunkSize;
+    
 } UpdateChunk;
 
 
@@ -496,8 +499,12 @@ static void resetUpdateFile(void)
 /// received.
 static void resetUpdateChunk(void)
 {
-    g_updateFile.updateChunk->totalSize = 0;
-    g_updateFile.updateChunk->size = 0;
+    if (isUpdateEnabled())
+    {
+        g_updateFile.updateChunk->totalSize = 0;
+        g_updateFile.updateChunk->size = 0;
+        g_updateFile.updateChunk->subchunkSize = 0;
+    }
 }
 
 
@@ -1011,7 +1018,31 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
 static RxUpdateByteStatus processRxUpdateByte(uint8_t data)
 {
     RxUpdateByteStatus status = RxUpdateByteStatus_Success;
-    
+    if (queue_enqueueByte(&g_heap->decodedRxQueue, data, false))
+    {
+        g_updateFile.updateChunk->subchunkSize++;
+        g_updateFile.updateChunk->size++;
+        g_updateFile.size++;
+        if (g_updateFile.size >= g_updateFile.totalSize)
+        {
+            
+            queue_enqueueFinalize(&g_heap->decodedRxQueue);
+            status = RxUpdateByteStatus_FileComplete;
+        }
+        else if (g_updateFile.updateChunk->size >= g_updateFile.updateChunk->totalSize)
+        {
+            queue_enqueueFinalize(&g_heap->decodedRxQueue);
+            status = RxUpdateByteStatus_ChunkComplete;
+        }
+        else if (g_updateFile.updateChunk->subchunkSize >= g_updateFile.subchunkSize)
+        {
+            queue_enqueueFinalize(&g_heap->decodedRxQueue);
+            g_updateFile.updateChunk->subchunkSize = 0;
+            status = RxUpdateByteStatus_SubchunkComplete;
+        }
+    }
+    else
+        status = RxUpdateByteStatus_Error;
     return status;
 }
 
@@ -1089,7 +1120,19 @@ static bool processRxByte(uint8_t data)
         
         case RxState_UpdatePacketData:
         {
-            queue_enqueueByte(&g_heap->decodedRxQueue, data, false);
+            RxUpdateByteStatus updateStatus = processRxUpdateByte(data);
+            switch (updateStatus)
+            {
+                case RxUpdateByteStatus_Success:
+                {
+                    break;
+                }
+                
+                default:
+                {
+                    // @TODO: do some error handling.
+                }
+            }
             break;
         }
         
