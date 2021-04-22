@@ -195,18 +195,15 @@ typedef enum UpdateOffset
 
 /// Enumeration that defines the offsets of the different fields in the update
 /// packet.
-typedef enum UpdatePacketOffset
+typedef enum UpdateChunkOffset
 {
-    /// Offset for the chunk length, high byte.
-    UpdatePacketOffset_ChunkLengthHi    = 0u,
+    /// Offset for the chunk size. Note this is a big-endian 16-bit value.
+    UpdateChunkOffset_Size              = 0u,
     
-    /// Offset for the chunk length, low byte.
-    UpdatePacketOffset_ChunkLengthLo    = 1u,
+    /// Offset for the data payload in the chunk.
+    UpdateChunkOffset_Data              = 2u,
     
-    /// Offset for the data payload.
-    UpdatePacketOffset_ChunkData        = 2u,
-    
-} UpdatePacketOffset;
+} UpdateChunkOffset;
 
 
 /// Type flags that describe the type of packet.
