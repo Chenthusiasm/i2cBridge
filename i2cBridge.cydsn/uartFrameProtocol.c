@@ -225,7 +225,7 @@ typedef struct Flags
 
 
 /// Container of variables pertaining to the current the slave update packet.
-typedef struct UpdatePacket
+typedef struct UpdateChunk
 {
     /// The expected size of the chunk, raw data only, in bytes. Used to help
     /// determine when the chunk has been completely sent.
@@ -234,8 +234,8 @@ typedef struct UpdatePacket
     /// The current size of the chunk, raw data only, in bytes.
     uint16_t size;
     
-    /// The current chunk number (zero-indexed).
-    uint8_t chunk;
+    /// The current chunk index number (zero-indexed).
+    uint8_t index;
     
 } UpdatePacket;
 
@@ -263,8 +263,9 @@ typedef struct UpdateSettings
     /// The total size of the update file (raw data only) in bytes (unused).
     uint16_t fileLength;
     
-    /// The size of a sub chunk in bytes.
-    uint16_t subChunkSize;
+    /// The size of a subchunk in bytes. The subchunk includes any header info
+    /// along with actual update data.
+    uint16_t subchunkSize;
     
     /// The number of chunks to expect in the entire update.
     uint8_t numberOfChunks;
@@ -783,9 +784,9 @@ static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
     if (size > UpdateSettingsPacketOffset_DelayMS)
     {
         g_updateSettings.fileLength = utility_bigEndianUint16(&data[UpdateSettingsPacketOffset_FileLengthHi]);
-        g_updateSettings.chunkSize = data[UpdateSettingsPacketOffset_ChunkSize];
-        if (g_updateSettings.chunkSize < MinChunkSize)
-            g_updateSettings.chunkSize += ChunkSizeAdjustment;
+        g_updateSettings.subchunkSize = data[UpdateSettingsPacketOffset_ChunkSize];
+        if (g_updateSettings.subchunkSize < MinChunkSize)
+            g_updateSettings.subchunkSize += ChunkSizeAdjustment;
         g_updateSettings.numberOfChunks = data[UpdateSettingsPacketOffset_NumberOfChunks];
         g_updateSettings.delayMS = data[UpdateSettingsPacketOffset_ChunkSize];
     }
