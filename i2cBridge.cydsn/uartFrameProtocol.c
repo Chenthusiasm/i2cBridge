@@ -209,6 +209,28 @@ typedef enum UpdateChunkOffset
 } UpdateChunkOffset;
 
 
+/// Status/result of processing received data byte from the update packet.
+typedef enum RxUpdateByteStatus
+{
+    /// Byte received fine. Continue receiving bytes for the subchunk.
+    RxUpdateByteStatus_Success,
+    
+    /// Byte received fine. Subchunk complete, start a new subchunk.
+    RxUpdateByteStatus_SubchunkComplete,
+    
+    /// Byte received fine. Chunk complete, start a new chunk.
+    RxUpdateByteStatus_ChunkComplete,
+    
+    /// Byte received fine. File complete and all update data has been received,
+    /// close the update.
+    RxUpdateByteStatus_FileComplete,
+    
+    /// There was something wrong with the received byte; abort the update.
+    RxUpdateByteStatus_Error,
+    
+} RxUpdateByteStatus;
+
+
 /// Type flags that describe the type of packet.
 typedef struct Flags
 {
@@ -266,15 +288,12 @@ typedef union UpdateFlags
 /// Container of variables pertaining to the current the slave update chunk.
 typedef struct UpdateChunk
 {
-    /// The expected size of the chunk, update data only, in bytes. Used to help
-    /// determine when the chunk has been completely sent.
-    uint16_t expectedSize;
+    /// The total size in bytes of the chunk, update data only, in bytes. Used
+    /// to help determine when the chunk has been completely sent.
+    uint16_t totalSize;
     
     /// The current size of the chunk, update data only, in bytes.
     uint16_t size;
-    
-    /// The current chunk index number (zero-indexed).
-    uint8_t index;
     
 } UpdateChunk;
 
@@ -302,14 +321,20 @@ typedef struct UpdateFile
     UpdateChunk* updateChunk;
     
     /// The total size of the update file (raw data only) in bytes (unused).
+    uint16_t totalSize;
+    
+    /// The current size of the update file (raw data only) in bytes.
     uint16_t size;
     
     /// The size of a subchunk in bytes. The subchunk includes any header info
     /// along with actual update data.
     uint16_t subchunkSize;
     
-    /// The number of chunks to expect in the entire update.
-    uint8_t numberOfChunks;
+    /// The toal number of chunks to expect in the entire update.
+    uint8_t totalChunks;
+    
+    /// The current number of chunks in the entire update.
+    uint8_t chunk;
     
     /// The delay in milliseconds (unused).
     uint8_t delayMS;
@@ -433,7 +458,7 @@ static uint16_t const RxResetTimeoutMS = 2000u;
 static Heap* g_heap = NULL;
 
 /// Settings pertaining to the update file.
-UpdateFile g_updateFile = { NULL, 0, 0, 0, 0 };
+UpdateFile g_updateFile = { NULL, 0, 0, 0, 0, 0, 0 };
 
 /// Callback function that is invoked when data is received out of the frame
 /// state machine.
@@ -451,6 +476,28 @@ static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NUL
 static bool isUpdateEnabled(void)
 {
     return (g_updateFile.updateChunk != NULL);
+}
+
+
+/// Resets the update file to default values when a new update file packet is
+/// received. Note that the pointer to the UpdateChunk is not reset.
+static void resetUpdateFile(void)
+{
+    g_updateFile.totalSize = 0;
+    g_updateFile.subchunkSize = 0;
+    g_updateFile.totalChunks = 0;
+    g_updateFile.delayMS = 0;
+    g_updateFile.size = 0;
+    g_updateFile.chunk = 0;
+}
+
+
+/// Resets the update chunk to default values when a new update chunk is
+/// received.
+static void resetUpdateChunk(void)
+{
+    g_updateFile.updateChunk->totalSize = 0;
+    g_updateFile.updateChunk->size = 0;
 }
 
 
@@ -841,7 +888,7 @@ static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
                 g_updateFile.subchunkSize = data[UpdateOffset_ChunkSize];
                 if (g_updateFile.subchunkSize < MinChunkSize)
                     g_updateFile.subchunkSize += ChunkSizeAdjustment;
-                g_updateFile.numberOfChunks = data[UpdateOffset_NumberOfChunks];
+                g_updateFile.totalChunks = data[UpdateOffset_NumberOfChunks];
                 g_updateFile.delayMS = data[UpdateOffset_ChunkSize];
             }
             status = true;
@@ -961,6 +1008,14 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
 }
 
 
+static RxUpdateByteStatus processRxUpdateByte(uint8_t data)
+{
+    RxUpdateByteStatus status = RxUpdateByteStatus_Success;
+    
+    return status;
+}
+
+
 /// Processes the received byte and removes the framing protocol to get a pure
 /// data buffer.
 /// @param[in]  data    The byte to process.
@@ -1019,14 +1074,15 @@ static bool processRxByte(uint8_t data)
         
         case RxState_UpdatePacketSizeHiByte:
         {
-            g_updateFile.updateChunk->expectedSize = (uint16_t)data << 8u;
+            resetUpdateChunk();
+            g_updateFile.updateChunk->totalSize = (uint16_t)data << 8u;
             g_heap->rxState = RxState_UpdatePacketSizeLoByte;
             break;
         }
         
         case RxState_UpdatePacketSizeLoByte:
         {
-            g_updateFile.updateChunk->expectedSize += (uint16_t)data;
+            g_updateFile.updateChunk->totalSize += (uint16_t)data;
             g_heap->rxState = RxState_UpdatePacketData;
             break;
         }
@@ -1227,6 +1283,7 @@ uint16_t uartFrameProtocol_activate(heapWord_t* memory, uint16_t size, bool enab
             initUpdateDecodedRxQueue(heap);
             initUpdateTxQueue(heap);
             initUpdatePacket(heap);
+            resetUpdateFile();
         }
         else
         {
@@ -1251,6 +1308,7 @@ uint16_t uartFrameProtocol_deactivate(void)
         size = uartFrameProtocol_getHeapWordRequirement(isUpdateEnabled());
         g_heap = NULL;
     }
+    resetUpdateFile();
     g_updateFile.updateChunk = NULL;
     return size;
 }
