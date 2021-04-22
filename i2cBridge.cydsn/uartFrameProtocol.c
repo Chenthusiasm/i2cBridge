@@ -1128,6 +1128,26 @@ static bool processRxByte(uint8_t data)
                     break;
                 }
                 
+                case RxUpdateByteStatus_SubchunkComplete:
+                {
+                    break;
+                }
+                
+                case RxUpdateByteStatus_ChunkComplete:
+                {
+                    break;
+                }
+                
+                case RxUpdateByteStatus_FileComplete:
+                {
+                    break;
+                }
+                
+                case RxUpdateByteStatus_Error:
+                {
+                    break;
+                }
+                
                 default:
                 {
                     // @TODO: do some error handling.
