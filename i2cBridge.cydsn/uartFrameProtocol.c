@@ -242,6 +242,19 @@ typedef struct UpdatePacket
 
 /// Settings pertaining to the slave update. Note that these parameters are
 /// determined at runtime via the BridgeCommand_SlaveUpdate bridge command.
+/// File:       The entire data contents of the slave firmware update.
+/// Chunk:      Individual piece of the file that the host sends over the host
+///             UART communication interface.
+/// Subchunk:   Individual piece of the chunk that the bridge sends over the
+///             lsave I2C communication interface.
+///
+/// F: file
+/// C: chunk
+/// S: subchunk
+///
+/// FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+/// CCCCCCCCCCCCCCCCCC  CCCCCCCCCCCCCCCCCC  CCCCCCCCCCCCCCCCCC
+/// SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS
 typedef struct UpdateSettings
 {
     /// Pointer to the update status packet; if NULL, then not in update mode.
@@ -250,10 +263,10 @@ typedef struct UpdateSettings
     /// The total size of the update file (raw data only) in bytes (unused).
     uint16_t fileLength;
     
-    /// The size of a chunk in bytes.
-    uint16_t chunkSize;
+    /// The size of a sub chunk in bytes.
+    uint16_t subChunkSize;
     
-    /// The number of chunks per update packet.
+    /// The number of chunks to expect in the entire update.
     uint8_t numberOfChunks;
     
     /// The delay in milliseconds (unused).
