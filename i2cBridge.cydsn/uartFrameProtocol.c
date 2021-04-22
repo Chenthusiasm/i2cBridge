@@ -224,20 +224,20 @@ typedef struct Flags
 } Flags;
 
 
-/// Container of variables pertaining to the current the slave update packet.
+/// Container of variables pertaining to the current the slave update chunk.
 typedef struct UpdateChunk
 {
-    /// The expected size of the chunk, raw data only, in bytes. Used to help
+    /// The expected size of the chunk, update data only, in bytes. Used to help
     /// determine when the chunk has been completely sent.
     uint16_t expectedSize;
     
-    /// The current size of the chunk, raw data only, in bytes.
+    /// The current size of the chunk, update data only, in bytes.
     uint16_t size;
     
     /// The current chunk index number (zero-indexed).
     uint8_t index;
     
-} UpdatePacket;
+} UpdateChunk;
 
 
 /// Settings pertaining to the slave update. Note that these parameters are
@@ -255,13 +255,15 @@ typedef struct UpdateChunk
 /// FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 /// CCCCCCCCCCCCCCCCCC  CCCCCCCCCCCCCCCCCC  CCCCCCCCCCCCCCCCCC
 /// SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS
-typedef struct UpdateSettings
+typedef struct UpdateFile
 {
-    /// Pointer to the update status packet; if NULL, then not in update mode.
-    UpdatePacket* updatePacket;
+    /// Pointer to the current update chunk, containing info on the current
+    /// chunk int he update process; if NULL, then the module is not in
+    /// update mode.
+    UpdateChunk* updateChunk;
     
     /// The total size of the update file (raw data only) in bytes (unused).
-    uint16_t fileLength;
+    uint16_t size;
     
     /// The size of a subchunk in bytes. The subchunk includes any header info
     /// along with actual update data.
@@ -273,7 +275,7 @@ typedef struct UpdateSettings
     /// The delay in milliseconds (unused).
     uint8_t delayMS;
     
-} UpdateSettings;
+} UpdateFile;
 
 
 /// Data structure that defines memory used by the module in a similar fashion
@@ -333,8 +335,8 @@ typedef struct HeapData
 /// update mode.
 typedef struct UpdateData
 {
-    /// Current status of the update.
-    UpdatePacket updatePacket;
+    /// Current status of the update chunk.
+    UpdateChunk updateChunk;
     
     /// Array to hold the decoded data of elements in the receive queue.
     uint8_t decodedRxQueueData[UPDATER_RX_QUEUE_DATA_SIZE];
@@ -391,8 +393,8 @@ static uint16_t const RxResetTimeoutMS = 2000u;
 /// have not been dynamically allocated and the module has not started.
 static Heap* g_heap = NULL;
 
-/// Settings pertaining to the update.
-UpdateSettings g_updateSettings = { NULL, 0, 0, 0, 0 };
+/// Settings pertaining to the update file.
+UpdateFile g_updateFile = { NULL, 0, 0, 0, 0 };
 
 /// Callback function that is invoked when data is received out of the frame
 /// state machine.
@@ -409,7 +411,7 @@ static UartFrameProtocol_RxFrameOverflowCallback g_rxFrameOverflowCallback = NUL
 /// @return If update mode is enabled.
 static bool isUpdateEnabled(void)
 {
-    return (g_updateSettings.updatePacket != NULL);
+    return (g_updateFile.updateChunk != NULL);
 }
 
 
@@ -783,12 +785,12 @@ static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
     bool status = false;
     if (size > UpdateSettingsPacketOffset_DelayMS)
     {
-        g_updateSettings.fileLength = utility_bigEndianUint16(&data[UpdateSettingsPacketOffset_FileLengthHi]);
-        g_updateSettings.subchunkSize = data[UpdateSettingsPacketOffset_ChunkSize];
-        if (g_updateSettings.subchunkSize < MinChunkSize)
-            g_updateSettings.subchunkSize += ChunkSizeAdjustment;
-        g_updateSettings.numberOfChunks = data[UpdateSettingsPacketOffset_NumberOfChunks];
-        g_updateSettings.delayMS = data[UpdateSettingsPacketOffset_ChunkSize];
+        g_updateFile.size = utility_bigEndianUint16(&data[UpdateSettingsPacketOffset_FileLengthHi]);
+        g_updateFile.subchunkSize = data[UpdateSettingsPacketOffset_ChunkSize];
+        if (g_updateFile.subchunkSize < MinChunkSize)
+            g_updateFile.subchunkSize += ChunkSizeAdjustment;
+        g_updateFile.numberOfChunks = data[UpdateSettingsPacketOffset_NumberOfChunks];
+        g_updateFile.delayMS = data[UpdateSettingsPacketOffset_ChunkSize];
     }
     return status;
 }
@@ -953,14 +955,14 @@ static bool processRxByte(uint8_t data)
         
         case RxState_UpdatePacketSizeHiByte:
         {
-            g_updateSettings.updatePacket->expectedSize = (uint16_t)data << 8u;
+            g_updateFile.updateChunk->expectedSize = (uint16_t)data << 8u;
             g_heap->rxState = RxState_UpdatePacketSizeLoByte;
             break;
         }
         
         case RxState_UpdatePacketSizeLoByte:
         {
-            g_updateSettings.updatePacket->expectedSize += (uint16_t)data;
+            g_updateFile.updateChunk->expectedSize += (uint16_t)data;
             g_heap->rxState = RxState_UpdatePacketData;
             break;
         }
@@ -1090,7 +1092,7 @@ static void initUpdateTxQueue(UpdateHeap* heap)
 ///                     specifically the queue data.
 static void initUpdatePacket(UpdateHeap* heap)
 {
-    g_updateSettings.updatePacket = &heap->heapData.updatePacket;
+    g_updateFile.updateChunk = &heap->heapData.updateChunk;
 }
 
 
@@ -1167,7 +1169,7 @@ uint16_t uartFrameProtocol_activate(heapWord_t* memory, uint16_t size, bool enab
             NormalHeap* heap = (NormalHeap*)g_heap;
             initDecodedRxQueue(heap);
             initTxQueue(heap);
-            g_updateSettings.updatePacket = NULL;
+            g_updateFile.updateChunk = NULL;
         }
         initRx();
         registerI2cCallbacks();
@@ -1185,7 +1187,7 @@ uint16_t uartFrameProtocol_deactivate(void)
         size = uartFrameProtocol_getHeapWordRequirement(isUpdateEnabled());
         g_heap = NULL;
     }
-    g_updateSettings.updatePacket = NULL;
+    g_updateFile.updateChunk = NULL;
     return size;
 }
 
