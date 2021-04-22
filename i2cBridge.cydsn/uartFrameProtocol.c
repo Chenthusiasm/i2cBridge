@@ -178,17 +178,20 @@ typedef enum PacketOffset
 /// in the data payload of the Bridgecommand_SlaveUpdate command.
 typedef enum UpdateOffset
 {
+    /// Flags associated with the update packet. See the UpdateFlags union.
+    UpdateOffset_Flags                  = 0u,
+    
     /// Offset for the file size. Note this is a big-endian 16-bit value.
-    UpdateOffset_FileSize               = 0u,
+    UpdateOffset_FileSize               = 1u,
     
     /// Offset for the chunk size.
-    UpdateOffset_ChunkSize              = 2u,
+    UpdateOffset_ChunkSize              = 3u,
     
     /// Offset for total number of chunks.
-    UpdateOffset_NumberOfChunks         = 3u,
+    UpdateOffset_NumberOfChunks         = 4u,
     
     /// Offset for the delay in milliseconds (currently not used).
-    UpdateOffset_DelayMS                = 4u,
+    UpdateOffset_DelayMS                = 5u,
     
 } UpdateOffset;
 
@@ -216,6 +219,48 @@ typedef struct Flags
     bool data : 1;
     
 } Flags;
+
+
+/// Union that represents a bit-mask of different flags associated with the
+/// update.
+typedef union UpdateFlags
+{
+    /// 8-bit value representation of the bit-mask.
+    uint8_t value;
+    
+    struct
+    {
+        /// Bi-directional. Purpose unknown.
+        bool initiate : 1;
+        
+        /// Only sent by the bridge. Indicates that the update was successful.
+        bool success : 1;
+        
+        /// Not used.
+        bool writeSuccess : 1;
+        
+        /// Only sent by the bridge. Indicates the bridge is ready for the next
+        /// update chunk.
+        bool readyForNextChunk : 1;
+        
+        /// Only sent by the host. Indicates that the update packet contains
+        /// information regarding the update file.
+        bool updateFileInfo : 1;
+        
+        /// Only sent by the bridge. Purpose unknown.
+        bool test : 1;
+        
+        /// Only sent by the host. Associated with the *.txt file update.
+        /// Untested and behavior is unknown.
+        bool textStream : 1;
+        
+        /// Only sent by the bridge. Indicates there was a problem with the
+        /// update.
+        bool error : 1;
+        
+    };
+    
+} UpdateFlags;
 
 
 /// Container of variables pertaining to the current the slave update chunk.
