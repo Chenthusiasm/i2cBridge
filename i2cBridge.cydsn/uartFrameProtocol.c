@@ -176,24 +176,21 @@ typedef enum PacketOffset
 
 /// Enumeration that defines the offsets of the different slave update settings
 /// in the data payload of the Bridgecommand_SlaveUpdate command.
-typedef enum UpdateSettingsPacketOffset
+typedef enum UpdateOffset
 {
-    /// Offset for the file length, high byte.
-    UpdateSettingsPacketOffset_FileLengthHi     = 0u,
-    
-    /// Offset for the file length, low byte.
-    UpdateSettingsPacketOffset_FileLengthLo     = 1u,
+    /// Offset for the file size. Note this is a big-endian 16-bit value.
+    UpdateOffset_FileSize               = 0u,
     
     /// Offset for the chunk size.
-    UpdateSettingsPacketOffset_ChunkSize        = 2u,
+    UpdateOffset_ChunkSize              = 2u,
     
     /// Offset for total number of chunks.
-    UpdateSettingsPacketOffset_NumberOfChunks   = 3u,
+    UpdateOffset_NumberOfChunks         = 3u,
     
     /// Offset for the delay in milliseconds (currently not used).
-    UpdateSettingsPacketOffset_DelayMS          = 4u,
+    UpdateOffset_DelayMS                = 4u,
     
-} UpdateSettingsPacketOffset;
+} UpdateOffset;
 
 
 /// Enumeration that defines the offsets of the different fields in the update
@@ -783,14 +780,14 @@ static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
     static uint16_t const ChunkSizeAdjustment = 256u;
     
     bool status = false;
-    if (size > UpdateSettingsPacketOffset_DelayMS)
+    if (size > UpdateOffset_DelayMS)
     {
-        g_updateFile.size = utility_bigEndianUint16(&data[UpdateSettingsPacketOffset_FileLengthHi]);
-        g_updateFile.subchunkSize = data[UpdateSettingsPacketOffset_ChunkSize];
+        g_updateFile.size = utility_bigEndianUint16(&data[UpdateOffset_FileSize]);
+        g_updateFile.subchunkSize = data[UpdateOffset_ChunkSize];
         if (g_updateFile.subchunkSize < MinChunkSize)
             g_updateFile.subchunkSize += ChunkSizeAdjustment;
-        g_updateFile.numberOfChunks = data[UpdateSettingsPacketOffset_NumberOfChunks];
-        g_updateFile.delayMS = data[UpdateSettingsPacketOffset_ChunkSize];
+        g_updateFile.numberOfChunks = data[UpdateOffset_NumberOfChunks];
+        g_updateFile.delayMS = data[UpdateOffset_ChunkSize];
     }
     return status;
 }
