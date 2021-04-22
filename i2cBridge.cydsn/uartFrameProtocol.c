@@ -814,6 +814,10 @@ static bool processErrorCommand(uint8_t const* data, uint16_t size)
 }
 
 
+/// Processes the slave update command from the host.
+/// @param[in]  data    The data payload from the error command.
+/// @param[in]  size    The size of the data payload.
+/// @return If the slave update command was processed successfully.
 static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
 {
     static uint16_t const MinChunkDataSize = 8u;
@@ -822,14 +826,35 @@ static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
     static uint16_t const ChunkSizeAdjustment = 256u;
     
     bool status = false;
-    if (size > UpdateOffset_DelayMS)
+    if (size > UpdateOffset_Flags)
     {
-        g_updateFile.size = utility_bigEndianUint16(&data[UpdateOffset_FileSize]);
-        g_updateFile.subchunkSize = data[UpdateOffset_ChunkSize];
-        if (g_updateFile.subchunkSize < MinChunkSize)
-            g_updateFile.subchunkSize += ChunkSizeAdjustment;
-        g_updateFile.numberOfChunks = data[UpdateOffset_NumberOfChunks];
-        g_updateFile.delayMS = data[UpdateOffset_ChunkSize];
+        UpdateFlags flags = { data[UpdateOffset_Flags] };
+        if (flags.initiate)
+        {
+            // @TODO: figure out what this flag is supposed to do.
+        }
+        if (flags.updateFileInfo)
+        {
+            if (size > UpdateOffset_DelayMS)
+            {
+                g_updateFile.size = utility_bigEndianUint16(&data[UpdateOffset_FileSize]);
+                g_updateFile.subchunkSize = data[UpdateOffset_ChunkSize];
+                if (g_updateFile.subchunkSize < MinChunkSize)
+                    g_updateFile.subchunkSize += ChunkSizeAdjustment;
+                g_updateFile.numberOfChunks = data[UpdateOffset_NumberOfChunks];
+                g_updateFile.delayMS = data[UpdateOffset_ChunkSize];
+            }
+            status = true;
+        }
+        if (flags.textStream)
+        {
+            // @TODO: figure out what this flag is supposed to do.
+        }
+    }
+    if (!status)
+    {
+        // @TODO: send an update error message indicating the flag wasn't
+        // recognized.
     }
     return status;
 }
