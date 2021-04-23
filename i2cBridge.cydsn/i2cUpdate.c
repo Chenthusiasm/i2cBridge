@@ -26,14 +26,14 @@
 // === DEFINES =================================================================
 
 /// Size of the raw receive data buffer.
-#define RX_BUFFER_SIZE                  (64u)
+#define RX_BUFFER_SIZE                  (32u)
 
 /// The max size of the transfer queue (the max number of queue elements).
-#define XFER_QUEUE_MAX_SIZE             (8u)
+#define XFER_QUEUE_MAX_SIZE             (4u)
 
 /// The size of the data array that holds the queue element data in the transfer
 /// queue.
-#define XFER_QUEUE_DATA_SIZE            (600u)
+#define XFER_QUEUE_DATA_SIZE            (64u)
 
 
 // === TYPE DEFINES ============================================================
