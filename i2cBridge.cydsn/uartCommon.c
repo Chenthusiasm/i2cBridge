@@ -35,31 +35,6 @@
 /// Name of the host UART component.
 #define HOST_UART                       hostUart_
 
-/// The max size of the receive queue (the max number of queue elements).
-#define RX_QUEUE_MAX_SIZE               (8u)
-
-/// The size of the data array that holds the queue element data in the receive
-/// queue.
-#define RX_QUEUE_DATA_SIZE              (600u)
-
-/// The max size of the transmit queue (the max number of queue elements).
-#define TX_QUEUE_MAX_SIZE               (8u)
-
-/// The size of the data array that holds the queue element data in the transmit
-/// queue.
-#define TX_QUEUE_DATA_SIZE              (800u)
-
-/// The size of the data array that holds the queue element data in the receive
-/// queue when in update mode.
-/// Note: in the previous implementation of the bridge, the Rx FIFO was
-/// allocated 2052 bytes; this should be larger than that.
-#define UPDATER_RX_QUEUE_DATA_SIZE      (2100u)
-
-/// The size of the data array that holds the queue element data in the transmit
-/// queue. This should be smaller than the receive queue data size to account
-/// for the change in the receive/transmit balance.
-#define UPDATER_TX_QUEUE_DATA_SIZE      (100u)
-
 
 // === TYPE DEFINES ============================================================
 
@@ -202,13 +177,6 @@ typedef struct Heap
     
     /// Transmit queue.
     Queue txQueue;
-    
-    /// Array of decoded receive queue elements for the receive queue; these
-    /// elements have been received but are pending processing.
-    QueueElement decodedRxQueueElements[RX_QUEUE_MAX_SIZE];
-    
-    /// Array of transmit queue elements for the transmit queue.
-    QueueElement txQueueElements[TX_QUEUE_MAX_SIZE];
     
     /// The last time data was received in milliseconds.
     volatile uint32_t lastRxTimeMS;
@@ -1034,9 +1002,9 @@ static void initDecodedRxQueue(TranslateHeap* heap)
 {
     queue_deregisterEnqueueCallback(&g_heap->decodedRxQueue);
     g_heap->decodedRxQueue.data = heap->heapData.decodedRxQueueData;
-    g_heap->decodedRxQueue.elements = g_heap->decodedRxQueueElements;
-    g_heap->decodedRxQueue.maxDataSize = RX_QUEUE_DATA_SIZE;
-    g_heap->decodedRxQueue.maxSize = RX_QUEUE_MAX_SIZE;
+    g_heap->decodedRxQueue.elements = heap->heapData.decodedRxQueueElements;
+    g_heap->decodedRxQueue.maxDataSize = TRANSLATE_RX_QUEUE_DATA_SIZE;
+    g_heap->decodedRxQueue.maxSize = TRANSLATE_RX_QUEUE_MAX_SIZE;
     queue_empty(&g_heap->decodedRxQueue);
     resetRxTime();
 }
@@ -1050,9 +1018,9 @@ static void initTxQueue(TranslateHeap* heap)
 {
     queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
     g_heap->txQueue.data = heap->heapData.txQueueData;
-    g_heap->txQueue.elements = g_heap->txQueueElements;
-    g_heap->txQueue.maxDataSize = TX_QUEUE_DATA_SIZE;
-    g_heap->txQueue.maxSize = TX_QUEUE_MAX_SIZE;
+    g_heap->txQueue.elements = heap->heapData.txQueueElements;
+    g_heap->txQueue.maxDataSize = TRANSLATE_TX_QUEUE_DATA_SIZE;
+    g_heap->txQueue.maxSize = TRANSLATE_TX_QUEUE_MAX_SIZE;
     queue_empty(&g_heap->txQueue);
     resetPendingTxEnqueue();
 }
@@ -1066,9 +1034,9 @@ static void initUpdateDecodedRxQueue(UpdateHeap* heap)
 {
     queue_deregisterEnqueueCallback(&g_heap->decodedRxQueue);
     g_heap->decodedRxQueue.data = heap->heapData.decodedRxQueueData;
-    g_heap->decodedRxQueue.elements = g_heap->decodedRxQueueElements;
-    g_heap->decodedRxQueue.maxDataSize = UPDATER_RX_QUEUE_DATA_SIZE;
-    g_heap->decodedRxQueue.maxSize = RX_QUEUE_MAX_SIZE;
+    g_heap->decodedRxQueue.elements = heap->heapData.decodedRxQueueElements;
+    g_heap->decodedRxQueue.maxDataSize = UPDATE_RX_QUEUE_DATA_SIZE;
+    g_heap->decodedRxQueue.maxSize = UPDATE_RX_QUEUE_MAX_SIZE;
     queue_empty(&g_heap->decodedRxQueue);
     resetRxTime();
 }
@@ -1082,9 +1050,9 @@ static void initUpdateTxQueue(UpdateHeap* heap)
 {
     queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
     g_heap->txQueue.data = heap->heapData.txQueueData;
-    g_heap->txQueue.elements = g_heap->txQueueElements;
-    g_heap->txQueue.maxDataSize = UPDATER_TX_QUEUE_DATA_SIZE;
-    g_heap->txQueue.maxSize = TX_QUEUE_MAX_SIZE;
+    g_heap->txQueue.elements = heap->heapData.txQueueElements;
+    g_heap->txQueue.maxDataSize = UPDATE_TX_QUEUE_DATA_SIZE;
+    g_heap->txQueue.maxSize = UPDATE_TX_QUEUE_MAX_SIZE;
     queue_empty(&g_heap->txQueue);
     resetPendingTxEnqueue();
 }
