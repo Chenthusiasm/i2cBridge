@@ -151,18 +151,19 @@ typedef enum PacketOffset
 } PacketOffset;
 
 
-
-
-/// Type flags that describe the type of packet.
-typedef struct Flags
+/// Settings pertaining to the transmit enqueue.
+typedef struct TxEnqueueSettings
 {
-    /// Flag indicating if the packet contains a command.
-    bool command : 1;
+    /// The bridge command associated with the transmit enqueue.
+    BridgeCommand command;
     
-    /// Flag indicating if the packet contains data.
-    bool data : 1;
+    /// Flag indicating if the transmit enqueue contains a command.
+    bool commandFlag : 1;
     
-} Flags;
+    /// Flag indicating if the transmit enqueue contains data.
+    bool dataFlag : 1;
+    
+} TxEnqueueSettings;
 
 
 /// Data structure that defines memory used by the module in a similar fashion
@@ -180,8 +181,6 @@ typedef struct Heap
     
     /// The last time data was received in milliseconds.
     volatile uint32_t lastRxTimeMS;
-    
-
     
 } Heap;
 
@@ -236,16 +235,14 @@ static UpdateFile g_updateFile = { NULL, 0, 0, 0, 0, 0, 0 };
 
 /// The current state in the protocol state machine for receive processing.
 /// frame.
-volatile RxState g_rxState;
+volatile RxState g_rxState = RxState_OutOfFrame;
 
-/// The type flags of the data that is waiting to be enqueued into the transmit
-/// queue. This must be set prior to enqueueing data into the transmit queue.
-Flags g_pendingTxEnqueueFlags;
+/// Settings associated with the pending transmit enqueue.
+TxEnqueueSettings g_pendingTxEnqueue = { BridgeCommand_None, false, false };
 
 /// The command associated with the data that is watiting to be enqueued into
 /// the transmit queue. This must be set prior to enqueueing data into the
 /// transmit queue.
-BridgeCommand pendingTxEnqueueCommand;
 
 /// Callback function that is invoked when data is received out of the frame
 /// state machine.
@@ -303,9 +300,9 @@ static void resetRxTime(void)
 /// Resets the variables associated with the pending transmit enqueue.
 static void resetPendingTxEnqueue(void)
 {
-    pendingTxEnqueueCommand = BridgeCommand_None;
-    static Flags const DefaultFlags = { false, false };
-    g_pendingTxEnqueueFlags = DefaultFlags;
+    g_pendingTxEnqueue.command = BridgeCommand_None;
+    g_pendingTxEnqueue.commandFlag = false;
+    g_pendingTxEnqueue.dataFlag = false;
 }
 
 
@@ -381,7 +378,7 @@ static uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const 
         target[t++] = ControlByte_StartFrame;
         
         bool processPendingData = true;
-        if (g_pendingTxEnqueueFlags.command && (pendingTxEnqueueCommand != BridgeCommand_None))
+        if (g_pendingTxEnqueue.commandFlag && (g_pendingTxEnqueue.command != BridgeCommand_None))
         {
             static uint8_t const CommandSize = 3u;
             if ((t + CommandSize) > targetSize)
@@ -393,11 +390,11 @@ static uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const 
             {
                 target[t++] = ControlByte_Escape;
                 target[t++] = ControlByte_Escape;
-                target[t++] = pendingTxEnqueueCommand;
+                target[t++] = g_pendingTxEnqueue.command;
             }
         }
         
-        if (g_pendingTxEnqueueFlags.data && processPendingData && (sourceSize > 0) && (source != NULL))
+        if (g_pendingTxEnqueue.dataFlag && processPendingData && (sourceSize > 0) && (source != NULL))
         {
             // Iterate through the source buffer and copy it into transmit buffer.
             for (uint32_t s = 0; s < sourceSize; ++s)
@@ -434,28 +431,6 @@ static uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const 
 }
 
 
-/// Generates the formatted packet that defines the UART frame protocol. The
-/// formatted packet will have the 0xaa frame characters and 0x55 escape
-/// characters as necessary along with command byte if the packet pertains to
-/// a bridge command. Note that the packet's type flags and command bytes must
-/// be primed before invoking this function.
-/// @param[in]  source      The source buffer.
-/// @param[in]  sourceSize  The number of bytes in the source.
-/// @param[out] target      The target buffer (where the formatted data is
-///                         stored).
-/// @param[in]  targetSize  The number of bytes available in the target.
-/// @return The number of bytes in the target buffer or the number of bytes
-///         to transmit.  If 0, then the source buffer was either invalid or
-///         there's not enough bytes in target buffer to store the formatted
-///         data.
-static uint16_t __attribute__((unused)) encodeTxData(uint8_t target[], uint16_t targetSize, BridgeCommand command, Flags flags, uint8_t const source[], uint16_t sourceSize)
-{
-    pendingTxEnqueueCommand = command;
-    g_pendingTxEnqueueFlags = flags;
-    return encodeData(target, targetSize, source, sourceSize);
-}
-
-
 /// Enqueue a command response and any associated data into the transmit queue.
 /// @param[in]  command The command associated with the transmit packet.
 /// @param[in]  data    The data to enqueue. If this is NULL, then the data flag
@@ -470,15 +445,15 @@ static bool txEnqueueCommandResponse(BridgeCommand command, uint8_t const data[]
     if (!queue_isFull(&g_heap->txQueue) && (command != BridgeCommand_None))
     {
         bool isEmptyData = ((data == NULL) || (size <= 0));
-        pendingTxEnqueueCommand = command;
-        g_pendingTxEnqueueFlags.command = true;
-        g_pendingTxEnqueueFlags.data = !isEmptyData;
+        g_pendingTxEnqueue.command = command;
+        g_pendingTxEnqueue.commandFlag = true;
+        g_pendingTxEnqueue.dataFlag = !isEmptyData;
         if (isEmptyData)
         {
             // The dummyData variables serves as a placeholder to allow for a
-            // successful enqueue of only commands in the txQueue. The data doesn't
-            // matter. This will allow the enqueue callback function, encodeData(),
-            // to populate the enqueue with the command.
+            // successful enqueue of only commands in the txQueue. The data
+            // doesn't matter. This will allow the enqueue callback function,
+            // encodeData(), to populate the enqueue with the command.
             uint8_t dummyData = 0;
             queue_enqueue(&g_heap->txQueue, &dummyData, sizeof(dummyData));
         }
@@ -508,9 +483,9 @@ static bool txEnqueueLegacyVersion(void)
     bool status = false;
     if (!queue_isFull(&g_heap->txQueue))
     {
-        pendingTxEnqueueCommand = BridgeCommand_LegacyVersion;
-        g_pendingTxEnqueueFlags.command = true;
-        g_pendingTxEnqueueFlags.data = true;
+        g_pendingTxEnqueue.command = BridgeCommand_LegacyVersion;
+        g_pendingTxEnqueue.commandFlag = true;
+        g_pendingTxEnqueue.dataFlag = true;
         queue_enqueue(&g_heap->txQueue, Version, sizeof(Version));
         status = true;
     }
@@ -534,9 +509,9 @@ static bool txEnqueueVersion(void)
     bool status = false;
     if (!queue_isFull(&g_heap->txQueue))
     {
-        pendingTxEnqueueCommand = BridgeCommand_Version;
-        g_pendingTxEnqueueFlags.command = true;
-        g_pendingTxEnqueueFlags.data = true;
+        g_pendingTxEnqueue.command = BridgeCommand_Version;
+        g_pendingTxEnqueue.commandFlag = true;
+        g_pendingTxEnqueue.dataFlag = true;
         queue_enqueue(&g_heap->txQueue, Version, sizeof(Version));
         status = true;
     }
@@ -555,9 +530,9 @@ static bool __attribute__((unused)) txEnqueueUartError(uint16_t callsite)
         int size = error_makeUartErrorMessage(scratch, sizeof(scratch), 0, callsite);
         if (size > 0)
         {
-            pendingTxEnqueueCommand = BridgeCommand_Error;
-            g_pendingTxEnqueueFlags.command = true;
-            g_pendingTxEnqueueFlags.data = true;
+            g_pendingTxEnqueue.command = BridgeCommand_Error;
+            g_pendingTxEnqueue.commandFlag = true;
+            g_pendingTxEnqueue.dataFlag = true;
             queue_enqueue(&g_heap->txQueue, scratch, sizeof(size));
             result = true;
         }
@@ -580,9 +555,9 @@ static bool txEnqueueI2cError(I2cTouchStatus status, uint16_t callsite)
         int size = error_makeI2cErrorMessage(scratch, sizeof(scratch), status, callsite);
         if (size > 0)
         {
-            pendingTxEnqueueCommand = BridgeCommand_Error;
-            g_pendingTxEnqueueFlags.command = true;
-            g_pendingTxEnqueueFlags.data = true;
+            g_pendingTxEnqueue.command = BridgeCommand_Error;
+            g_pendingTxEnqueue.commandFlag = true;
+            g_pendingTxEnqueue.dataFlag = true;
             queue_enqueue(&g_heap->txQueue, scratch, size);
             result = true;
         }
@@ -641,9 +616,9 @@ static bool processErrorCommand(uint8_t const* data, uint16_t size)
         int size = error_makeModeMessage(scratch, sizeof(scratch));
         if (size > 0)
         {
-            pendingTxEnqueueCommand = BridgeCommand_Error;
-            g_pendingTxEnqueueFlags.command = true;
-            g_pendingTxEnqueueFlags.data = true;
+            g_pendingTxEnqueue.command = BridgeCommand_Error;
+            g_pendingTxEnqueue.commandFlag = true;
+            g_pendingTxEnqueue.dataFlag = true;
             queue_enqueue(&g_heap->txQueue, scratch, size);
             status = true;
         }
@@ -1264,9 +1239,9 @@ bool uartCommon_txEnqueueData(uint8_t const data[], uint16_t size)
     bool status = false;
     if ((g_heap != NULL) && !queue_isFull(&g_heap->txQueue))
     {
-        pendingTxEnqueueCommand = BridgeCommand_None;
-        g_pendingTxEnqueueFlags.command = false;
-        g_pendingTxEnqueueFlags.data = true;
+        g_pendingTxEnqueue.command = BridgeCommand_None;
+        g_pendingTxEnqueue.commandFlag = false;
+        g_pendingTxEnqueue.dataFlag = true;
         status = queue_enqueue(&g_heap->txQueue, data, size); 
     }
     return status;
@@ -1280,9 +1255,9 @@ bool uartCommon_txEnqueueError(uint8_t const data[], uint16_t size)
     {
         if ((g_heap != NULL) && !queue_isFull(&g_heap->txQueue))
         {
-            pendingTxEnqueueCommand = BridgeCommand_Error;
-            g_pendingTxEnqueueFlags.command = true;
-            g_pendingTxEnqueueFlags.data = true;
+            g_pendingTxEnqueue.command = BridgeCommand_Error;
+            g_pendingTxEnqueue.commandFlag = true;
+            g_pendingTxEnqueue.dataFlag = true;
             status = queue_enqueue(&g_heap->txQueue, data, size); 
         }
     }
