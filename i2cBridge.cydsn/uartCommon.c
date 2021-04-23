@@ -230,48 +230,18 @@ typedef struct Heap
 } Heap;
 
 
-/// Data extension for the Heap structure. Defines the data buffers when in the
-/// normal mode.
-typedef struct HeapData
-{
-    /// Array to hold the decoded data of elements in the receive queue.
-    uint8_t decodedRxQueueData[RX_QUEUE_DATA_SIZE];
-    
-    /// Array to hold the data of the elements in the transmit queue.
-    uint8_t txQueueData[TX_QUEUE_DATA_SIZE];
-    
-} HeapData;
-
-
-/// Data extension for the Heap structure. Defines the data buffers when in
-/// update mode.
-typedef struct UpdateData
-{
-    /// Current status of the update chunk.
-    UpdateChunk updateChunk;
-    
-    /// Array to hold the decoded data of elements in the receive queue.
-    uint8_t decodedRxQueueData[UPDATER_RX_QUEUE_DATA_SIZE];
-    
-    /// Array to hold the data of the elements in the transmit queue.
-    uint8_t txQueueData[UPDATER_TX_QUEUE_DATA_SIZE];
-    
-} UpdateData;
-
-
-
 /// Structure used to define the memory allocation of the heap + associated
 /// heap data in normal mode. Only used to determine the organization of the
 /// two data structures in unallocated memory to ensure alignment.
-typedef struct NormalHeap
+typedef struct TranslateHeap
 {
     /// Heap data structure.
     Heap heap;
     
-    /// HeapData data structure when in normal mode.
-    HeapData heapData;
+    /// HeapData data structure when in normal translater mode.
+    TranslateHeapData heapData;
     
-} NormalHeap;
+} TranslateHeap;
 
 
 /// Structure used to define the memory allocation of the heap + associated
@@ -283,7 +253,7 @@ typedef struct UpdateHeap
     Heap heap;
     
     /// HeapData data structure when in update mode.
-    UpdateData heapData;
+    UpdateHeapData heapData;
     
 } UpdateHeap;
 
@@ -1060,7 +1030,7 @@ static void initRx(void)
 /// @param[in]  heap    Pointer to the specific normal heap data structure that
 ///                     defines the address offset for the heap data,
 ///                     specifically the queue data.
-static void initDecodedRxQueue(NormalHeap* heap)
+static void initDecodedRxQueue(TranslateHeap* heap)
 {
     queue_deregisterEnqueueCallback(&g_heap->decodedRxQueue);
     g_heap->decodedRxQueue.data = heap->heapData.decodedRxQueueData;
@@ -1076,7 +1046,7 @@ static void initDecodedRxQueue(NormalHeap* heap)
 /// @param[in]  heap    Pointer to the specific normal heap data structure that
 ///                     defines the address offset for the heap data,
 ///                     specifically the queue data.
-static void initTxQueue(NormalHeap* heap)
+static void initTxQueue(TranslateHeap* heap)
 {
     queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
     g_heap->txQueue.data = heap->heapData.txQueueData;
@@ -1179,7 +1149,7 @@ void uartCommon_init(void)
 
 uint16_t uartCommon_getHeapWordRequirement(bool enableUpdate)
 {
-    uint16_t size = (enableUpdate) ? (sizeof(UpdateHeap)) : (sizeof(NormalHeap));
+    uint16_t size = (enableUpdate) ? (sizeof(UpdateHeap)) : (sizeof(TranslateHeap));
     return heap_calculateHeapWordRequirement(size);
 }
 
@@ -1201,7 +1171,7 @@ uint16_t uartCommon_activate(heapWord_t* memory, uint16_t size, bool enableUpdat
         }
         else
         {
-            NormalHeap* heap = (NormalHeap*)g_heap;
+            TranslateHeap* heap = (TranslateHeap*)g_heap;
             initDecodedRxQueue(heap);
             initTxQueue(heap);
             g_updateFile.updateChunk = NULL;
