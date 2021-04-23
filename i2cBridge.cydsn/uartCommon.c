@@ -35,6 +35,37 @@
 /// Name of the host UART component.
 #define HOST_UART                       hostUart_
 
+/// The max size of the receive queue (the max number of queue elements).
+#define TRANSLATE_RX_QUEUE_MAX_SIZE     (8u)
+
+/// The size of the data array that holds the queue element data in the
+/// receive queue.
+#define TRANSLATE_RX_QUEUE_DATA_SIZE    (600u)
+
+/// The max size of the transmit queue (the max number of queue elements).
+#define TRANSLATE_TX_QUEUE_MAX_SIZE     (8u)
+
+/// The size of the data array that holds the queue element data in the
+/// transmit queue.
+#define TRANSLATE_TX_QUEUE_DATA_SIZE    (800u)
+
+/// The max size of the receive queue (the max number of queue elements).
+#define UPDATE_RX_QUEUE_MAX_SIZE        (4u)
+
+/// The size of the data array that holds the queue element data in the receive
+/// queue when in update mode.
+/// Note: in the previous implementation of the bridge, the Rx FIFO was
+/// allocated 2052 bytes; this should be larger than that.
+#define UPDATE_RX_QUEUE_DATA_SIZE       (2100u)
+
+/// The max size of the transmit queue (the max number of queue elements).
+#define UPDATE_TX_QUEUE_MAX_SIZE        (4u)
+
+/// The size of the data array that holds the queue element data in the transmit
+/// queue. This should be smaller than the receive queue data size to account
+/// for the change in the receive/transmit balance.
+#define UPDATE_TX_QUEUE_DATA_SIZE       (100u)
+
 
 // === TYPE DEFINES ============================================================
 
@@ -151,6 +182,63 @@ typedef enum PacketOffset
 } PacketOffset;
 
 
+/// Enumeration that defines the offsets of the different slave update settings
+/// in the data payload of the Bridgecommand_SlaveUpdate command.
+typedef enum UpdateOffset
+{
+    /// Flags associated with the update packet. See the UpdateFlags union.
+    UpdateOffset_Flags                  = 0u,
+    
+    /// Offset for the file size. Note this is a big-endian 16-bit value.
+    UpdateOffset_FileSize               = 1u,
+    
+    /// Offset for the chunk size.
+    UpdateOffset_ChunkSize              = 3u,
+    
+    /// Offset for total number of chunks.
+    UpdateOffset_NumberOfChunks         = 4u,
+    
+    /// Offset for the delay in milliseconds (currently not used).
+    UpdateOffset_DelayMS                = 5u,
+    
+} UpdateOffset;
+
+
+/// Enumeration that defines the offsets of the different fields in the update
+/// packet.
+typedef enum UpdateChunkOffset
+{
+    /// Offset for the chunk size. Note this is a big-endian 16-bit value.
+    UpdateChunkOffset_Size              = 0u,
+    
+    /// Offset for the data payload in the chunk.
+    UpdateChunkOffset_Data              = 2u,
+    
+} UpdateChunkOffset;
+
+
+/// Status/result of processing received data byte from the update packet.
+typedef enum RxUpdateByteStatus
+{
+    /// Byte received fine. Continue receiving bytes for the subchunk.
+    RxUpdateByteStatus_Success,
+    
+    /// Byte received fine. Subchunk complete, start a new subchunk.
+    RxUpdateByteStatus_SubchunkComplete,
+    
+    /// Byte received fine. Chunk complete, start a new chunk.
+    RxUpdateByteStatus_ChunkComplete,
+    
+    /// Byte received fine. File complete and all update data has been received,
+    /// close the update.
+    RxUpdateByteStatus_FileComplete,
+    
+    /// There was something wrong with the received byte; abort the update.
+    RxUpdateByteStatus_Error,
+    
+} RxUpdateByteStatus;
+
+
 /// Settings pertaining to the transmit enqueue.
 typedef struct TxEnqueueSettings
 {
@@ -166,6 +254,109 @@ typedef struct TxEnqueueSettings
 } TxEnqueueSettings;
 
 
+/// Union that represents a bit-mask of different flags associated with the
+/// update.
+typedef union UpdateFlags
+{
+    /// 8-bit value representation of the bit-mask.
+    uint8_t value;
+    
+    struct
+    {
+        /// Bi-directional. Purpose unknown.
+        bool initiate : 1;
+        
+        /// Only sent by the bridge. Indicates that the update was
+        /// successful.
+        bool success : 1;
+        
+        /// Not used.
+        bool writeSuccess : 1;
+        
+        /// Only sent by the bridge. Indicates the bridge is ready for the next
+        /// update chunk.
+        bool readyForNextChunk : 1;
+        
+        /// Only sent by the host. Indicates that the update packet contains
+        /// information regarding the update file.
+        bool updateFileInfo : 1;
+        
+        /// Only sent by the bridge. Purpose unknown.
+        bool test : 1;
+        
+        /// Only sent by the host. Associated with the *.txt file update.
+        /// Untested and behavior is unknown.
+        bool textStream : 1;
+        
+        /// Only sent by the bridge. Indicates there was a problem with the
+        /// update.
+        bool error : 1;
+        
+    };
+    
+} UpdateFlags;
+
+
+/// Container of variables pertaining to the current the slave update chunk.
+typedef struct UpdateChunk
+{
+    /// The total size in bytes of the chunk, update data only, in bytes.
+    /// Used to help determine when the chunk has been completely sent.
+    uint16_t totalSize;
+    
+    /// The current size of the chunk, update data only, in bytes.
+    uint16_t size;
+    
+    /// The current size of the subchunk, update data only, in bytes.
+    uint16_t subchunkSize;
+    
+} UpdateChunk;
+
+
+/// Settings pertaining to the slave update. Note that these parameters are
+/// determined at runtime via the BridgeCommand_SlaveUpdate bridge command.
+/// File:       The entire data contents of the slave firmware update.
+/// Chunk:      Individual piece of the file that the host sends over the host
+///             UART communication interface.
+/// Subchunk:   Individual piece of the chunk that the bridge sends over the
+///             slave I2C communication interface.
+///
+/// F: file
+/// C: chunk
+/// S: subchunk
+///
+/// FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+/// CCCCCCCCCCCCCCCCCC  CCCCCCCCCCCCCCCCCC  CCCCCCCCCCCCCCCCCC
+/// SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS  SS
+typedef struct UpdateFile
+{
+    /// Pointer to the current update chunk, containing info on the current
+    /// chunk int he update process; if NULL, then the module is not in update
+    /// mode.
+    UpdateChunk* updateChunk;
+    
+    /// The total size of the update file (raw data only) in bytes (unused).
+    uint16_t totalSize;
+    
+    /// The current size of the update file (raw data only) in bytes.
+    uint16_t size;
+    
+    /// The size of a subchunk in bytes. The subchunk includes any header info
+    /// along with actual update data.
+    uint16_t subchunkSize;
+    
+    /// The toal number of chunks to expect in the entire update.
+    uint8_t totalChunks;
+    
+    /// The current number of chunks in the entire update.
+    uint8_t chunk;
+    
+    /// The delay in milliseconds (unused).
+    uint8_t delayMS;
+    
+} UpdateFile;
+
+
 /// Data structure that defines memory used by the module in a similar fashion
 /// to a heap. Globals are contained in this structure that are used when the
 /// module is activated and then "deallocated" when the module is deactivated.
@@ -179,10 +370,50 @@ typedef struct Heap
     /// Transmit queue.
     Queue txQueue;
     
-    /// The last time data was received in milliseconds.
-    volatile uint32_t lastRxTimeMS;
-    
 } Heap;
+
+
+/// Data extension for the Heap structure. Defines the data buffers when in the
+/// normal translate mode.
+typedef struct TranslateHeapData
+{
+    /// Array of decoded receive queue elements for the receive queue; these
+    /// elements have been received but are pending processing.
+    QueueElement decodedRxQueueElements[TRANSLATE_RX_QUEUE_MAX_SIZE];
+    
+    /// Array of transmit queue elements for the transmit queue.
+    QueueElement txQueueElements[TRANSLATE_TX_QUEUE_MAX_SIZE];
+    
+    /// Array to hold the decoded data of elements in the receive queue.
+    uint8_t decodedRxQueueData[TRANSLATE_RX_QUEUE_DATA_SIZE];
+    
+    /// Array to hold the data of the elements in the transmit queue.
+    uint8_t txQueueData[TRANSLATE_TX_QUEUE_DATA_SIZE];
+    
+} TranslateHeapData;
+
+
+/// Data extension for the Heap structure. Defines the data buffers when in
+/// update mode.
+typedef struct UpdateHeapData
+{
+    /// Current status of the update chunk.
+    UpdateChunk updateChunk;
+    
+    /// Array of decoded receive queue elements for the receive queue; these
+    /// elements have been received but are pending processing.
+    QueueElement decodedRxQueueElements[UPDATE_RX_QUEUE_MAX_SIZE];
+    
+    /// Array of transmit queue elements for the transmit queue.
+    QueueElement txQueueElements[UPDATE_TX_QUEUE_MAX_SIZE];
+    
+    /// Array to hold the decoded data of elements in the receive queue.
+    uint8_t decodedRxQueueData[UPDATE_RX_QUEUE_DATA_SIZE];
+    
+    /// Array to hold the data of the elements in the transmit queue.
+    uint8_t txQueueData[UPDATE_TX_QUEUE_DATA_SIZE];
+    
+} UpdateHeapData;
 
 
 /// Structure used to define the memory allocation of the heap + associated
@@ -223,11 +454,14 @@ static uint8_t const ScratchSize = 16u;
 static uint16_t const RxResetTimeoutMS = 2000u;
 
 
+// === EXTERNED GLOBALS ========================================================
+
+
+
+
 // === GLOBALS =================================================================
 
-/// Heap-like memory that points to the global variables used by the module that
-/// was dynamically allocated. If NULL, then the module's global variables
-/// have not been dynamically allocated and the module has not started.
+/// Pointer to the dynamically allocated heap.
 static Heap* g_heap = NULL;
 
 /// Settings pertaining to the update file.
@@ -235,14 +469,13 @@ static UpdateFile g_updateFile = { NULL, 0, 0, 0, 0, 0, 0 };
 
 /// The current state in the protocol state machine for receive processing.
 /// frame.
-volatile RxState g_rxState = RxState_OutOfFrame;
+static volatile RxState g_rxState = RxState_OutOfFrame;
+
+/// The last time data was received in milliseconds.
+static volatile uint32_t g_lastRxTimeMS = 0u;
 
 /// Settings associated with the pending transmit enqueue.
-TxEnqueueSettings g_pendingTxEnqueue = { BridgeCommand_None, false, false };
-
-/// The command associated with the data that is watiting to be enqueued into
-/// the transmit queue. This must be set prior to enqueueing data into the
-/// transmit queue.
+static TxEnqueueSettings g_pendingTxEnqueue = { BridgeCommand_None, false, false };
 
 /// Callback function that is invoked when data is received out of the frame
 /// state machine.
@@ -293,7 +526,7 @@ static void resetUpdateChunk(void)
 /// an initial state.
 static void resetRxTime(void)
 {
-    g_heap->lastRxTimeMS = hwSystemTime_getCurrentMS();
+    g_lastRxTimeMS = hwSystemTime_getCurrentMS();
 }
 
 
@@ -569,8 +802,8 @@ static bool txEnqueueI2cError(I2cTouchStatus status, uint16_t callsite)
 /// Processes errors from the I2C gen 2 module, specifically prep an error
 /// message to send to the host.
 /// @param[in]  status      Status indicating if an error occured during the I2c
-///                         transaction. See the definition of the I2cTouchStatus
-///                         union.
+///                         transaction. See the definition of the
+///                         I2cTouchStatus union.
 /// @param[in]  callsite    Unique callsite ID to distinguish different
 ///                         functions that triggered the error.
 static void processI2cErrors(I2cTouchStatus status, uint16_t callsite)
@@ -1075,6 +1308,7 @@ static void isr(void)
         // rate.
         COMPONENT(HOST_UART, ClearRxInterruptSource)(COMPONENT(HOST_UART, INTR_RX_FRAME_ERROR));
     }
+    g_lastRxTimeMS = hwSystemTime_getCurrentMS();
     COMPONENT(HOST_UART, ClearPendingInt)();
 }
 
@@ -1088,6 +1322,18 @@ void uartCommon_init(void)
     // Setup the UART hardware.
     COMPONENT(HOST_UART, SetCustomInterruptHandler)(isr);
     COMPONENT(HOST_UART, Start)();
+}
+
+void uartCommon_initRxQueue(void)
+{
+    resetRxTime();
+}
+
+
+void uartCommon_initTxQueue(void)
+{
+    queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
+    resetPendingTxEnqueue();
 }
 
 

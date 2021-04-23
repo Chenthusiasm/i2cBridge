@@ -25,52 +25,9 @@
     #include <stdint.h>
     
     #include "heap.h"
-    #include "queue.h"
-    
-    
-    // === DEFINES =============================================================
-    
-    /// The max size of the receive queue (the max number of queue elements).
-    #define TRANSLATE_RX_QUEUE_MAX_SIZE                     (8u)
-    
-    /// The size of the data array that holds the queue element data in the
-    /// receive queue.
-    #define TRANSLATE_RX_QUEUE_DATA_SIZE                    (600u)
-    
-    /// The max size of the transmit queue (the max number of queue elements).
-    #define TRANSLATE_TX_QUEUE_MAX_SIZE                     (8u)
-    
-    /// The size of the data array that holds the queue element data in the
-    /// transmit queue.
-    #define TRANSLATE_TX_QUEUE_DATA_SIZE                    (800u)
-    
-    
-    // === TYPED DEFINES =======================================================
-    
-    /// Data extension for the Heap structure. Defines the data buffers when in
-    /// the normal translate mode.
-    typedef struct TranslateHeapData
-    {
-        /// Array of decoded receive queue elements for the receive queue; these
-        /// elements have been received but are pending processing.
-        QueueElement decodedRxQueueElements[TRANSLATE_RX_QUEUE_MAX_SIZE];
-        
-        /// Array of transmit queue elements for the transmit queue.
-        QueueElement txQueueElements[TRANSLATE_TX_QUEUE_MAX_SIZE];
-        
-        /// Array to hold the decoded data of elements in the receive queue.
-        uint8_t decodedRxQueueData[TRANSLATE_RX_QUEUE_DATA_SIZE];
-        
-        /// Array to hold the data of the elements in the transmit queue.
-        uint8_t txQueueData[TRANSLATE_TX_QUEUE_DATA_SIZE];
-        
-    } TranslateHeapData;
     
     
     // === FUNCTIONS ===========================================================
-    
-    /// Initializes the communications interface.
-    void uartTranslate_init(void);
     
     /// Accessor to get the number of heap words required for global variables.
     /// @return The number of heap words needed for global variables.

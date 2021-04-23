@@ -24,6 +24,7 @@
     #include <stdint.h>
     
     #include "heap.h"
+    #include "queue.h"
     
     
     // === TYPE DEFINES ========================================================
@@ -44,6 +45,10 @@
     
     /// Initializes the communications interface.
     void uartCommon_init(void);
+    
+    void uartCommon_initRxQueue(void);
+    
+    void uartCommon_initTxQueue(void);
     
     /// Accessor to get the number of heap words required for global variables.
     /// @param[in]  enableUpdate   Flag indicating if update mode is enabled,
