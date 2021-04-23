@@ -181,19 +181,7 @@ typedef struct Heap
     /// The last time data was received in milliseconds.
     volatile uint32_t lastRxTimeMS;
     
-    /// The current state in the protocol state machine for receive processing.
-    /// frame.
-    volatile RxState rxState;
-    
-    /// The type flags of the data that is waiting to be enqueued into the
-    /// transmit queue. This must be set prior to enqueueing data into the
-    /// transmit queue.
-    Flags pendingTxEnqueueFlags;
-    
-    /// The command associated with the data that is watiting to be enqueued
-    /// into the transmit queue. This must be set prior to enqueueing data into
-    /// the transmit queue.
-    BridgeCommand pendingTxEnqueueCommand;
+
     
 } Heap;
 
@@ -244,7 +232,20 @@ static uint16_t const RxResetTimeoutMS = 2000u;
 static Heap* g_heap = NULL;
 
 /// Settings pertaining to the update file.
-UpdateFile g_updateFile = { NULL, 0, 0, 0, 0, 0, 0 };
+static UpdateFile g_updateFile = { NULL, 0, 0, 0, 0, 0, 0 };
+
+/// The current state in the protocol state machine for receive processing.
+/// frame.
+volatile RxState g_rxState;
+
+/// The type flags of the data that is waiting to be enqueued into the transmit
+/// queue. This must be set prior to enqueueing data into the transmit queue.
+Flags g_pendingTxEnqueueFlags;
+
+/// The command associated with the data that is watiting to be enqueued into
+/// the transmit queue. This must be set prior to enqueueing data into the
+/// transmit queue.
+BridgeCommand pendingTxEnqueueCommand;
 
 /// Callback function that is invoked when data is received out of the frame
 /// state machine.
@@ -302,9 +303,9 @@ static void resetRxTime(void)
 /// Resets the variables associated with the pending transmit enqueue.
 static void resetPendingTxEnqueue(void)
 {
-    g_heap->pendingTxEnqueueCommand = BridgeCommand_None;
+    pendingTxEnqueueCommand = BridgeCommand_None;
     static Flags const DefaultFlags = { false, false };
-    g_heap->pendingTxEnqueueFlags = DefaultFlags;
+    g_pendingTxEnqueueFlags = DefaultFlags;
 }
 
 
@@ -380,7 +381,7 @@ static uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const 
         target[t++] = ControlByte_StartFrame;
         
         bool processPendingData = true;
-        if (g_heap->pendingTxEnqueueFlags.command && (g_heap->pendingTxEnqueueCommand != BridgeCommand_None))
+        if (g_pendingTxEnqueueFlags.command && (pendingTxEnqueueCommand != BridgeCommand_None))
         {
             static uint8_t const CommandSize = 3u;
             if ((t + CommandSize) > targetSize)
@@ -392,11 +393,11 @@ static uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const 
             {
                 target[t++] = ControlByte_Escape;
                 target[t++] = ControlByte_Escape;
-                target[t++] = g_heap->pendingTxEnqueueCommand;
+                target[t++] = pendingTxEnqueueCommand;
             }
         }
         
-        if (g_heap->pendingTxEnqueueFlags.data && processPendingData && (sourceSize > 0) && (source != NULL))
+        if (g_pendingTxEnqueueFlags.data && processPendingData && (sourceSize > 0) && (source != NULL))
         {
             // Iterate through the source buffer and copy it into transmit buffer.
             for (uint32_t s = 0; s < sourceSize; ++s)
@@ -449,8 +450,8 @@ static uint16_t encodeData(uint8_t target[], uint16_t targetSize, uint8_t const 
 ///         data.
 static uint16_t __attribute__((unused)) encodeTxData(uint8_t target[], uint16_t targetSize, BridgeCommand command, Flags flags, uint8_t const source[], uint16_t sourceSize)
 {
-    g_heap->pendingTxEnqueueCommand = command;
-    g_heap->pendingTxEnqueueFlags = flags;
+    pendingTxEnqueueCommand = command;
+    g_pendingTxEnqueueFlags = flags;
     return encodeData(target, targetSize, source, sourceSize);
 }
 
@@ -469,9 +470,9 @@ static bool txEnqueueCommandResponse(BridgeCommand command, uint8_t const data[]
     if (!queue_isFull(&g_heap->txQueue) && (command != BridgeCommand_None))
     {
         bool isEmptyData = ((data == NULL) || (size <= 0));
-        g_heap->pendingTxEnqueueCommand = command;
-        g_heap->pendingTxEnqueueFlags.command = true;
-        g_heap->pendingTxEnqueueFlags.data = !isEmptyData;
+        pendingTxEnqueueCommand = command;
+        g_pendingTxEnqueueFlags.command = true;
+        g_pendingTxEnqueueFlags.data = !isEmptyData;
         if (isEmptyData)
         {
             // The dummyData variables serves as a placeholder to allow for a
@@ -507,9 +508,9 @@ static bool txEnqueueLegacyVersion(void)
     bool status = false;
     if (!queue_isFull(&g_heap->txQueue))
     {
-        g_heap->pendingTxEnqueueCommand = BridgeCommand_LegacyVersion;
-        g_heap->pendingTxEnqueueFlags.command = true;
-        g_heap->pendingTxEnqueueFlags.data = true;
+        pendingTxEnqueueCommand = BridgeCommand_LegacyVersion;
+        g_pendingTxEnqueueFlags.command = true;
+        g_pendingTxEnqueueFlags.data = true;
         queue_enqueue(&g_heap->txQueue, Version, sizeof(Version));
         status = true;
     }
@@ -533,9 +534,9 @@ static bool txEnqueueVersion(void)
     bool status = false;
     if (!queue_isFull(&g_heap->txQueue))
     {
-        g_heap->pendingTxEnqueueCommand = BridgeCommand_Version;
-        g_heap->pendingTxEnqueueFlags.command = true;
-        g_heap->pendingTxEnqueueFlags.data = true;
+        pendingTxEnqueueCommand = BridgeCommand_Version;
+        g_pendingTxEnqueueFlags.command = true;
+        g_pendingTxEnqueueFlags.data = true;
         queue_enqueue(&g_heap->txQueue, Version, sizeof(Version));
         status = true;
     }
@@ -554,9 +555,9 @@ static bool __attribute__((unused)) txEnqueueUartError(uint16_t callsite)
         int size = error_makeUartErrorMessage(scratch, sizeof(scratch), 0, callsite);
         if (size > 0)
         {
-            g_heap->pendingTxEnqueueCommand = BridgeCommand_Error;
-            g_heap->pendingTxEnqueueFlags.command = true;
-            g_heap->pendingTxEnqueueFlags.data = true;
+            pendingTxEnqueueCommand = BridgeCommand_Error;
+            g_pendingTxEnqueueFlags.command = true;
+            g_pendingTxEnqueueFlags.data = true;
             queue_enqueue(&g_heap->txQueue, scratch, sizeof(size));
             result = true;
         }
@@ -579,9 +580,9 @@ static bool txEnqueueI2cError(I2cTouchStatus status, uint16_t callsite)
         int size = error_makeI2cErrorMessage(scratch, sizeof(scratch), status, callsite);
         if (size > 0)
         {
-            g_heap->pendingTxEnqueueCommand = BridgeCommand_Error;
-            g_heap->pendingTxEnqueueFlags.command = true;
-            g_heap->pendingTxEnqueueFlags.data = true;
+            pendingTxEnqueueCommand = BridgeCommand_Error;
+            g_pendingTxEnqueueFlags.command = true;
+            g_pendingTxEnqueueFlags.data = true;
             queue_enqueue(&g_heap->txQueue, scratch, size);
             result = true;
         }
@@ -640,9 +641,9 @@ static bool processErrorCommand(uint8_t const* data, uint16_t size)
         int size = error_makeModeMessage(scratch, sizeof(scratch));
         if (size > 0)
         {
-            g_heap->pendingTxEnqueueCommand = BridgeCommand_Error;
-            g_heap->pendingTxEnqueueFlags.command = true;
-            g_heap->pendingTxEnqueueFlags.data = true;
+            pendingTxEnqueueCommand = BridgeCommand_Error;
+            g_pendingTxEnqueueFlags.command = true;
+            g_pendingTxEnqueueFlags.data = true;
             queue_enqueue(&g_heap->txQueue, scratch, size);
             status = true;
         }
@@ -843,7 +844,7 @@ static RxUpdateByteStatus processRxUpdateByte(uint8_t data)
 static bool processRxByte(uint8_t data)
 {
     bool status = true;
-    switch (g_heap->rxState)
+    switch (g_rxState)
     {
         case RxState_OutOfFrame:
         {
@@ -851,9 +852,9 @@ static bool processRxByte(uint8_t data)
             {                        
                 resetRxTime();
                 if (isUpdateEnabled())
-                    g_heap->rxState = RxState_UpdatePacketSizeHiByte;
+                    g_rxState = RxState_UpdatePacketSizeHiByte;
                 else
-                    g_heap->rxState = RxState_InFrame;
+                    g_rxState = RxState_InFrame;
             }
             else
             {
@@ -867,11 +868,11 @@ static bool processRxByte(uint8_t data)
         case RxState_InFrame:
         {
             if (isEscapeCharacter(data))
-                g_heap->rxState = RxState_EscapeCharacter;
+                g_rxState = RxState_EscapeCharacter;
             else if (isEndFrameCharacter(data))
             {
                 status = queue_enqueueFinalize(&g_heap->decodedRxQueue);
-                g_heap->rxState = RxState_OutOfFrame;
+                g_rxState = RxState_OutOfFrame;
             }
             else
             {
@@ -887,7 +888,7 @@ static bool processRxByte(uint8_t data)
             status = queue_enqueueByte(&g_heap->decodedRxQueue, data, false);
             if (!status)
                 handleRxFrameOverflow(data);
-            g_heap->rxState = RxState_InFrame;
+            g_rxState = RxState_InFrame;
             break;
         }
         
@@ -895,14 +896,14 @@ static bool processRxByte(uint8_t data)
         {
             resetUpdateChunk();
             g_updateFile.updateChunk->totalSize = (uint16_t)data << 8u;
-            g_heap->rxState = RxState_UpdatePacketSizeLoByte;
+            g_rxState = RxState_UpdatePacketSizeLoByte;
             break;
         }
         
         case RxState_UpdatePacketSizeLoByte:
         {
             g_updateFile.updateChunk->totalSize += (uint16_t)data;
-            g_heap->rxState = RxState_UpdatePacketData;
+            g_rxState = RxState_UpdatePacketData;
             break;
         }
         
@@ -951,7 +952,7 @@ static bool processRxByte(uint8_t data)
             // wrong happened.  Potentially do some error handling.
             
             // Reset to the default state: out of frame.
-            g_heap->rxState = RxState_OutOfFrame;
+            g_rxState = RxState_OutOfFrame;
             status = false;
             break;
         }
@@ -989,7 +990,7 @@ static uint16_t __attribute__((unused)) processReceivedData(uint8_t const source
 /// Initializes the basic receive variables
 static void initRx(void)
 {
-    g_heap->rxState = RxState_OutOfFrame;
+    g_rxState = RxState_OutOfFrame;
     resetRxTime();
 }
 
@@ -1263,9 +1264,9 @@ bool uartCommon_txEnqueueData(uint8_t const data[], uint16_t size)
     bool status = false;
     if ((g_heap != NULL) && !queue_isFull(&g_heap->txQueue))
     {
-        g_heap->pendingTxEnqueueCommand = BridgeCommand_None;
-        g_heap->pendingTxEnqueueFlags.command = false;
-        g_heap->pendingTxEnqueueFlags.data = true;
+        pendingTxEnqueueCommand = BridgeCommand_None;
+        g_pendingTxEnqueueFlags.command = false;
+        g_pendingTxEnqueueFlags.data = true;
         status = queue_enqueue(&g_heap->txQueue, data, size); 
     }
     return status;
@@ -1279,9 +1280,9 @@ bool uartCommon_txEnqueueError(uint8_t const data[], uint16_t size)
     {
         if ((g_heap != NULL) && !queue_isFull(&g_heap->txQueue))
         {
-            g_heap->pendingTxEnqueueCommand = BridgeCommand_Error;
-            g_heap->pendingTxEnqueueFlags.command = true;
-            g_heap->pendingTxEnqueueFlags.data = true;
+            pendingTxEnqueueCommand = BridgeCommand_Error;
+            g_pendingTxEnqueueFlags.command = true;
+            g_pendingTxEnqueueFlags.data = true;
             status = queue_enqueue(&g_heap->txQueue, data, size); 
         }
     }
