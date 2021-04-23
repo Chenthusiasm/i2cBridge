@@ -1015,6 +1015,11 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
 }
 
 
+/// Processes the received data payload byte from the update packet. These bytes
+/// already have the 0xaa framing and header information parsed out.
+/// @param[in]  data    The byte to process.
+/// @return The RxUpdatebyteStatus indicating success, error, or if the byte
+///         corresponds to the end of a subchunk, chunk or update file.
 static RxUpdateByteStatus processRxUpdateByte(uint8_t data)
 {
     RxUpdateByteStatus status = RxUpdateByteStatus_Success;
@@ -1145,6 +1150,7 @@ static bool processRxByte(uint8_t data)
                 
                 case RxUpdateByteStatus_Error:
                 {
+                    // @TODO: do some error handling.
                     break;
                 }
                 
