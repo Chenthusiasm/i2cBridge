@@ -12,7 +12,7 @@
 
 // === DEPENDENCIES ============================================================
 
-#include "uartTranslator.h"
+#include "uartUpdate.h"
 
 #include "uartCommon.h"
 

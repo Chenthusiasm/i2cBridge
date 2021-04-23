@@ -24,8 +24,8 @@
 #include "i2cTouch.h"
 #include "project.h"
 #include "queue.h"
-#include "uartTranslator.h"
-#include "uartUpdater.h"
+#include "uartTranslate.h"
+#include "uartUpdate.h"
 #include "utility.h"
 #include "version.h"
 

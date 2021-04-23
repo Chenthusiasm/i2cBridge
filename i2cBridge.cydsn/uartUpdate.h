@@ -10,8 +10,8 @@
  * ========================================
 */
 
-#ifndef UART_UPDATER_H
-    #define UART_UPDATER_H
+#ifndef UART_UPDATE_H
+    #define UART_UPDATE_H
 
     #ifdef __cplusplus
         extern "C" {
@@ -235,11 +235,11 @@
     // === FUNCTIONS ===========================================================
     
     /// Initializes the communications interface.
-    void uartUpdater_init(void);
+    void uartUpdate_init(void);
     
     /// Accessor to get the number of heap words required for global variables.
     /// @return The number of heap words needed for global variables.
-    uint16_t uartUpdater_getHeapWordRequirement(void);
+    uint16_t uartUpdate_getHeapWordRequirement(void);
     
     /// Activates the UART frame protocol module and sets up its globals.
     /// This must be invoked before using any processRx or processTx-like
@@ -251,26 +251,26 @@
     ///                             array.
     /// @return The number of 32-bit words the module used for its globals. If 0
     ///         Then there was an error and the module hasn't started.
-    uint16_t uartUpdater_activate(heapWord_t memory[], uint16_t size);
+    uint16_t uartUpdate_activate(heapWord_t memory[], uint16_t size);
     
     /// Deactivates the UART frame protocol module and effectively deallocates
     /// the global memory.
     /// @return The heap word size that was freed by deactivating. If 0, then
     ///         the module was probably not activated upon this function call so
     ///         there was nothing to deallocate.
-    uint16_t uartUpdater_deactivate(void);
+    uint16_t uartUpdate_deactivate(void);
     
     /// Checks if the module is activated and the heap has been allocated for
     /// normal mode.
     /// @return If normal mode is activated.
-    bool uartUpdater_isActivated(void);
+    bool uartUpdate_isActivated(void);
     
     
     #ifdef __cplusplus
         } // extern "C"
     #endif
     
-#endif // UART_UPDATER_H
+#endif // UART_UPDATE_H
 
 
 /* [] END OF FILE */

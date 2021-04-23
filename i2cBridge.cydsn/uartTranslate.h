@@ -10,8 +10,8 @@
  * ========================================
 */
 
-#ifndef UART_TRANSLATOR_H
-    #define UART_TRANSLATOR_H
+#ifndef UART_TRANSLATE_H
+    #define UART_TRANSLATE_H
 
     #ifdef __cplusplus
         extern "C" {
@@ -70,11 +70,11 @@
     // === FUNCTIONS ===========================================================
     
     /// Initializes the communications interface.
-    void uartTranslator_init(void);
+    void uartTranslate_init(void);
     
     /// Accessor to get the number of heap words required for global variables.
     /// @return The number of heap words needed for global variables.
-    uint16_t uartTranslator_getHeapWordRequirement(void);
+    uint16_t uartTranslate_getHeapWordRequirement(void);
     
     /// Activates the UART frame protocol module and sets up its globals.
     /// This must be invoked before using any processRx or processTx-like
@@ -86,26 +86,26 @@
     ///                             array.
     /// @return The number of 32-bit words the module used for its globals. If 0
     ///         Then there was an error and the module hasn't started.
-    uint16_t uartTranslator_activate(heapWord_t memory[], uint16_t size);
+    uint16_t uartTranslate_activate(heapWord_t memory[], uint16_t size);
     
     /// Deactivates the UART frame protocol module and effectively deallocates
     /// the global memory.
     /// @return The heap word size that was freed by deactivating. If 0, then
     ///         the module was probably not activated upon this function call so
     ///         there was nothing to deallocate.
-    uint16_t uartTranslator_deactivate(void);
+    uint16_t uartTranslate_deactivate(void);
     
     /// Checks if the module is activated and the heap has been allocated for
     /// normal mode.
     /// @return If normal mode is activated.
-    bool uartTranslator_isActivated(void);
+    bool uartTranslate_isActivated(void);
     
     
     #ifdef __cplusplus
         } // extern "C"
     #endif
     
-#endif // UART_TRANSLATOR_H
+#endif // UART_TRANSLATE_H
 
 
 /* [] END OF FILE */
