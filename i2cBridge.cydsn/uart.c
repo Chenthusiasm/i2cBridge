@@ -1358,63 +1358,6 @@ bool uart_isTxQueueEmpty(void)
 }
 
 
-uint16_t uart_processRx(uint32_t timeoutMS)
-{
-    uint16_t count = 0;
-    if (g_heap != NULL)
-    {
-        Alarm alarm;
-        if (timeoutMS > 0)
-            alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
-        else
-            alarm_disarm(&alarm);
-            
-        while (!queue_isEmpty(&g_heap->decodedRxQueue))
-        {
-            if (alarm.armed && alarm_hasElapsed(&alarm))
-                break;
-            
-            uint8_t* data;
-            uint16_t size = queue_dequeue(&g_heap->decodedRxQueue, &data);
-            if (size > 0)
-                if (processDecodedRxPacket(data, size))
-                    ++count;
-        }
-    }
-    return count;
-}
-
-
-uint16_t uart_processTx(uint32_t timeoutMS)
-{
-    uint16_t count = 0;
-    if (g_heap != NULL)
-    {
-        Alarm alarm;
-        if (timeoutMS > 0)
-            alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
-        else
-            alarm_disarm(&alarm);
-            
-        while (!queue_isEmpty(&g_heap->txQueue))
-        {
-            if (alarm.armed && alarm_hasElapsed(&alarm))
-                break;
-            
-            uint8_t* data;
-            uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
-            if (size > 0)
-            {
-                for (uint32_t i = 0; i < size; ++i)
-                    COMPONENT(HOST_UART, UartPutChar)(data[i]);
-                ++count;
-            }
-        }
-    }
-    return count;
-}
-
-
 bool uart_txEnqueueData(uint8_t const data[], uint16_t size)
 {
     bool status = false;
@@ -1492,6 +1435,63 @@ uint16_t uartTranslate_deactivate(void)
 bool uartTranslate_isActivated(void)
 {
     return ((g_heap != NULL) && !isUpdateEnabled());
+}
+
+
+uint16_t uartTranslate_processRx(uint32_t timeoutMS)
+{
+    uint16_t count = 0;
+    if (g_heap != NULL)
+    {
+        Alarm alarm;
+        if (timeoutMS > 0)
+            alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
+        else
+            alarm_disarm(&alarm);
+            
+        while (!queue_isEmpty(&g_heap->decodedRxQueue))
+        {
+            if (alarm.armed && alarm_hasElapsed(&alarm))
+                break;
+            
+            uint8_t* data;
+            uint16_t size = queue_dequeue(&g_heap->decodedRxQueue, &data);
+            if (size > 0)
+                if (processDecodedRxPacket(data, size))
+                    ++count;
+        }
+    }
+    return count;
+}
+
+
+uint16_t uartTranslate_processTx(uint32_t timeoutMS)
+{
+    uint16_t count = 0;
+    if (g_heap != NULL)
+    {
+        Alarm alarm;
+        if (timeoutMS > 0)
+            alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
+        else
+            alarm_disarm(&alarm);
+            
+        while (!queue_isEmpty(&g_heap->txQueue))
+        {
+            if (alarm.armed && alarm_hasElapsed(&alarm))
+                break;
+            
+            uint8_t* data;
+            uint16_t size = queue_dequeue(&g_heap->txQueue, &data);
+            if (size > 0)
+            {
+                for (uint32_t i = 0; i < size; ++i)
+                    COMPONENT(HOST_UART, UartPutChar)(data[i]);
+                ++count;
+            }
+        }
+    }
+    return count;
 }
 
 

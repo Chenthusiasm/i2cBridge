@@ -62,23 +62,7 @@
     /// @return If the transmit queue is empty.
     bool uart_isTxQueueEmpty(void);
     
-    /// Processes any pending receives and executes any functions associated
-    /// with received UART packets.
-    /// @param[in]  timeoutMS   The amount of time the process can occur before
-    ///                         it times out and must finish. If 0, then there's
-    ///                         no timeout and the function blocks until all
-    ///                         pending actions are completed.
-    /// @return The number of packets that were processed.
-    uint16_t uart_processRx(uint32_t timeoutMS);
     
-    /// Processes any pending transmits and attempts to transmit any UART
-    /// packets waiting to be sent.
-    /// @param[in]  timeoutMS   The amount of time the process can occur before
-    ///                         it times out and must finish. If 0, then there's
-    ///                         no timeout and the function blocks until all
-    ///                         pending actions are completed.
-    /// @return The number of packets that were processed.
-    uint16_t uart_processTx(uint32_t timeoutMS);
     
     /// Enqueue data into the transmit queue.
     /// @param[in]  data    The data to enqueue.
