@@ -19,6 +19,8 @@
 #include "error.h"
 #include "heap.h"
 #include "i2c.h"
+#include "i2cTouch.h"
+#include "i2cUpdate.h"
 #include "project.h"
 #include "smallPrintf.h"
 #include "uart.h"
@@ -211,8 +213,8 @@ SystemStatus resetHeap(void)
     
     // Deactivate/deallocate the communication sub systems if they're activated.
     uint16_t deactivationSize = 0;
-    if (i2c_isActivated())
-        deactivationSize += i2c_deactivate();
+    if (i2cTouch_isActivated())
+        deactivationSize += i2cTouch_deactivate();
     if (uartTranslate_isActivated())
         deactivationSize += uartTranslate_deactivate();
     if (uartUpdate_isActivated())
@@ -309,12 +311,12 @@ bool processInitSlaveTranslate(void)
     SystemStatus status = initHostComm();
     if (!status.errorOccurred)
     {
-        uint16_t size = i2c_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
+        uint16_t size = i2cTouch_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
         debug_uartPrintHexUint16(size);
         if (size <= 0)
         {
             status.invalidScratchOffset = true;
-            uint16_t requirement = i2c_getHeapWordRequirement();
+            uint16_t requirement = i2cTouch_getHeapWordRequirement();
             if (getFreeHeapWordSize() < requirement)
                 status.invalidScratchBuffer = true;
             status.translateError = true;

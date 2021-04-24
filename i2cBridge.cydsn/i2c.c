@@ -1389,45 +1389,6 @@ void i2c_init(void)
 }
 
 
-uint16_t i2c_getHeapWordRequirement(void)
-{
-    return heap_calculateHeapWordRequirement(sizeof(Heap));
-}
-
-
-uint16_t i2c_activate(heapWord_t memory[], uint16_t size)
-{
-    uint16_t allocatedSize = 0;
-    uint16_t requiredSize = i2c_getHeapWordRequirement();
-    if ((memory != NULL) && (size >= requiredSize))
-    {
-        g_heap = (Heap*)memory;
-        initTxQueue();
-        allocatedSize = requiredSize;
-        reinitAll();
-    }
-    return allocatedSize;
-}
- 
-
-uint16_t i2c_deactivate(void)
-{
-    uint16_t size = 0u;
-    if (g_heap != NULL)
-    {
-        size = i2c_getHeapWordRequirement();
-        g_heap = NULL;
-    }
-    reinitAll();
-    return size;
-}
-
-
-bool i2c_isActivated(void)
-{
-    return (g_heap != NULL);
-}
-
 
 void i2c_setSlaveAddress(uint8_t address)
 {
@@ -1540,6 +1501,49 @@ I2cStatus i2c_ackApp(uint32_t timeoutMS)
     processError(status);
     return status;
 }
+
+
+// === PUBLIC FUNCTIONS: i2cTouch ==============================================
+
+uint16_t i2cTouch_getHeapWordRequirement(void)
+{
+    return heap_calculateHeapWordRequirement(sizeof(Heap));
+}
+
+
+uint16_t i2cTouch_activate(heapWord_t memory[], uint16_t size)
+{
+    uint16_t allocatedSize = 0;
+    uint16_t requiredSize = i2cTouch_getHeapWordRequirement();
+    if ((memory != NULL) && (size >= requiredSize))
+    {
+        g_heap = (Heap*)memory;
+        initTxQueue();
+        allocatedSize = requiredSize;
+        reinitAll();
+    }
+    return allocatedSize;
+}
+ 
+
+uint16_t i2cTouch_deactivate(void)
+{
+    uint16_t size = 0u;
+    if (g_heap != NULL)
+    {
+        size = i2cTouch_getHeapWordRequirement();
+        g_heap = NULL;
+    }
+    reinitAll();
+    return size;
+}
+
+
+bool i2cTouch_isActivated(void)
+{
+    return (g_heap != NULL);
+}
+
 
 
 /* [] END OF FILE */
