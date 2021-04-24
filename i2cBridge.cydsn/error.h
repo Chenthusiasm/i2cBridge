@@ -134,7 +134,7 @@
     /// @param[in]  callsite        The callsite ID.
     /// @return The size of the data payload. If -1, the buffer size was too
     ///         small.
-    int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cTouchStatus i2cStatus, uint16_t callsite);
+    int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cStatus i2cStatus, uint16_t callsite);
     
     /// Generates the UART error message.
     /// @param[out] buffer          The buffer to put the I2C error message.

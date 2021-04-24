@@ -94,7 +94,7 @@ typedef struct I2cError
     /// Error type.
     uint8_t type;
     
-    /// I2C status; refer to I2cTouchStatus enum.
+    /// I2C status; refer to I2cStatus enum.
     uint8_t status;
     
     /// The unique callsite ID that describes the function that triggered the
@@ -308,7 +308,7 @@ int error_makeUpdateErrorMessage(uint8_t buffer[], uint16_t size, uint8_t update
 }
 
 
-int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cTouchStatus i2cStatus, uint16_t callsite)
+int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cStatus i2cStatus, uint16_t callsite)
 {
     int dataSize = -1;
     

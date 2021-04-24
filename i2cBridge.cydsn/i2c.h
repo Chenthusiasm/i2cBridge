@@ -10,8 +10,8 @@
  * ========================================
 */
 
-#ifndef I2C_GEN_2_H
-    #define I2C_GEN_2_H
+#ifndef I2C_H
+    #define I2C_H
     
     #ifdef __cplusplus
         extern "C" {
@@ -30,7 +30,7 @@
     // === TYPE DEFINES ========================================================
     
     /// Structure that holds the status of I2C gen 2 functions.
-    typedef union I2cTouchStatus
+    typedef union I2cStatus
     {        
         /// General flag indicating an error occured; if false, no error
         /// occurred.
@@ -72,20 +72,19 @@
             /// Error flag indicating that the transmit queue is full.
             bool queueFull : 1;
             
-            
         };
         
-    } I2cTouchStatus;
+    } I2cStatus;
     
     /// Definition of the receive callback function that should be invoked when
     /// data is received. Note that if the callback function needs to copy the
     /// received data into its own buffer if the callback needs to perform any
     /// action to the data (like modify the data).
-    typedef bool (*I2cTouch_RxCallback)(uint8_t const*, uint16_t);
+    typedef bool (*I2cRxCallback)(uint8_t const*, uint16_t);
     
     /// Definition of the error callback function that should be invoked when
     /// an error occurs.
-    typedef void (*I2cTouch_ErrorCallback)(I2cTouchStatus, uint16_t);
+    typedef void (*I2cErrorCallback)(I2cStatus, uint16_t);
     
     
     // === FUNCTIONS ===========================================================
@@ -120,12 +119,12 @@
     /// Registers the receive callback function that should be invoked when
     /// data is received.
     /// @param[in]  callback    The callback function.
-    void i2cTouch_registerRxCallback(I2cTouch_RxCallback callback);
+    void i2cTouch_registerRxCallback(I2cRxCallback callback);
     
     /// Registers the error callback function that should be invoked when an
     /// error occurs.
     /// @param[in]  callback    The callback function.
-    void i2cTouch_registerErrorCallback(I2cTouch_ErrorCallback callback);
+    void i2cTouch_registerErrorCallback(I2cErrorCallback callback);
     
     /// Registers a new slave address which ensures the write I2C slave device
     /// is addressed when attempting to read when the slaveIRQ line is asserted.
@@ -152,8 +151,8 @@
     ///                         no timeout and the function blocks until all
     ///                         pending actions are completed.
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cTouchStatus union.
-    I2cTouchStatus i2cTouch_process(uint32_t timeoutMS);
+    ///         I2cStatus union.
+    I2cStatus i2cTouch_process(uint32_t timeoutMS);
     
     /// Queue up a read from the I2C bus. The i2cTouch_registerRxCallback
     /// function must be invoked with a valid callback function to handle the
@@ -161,16 +160,16 @@
     /// @param[in]  address The 7-bit I2C address.
     /// @param[in]  size    The number of bytes to read.
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cTouchStatus union.
-    I2cTouchStatus i2cTouch_read(uint8_t address, uint16_t size);
+    ///         I2cStatus union.
+    I2cStatus i2cTouch_read(uint8_t address, uint16_t size);
     
     /// Queue up a write to the I2C bus.
     /// @param[in]  address The 7-bit I2C address.
     /// @param[in]  data    The data buffer to that contains the data to write.
     /// @param[in]  size    The number of bytes to write.
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cTouchStatus union.
-    I2cTouchStatus i2cTouch_write(uint8_t address, uint8_t const data[], uint16_t size);
+    ///         I2cStatus union.
+    I2cStatus i2cTouch_write(uint8_t address, uint8_t const data[], uint16_t size);
     
     /// Perform an ACK handshake with a specific slave device on the I2C bus.
     /// @param[in]  address The 7-bit I2C address.
@@ -179,8 +178,8 @@
     ///                     out. If 0, then the function will wait for a default
     ///                     timeout period.
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cTouchStatus union.
-    I2cTouchStatus i2cTouch_ack(uint8_t address, uint32_t timeoutMS);
+    ///         I2cStatus union.
+    I2cStatus i2cTouch_ack(uint8_t address, uint32_t timeoutMS);
     
     /// Perform an ACK handshake with the slave app.
     /// @param[in]  timeout The amount of time in milliseconds the function
@@ -188,15 +187,15 @@
     ///                     out. If 0, then the function will wait for a default
     ///                     timeout period.
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cTouchStatus union.
-    I2cTouchStatus i2cTouch_ackApp(uint32_t timeoutMS);
+    ///         I2cStatus union.
+    I2cStatus i2cTouch_ackApp(uint32_t timeoutMS);
     
     
     #ifdef __cplusplus
         }
     #endif
     
-#endif // I2C_GEN_2_H
+#endif // I2C_H
 
 
 /* [] END OF FILE */

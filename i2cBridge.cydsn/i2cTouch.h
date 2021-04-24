@@ -10,8 +10,8 @@
  * ========================================
 */
 
-#ifndef I2C_UPDATE_H
-    #define I2C_UPDATE_H
+#ifndef I2C_TOUCH_H
+    #define I2C_TOUCH_H
 
     #ifdef __cplusplus
         extern "C" {
@@ -36,6 +36,6 @@
     } // extern "C"
     #endif
     
-#endif // I2C_UPDATE_H
+#endif // I2C_TOUCH_H
 
 /* [] END OF FILE */

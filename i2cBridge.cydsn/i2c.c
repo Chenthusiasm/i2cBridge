@@ -513,10 +513,10 @@ static CommFsm g_commFsm;
 #endif // !ENABLE_ALL_CHANGE_TO_RESPONSE
 
 /// The receive callback function.
-static I2cTouch_RxCallback g_rxCallback = NULL;
+static I2cRxCallback g_rxCallback = NULL;
 
 /// The error callback function.
-static I2cTouch_ErrorCallback g_errorCallback = NULL;
+static I2cErrorCallback g_errorCallback = NULL;
 
 /// The status of the last driver API call. Refer to the possible error messages
 /// in the generated "I2C Component Name"_I2C.h file. Note that the return type
@@ -680,8 +680,8 @@ static mstatus_t checkDriverStatus(void)
 /// error callback function has been registered, the error callback function
 /// will be invoked.
 /// @param[in]  status      Status indicating if an error occured. See the
-///                         definition of the I2cTouchStatus union.
-static void processError(I2cTouchStatus status)
+///                         definition of the I2cStatus union.
+static void processError(I2cStatus status)
 {
     if (status.errorOccurred && (g_errorCallback != NULL))
         g_errorCallback(status, g_callsite.value);
@@ -689,12 +689,12 @@ static void processError(I2cTouchStatus status)
 
 
 /// Processes any errors that may have occured in the last I2C transaction.
-static I2cTouchStatus processPreviousTranferErrors(mstatus_t status)
+static I2cStatus processPreviousTranferErrors(mstatus_t status)
 {
     static mstatus_t const PreviousDoneMask = COMPONENT(SLAVE_I2C, I2C_MSTAT_RD_CMPLT) | COMPONENT(SLAVE_I2C, I2C_MSTAT_WR_CMPLT);
     static mstatus_t const ErrorMask = COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_MASK);
     
-    I2cTouchStatus returnStatus = { false };
+    I2cStatus returnStatus = { false };
     if ((status & PreviousDoneMask) > 0)
     {
         if ((status & ErrorMask) > 0)
@@ -711,16 +711,16 @@ static I2cTouchStatus processPreviousTranferErrors(mstatus_t status)
 /// Checks to see if the slave I2C bus is ready. Also handles errors caused by
 /// previous transactions.
 /// @param[out] status  Status indicating if an error occured. See the
-///                     definition of the I2cTouchStatus union.
+///                     definition of the I2cStatus union.
 /// @return If the bus is ready for a new read/write transaction.
-static bool isBusReady(I2cTouchStatus* status)
+static bool isBusReady(I2cStatus* status)
 {
     static mstatus_t const BusyMask = COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_INP) | COMPONENT(SLAVE_I2C, I2C_MSTAT_XFER_HALT);
     
     g_lastDriverStatus = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterStatus)();
     COMPONENT(SLAVE_I2C, I2CMasterClearStatus)();
     bool ready = (g_lastDriverStatus & BusyMask) == 0;
-    I2cTouchStatus localStatus = processPreviousTranferErrors(g_lastDriverStatus);
+    I2cStatus localStatus = processPreviousTranferErrors(g_lastDriverStatus);
     if (localStatus.errorOccurred)
     {
         g_callsite.isBusReady = true;
@@ -762,14 +762,14 @@ static bool isBusLocked(void)
 #endif // ENABLE_I2C_LOCKED_BUS_DETECTIONS
 
 
-/// Updates the driver status and generates the I2cTouchStatus that corresponds
+/// Updates the driver status and generates the I2cStatus that corresponds
 /// to the return result from the low-level driver function.
 /// @param[in]  mode    The TransferMode flags used in the low-level driver
 ///                     function.
 /// @param[in]  result  The result from the low-level driver function call.
-I2cTouchStatus updateDriverStatus(mreturn_t result)
+I2cStatus updateDriverStatus(mreturn_t result)
 {
-    I2cTouchStatus status = { false };
+    I2cStatus status = { false };
     if (result != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))            
     {
         status.driverError = true;
@@ -811,11 +811,11 @@ I2cTouchStatus updateDriverStatus(mreturn_t result)
 ///                     at least this length.
 /// @param[in]  mode    TransferMode settings.
 /// @return Status indicating if an error occured. See the definition of the
-///         I2cTouchStatus union.
-static I2cTouchStatus read(uint8_t address, uint8_t data[], uint16_t size)
+///         I2cStatus union.
+static I2cStatus read(uint8_t address, uint8_t data[], uint16_t size)
 {
     g_lastDriverReturnValue = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, G_DefaultTransferMode);
-    I2cTouchStatus status = updateDriverStatus(g_lastDriverReturnValue);
+    I2cStatus status = updateDriverStatus(g_lastDriverReturnValue);
     if (status.errorOccurred)
         g_callsite.lowLevelCall = 1u;
     return status;
@@ -829,10 +829,10 @@ static I2cTouchStatus read(uint8_t address, uint8_t data[], uint16_t size)
 ///                     at least this length.
 /// @param[in]  mode    TransferMode settings.
 /// @return Status indicating if an error occured. See the definition of the
-///         I2cTouchStatus union.
-static I2cTouchStatus write(uint8_t address, uint8_t const data[], uint16_t size)
+///         I2cStatus union.
+static I2cStatus write(uint8_t address, uint8_t const data[], uint16_t size)
 {
-    I2cTouchStatus status;
+    I2cStatus status;
     if ((data != NULL) && (size > 0))
     {
         // Note: remove the const typing in order to utilize the low-level
@@ -863,10 +863,10 @@ static I2cTouchStatus write(uint8_t address, uint8_t const data[], uint16_t size
     /// See the following site for ideas on recovery:
     /// https://community.cypress.com/t5/PSoC-Creator-Designer-Software/Correct-way-to-reset-I2C-SCB-and-recover-stuck-bus/m-p/213188
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cTouchStatus union.
-    static I2cTouchStatus recoverFromLockedBus(void)
+    ///         I2cStatus union.
+    static I2cStatus recoverFromLockedBus(void)
     {
-        I2cTouchStatus status = { false };
+        I2cStatus status = { false };
         if (g_lockedBus.recoverAlarm.armed && alarm_hasElapsed(&g_lockedBus.recoverAlarm))
         {
             debug_setPin1(false);
@@ -902,8 +902,8 @@ static I2cTouchStatus write(uint8_t address, uint8_t const data[], uint16_t size
 /// Create and sends the packet to the slave to instruct it to reset/clear the
 /// IRQ line.
 /// @return Status indicating if an error occured. See the definition of the
-///         I2cTouchStatus union.
-static I2cTouchStatus resetIrq(void)
+///         I2cStatus union.
+static I2cStatus resetIrq(void)
 {
     return write(g_slaveAddress, G_ClearIrqMessage, G_ClearIrqSize);
 }
@@ -912,8 +912,8 @@ static I2cTouchStatus resetIrq(void)
 /// Changes the slave app to response buffer active state so responses can be
 /// properly read from the slave device.
 /// @return Status indicating if an error occured. See the definition of the
-///         I2cTouchStatus union.
-static I2cTouchStatus changeSlaveAppToResponseBuffer(void)
+///         I2cStatus union.
+static I2cStatus changeSlaveAppToResponseBuffer(void)
 {
     return write(g_slaveAddress, G_ClearIrqMessage, G_ResponseBufferSize);
     // Note: The write function will change the flag to reflect if the app was
@@ -928,10 +928,10 @@ static I2cTouchStatus changeSlaveAppToResponseBuffer(void)
 ///                         timeout and the function blocks until all pending
 ///                         actions are completed.
 /// @return Status indicating if an error occured. See the definition of the
-///         I2cTouchStatus union.
-static I2cTouchStatus processCommFsm(uint32_t timeoutMS)
+///         I2cStatus union.
+static I2cStatus processCommFsm(uint32_t timeoutMS)
 {
-    I2cTouchStatus status = { false };
+    I2cStatus status = { false };
     if (timeoutMS > 0)
         alarm_arm(&g_commFsm.timeoutAlarm, timeoutMS, AlarmType_ContinuousNotification);
     else
@@ -1205,10 +1205,10 @@ static I2cTouchStatus processCommFsm(uint32_t timeoutMS)
 /// @param[in]  address The 7-bit I2C address.
 /// @param[in]  size    The number of bytes to read.
 /// @return Status indicating if an error occured. See the definition of the
-///         I2cTouchStatus union.
-I2cTouchStatus xferEnqueueRead(uint8_t address, uint16_t size)
+///         I2cStatus union.
+I2cStatus xferEnqueueRead(uint8_t address, uint16_t size)
 {
-    I2cTouchStatus status = { false };
+    I2cStatus status = { false };
     if (g_heap != NULL)
     {
         if ((size > 0) && (size <= UINT8_MAX))
@@ -1238,10 +1238,10 @@ I2cTouchStatus xferEnqueueRead(uint8_t address, uint16_t size)
 /// @param[in]  data    The data buffer to that contains the data to write.
 /// @param[in]  size    The number of bytes to write.
 /// @return Status indicating if an error occured. See the definition of the
-///         I2cTouchStatus union.
-I2cTouchStatus xferEnqueueWrite(uint8_t address, uint8_t const data[], uint16_t size)
+///         I2cStatus union.
+I2cStatus xferEnqueueWrite(uint8_t address, uint8_t const data[], uint16_t size)
 {
-    I2cTouchStatus status = { false };
+    I2cStatus status = { false };
     if (g_heap != NULL)
     {
         if ((data != NULL) && (size > 0))
@@ -1272,8 +1272,8 @@ I2cTouchStatus xferEnqueueWrite(uint8_t address, uint8_t const data[], uint16_t 
 ///                     for the I2C bus to free up before timing out. If 0, then
 ///                     the function will wait for a default timeout period.
 /// @return Status indicating if an error occured. See the definition of the
-///         I2cTouchStatus union.
-I2cTouchStatus ack(uint8_t address, uint32_t timeoutMS)
+///         I2cStatus union.
+I2cStatus ack(uint8_t address, uint32_t timeoutMS)
 {
     static uint32_t const DefaultAckTimeout = 2u;
     
@@ -1284,7 +1284,7 @@ I2cTouchStatus ack(uint8_t address, uint32_t timeoutMS)
     
     bool ackSent = false;
     bool done = false;
-    I2cTouchStatus status = { false };
+    I2cStatus status = { false };
     while (!done)
     {
         if (alarm.armed && alarm_hasElapsed(&alarm))
@@ -1461,26 +1461,26 @@ uint16_t i2cTouch_getLastDriverReturnValue(void)
 }
 
     
-void i2cTouch_registerRxCallback(I2cTouch_RxCallback callback)
+void i2cTouch_registerRxCallback(I2cRxCallback callback)
 {
     if (callback != NULL)
         g_rxCallback = callback;
 }
 
 
-void i2cTouch_registerErrorCallback(I2cTouch_ErrorCallback callback)
+void i2cTouch_registerErrorCallback(I2cErrorCallback callback)
 {
     if (callback != NULL)
         g_errorCallback = callback;
 }
 
 
-I2cTouchStatus i2cTouch_process(uint32_t timeoutMS)
+I2cStatus i2cTouch_process(uint32_t timeoutMS)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 1u;
     
-    I2cTouchStatus status = { false };
+    I2cStatus status = { false };
     
 #if ENABLE_I2C_LOCKED_BUS_DETECTION
     if (isBusLocked())
@@ -1498,45 +1498,45 @@ I2cTouchStatus i2cTouch_process(uint32_t timeoutMS)
 }
 
 
-I2cTouchStatus i2cTouch_read(uint8_t address, uint16_t size)
+I2cStatus i2cTouch_read(uint8_t address, uint16_t size)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 2u;
     
-    I2cTouchStatus status = xferEnqueueRead(address, size);
+    I2cStatus status = xferEnqueueRead(address, size);
     processError(status);
     return status;
 }
 
 
-I2cTouchStatus i2cTouch_write(uint8_t address, uint8_t const data[], uint16_t size)
+I2cStatus i2cTouch_write(uint8_t address, uint8_t const data[], uint16_t size)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 3u;
     
-    I2cTouchStatus status = xferEnqueueWrite(address, data, size);
+    I2cStatus status = xferEnqueueWrite(address, data, size);
     processError(status);
     return status;
 }
 
 
-I2cTouchStatus i2cTouch_ack(uint8_t address, uint32_t timeoutMS)
+I2cStatus i2cTouch_ack(uint8_t address, uint32_t timeoutMS)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 4u;
     
-    I2cTouchStatus status = ack(address, timeoutMS);
+    I2cStatus status = ack(address, timeoutMS);
     processError(status);
     return status;
 }
 
 
-I2cTouchStatus i2cTouch_ackApp(uint32_t timeoutMS)
+I2cStatus i2cTouch_ackApp(uint32_t timeoutMS)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 5u;
     
-    I2cTouchStatus status = ack(g_slaveAddress, timeoutMS);
+    I2cStatus status = ack(g_slaveAddress, timeoutMS);
     processError(status);
     return status;
 }

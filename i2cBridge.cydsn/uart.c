@@ -774,7 +774,7 @@ static bool __attribute__((unused)) txEnqueueUartError(uint16_t callsite)
 /// @param[in]  callsite    Unique callsite ID to distinguish different
 ///                         functions that triggered the error.
 /// @return If the error response was successfully enqueued.
-static bool txEnqueueI2cError(I2cTouchStatus status, uint16_t callsite)
+static bool txEnqueueI2cError(I2cStatus status, uint16_t callsite)
 {
     bool result = false;
     if (!queue_isFull(&g_heap->txQueue))
@@ -798,10 +798,10 @@ static bool txEnqueueI2cError(I2cTouchStatus status, uint16_t callsite)
 /// message to send to the host.
 /// @param[in]  status      Status indicating if an error occured during the I2c
 ///                         transaction. See the definition of the
-///                         I2cTouchStatus union.
+///                         I2cStatus union.
 /// @param[in]  callsite    Unique callsite ID to distinguish different
 ///                         functions that triggered the error.
-static void processI2cErrors(I2cTouchStatus status, uint16_t callsite)
+static void processI2cErrors(I2cStatus status, uint16_t callsite)
 {
     
     if (error_getMode() == ErrorMode_Global)
@@ -961,7 +961,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             
             case BridgeCommand_SlaveAck:
             {
-                I2cTouchStatus i2cStatus;
+                I2cStatus i2cStatus;
                 if (size > PacketOffset_BridgeData)
                     i2cStatus = i2cTouch_ack(data[PacketOffset_BridgeData], 0);
                 else
