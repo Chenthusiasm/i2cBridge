@@ -58,8 +58,8 @@ typedef enum State
     /// Initializes slave reset.
     State_InitSlaveReset,
     
-    /// Initialize the slave translator mode.
-    State_InitSlaveTranslator,
+    /// Initialize the slave translate mode.
+    State_InitSlaveTranslate,
     
     /// Initialize the slave update mode.
     State_InitSlaveUpdate,
@@ -67,15 +67,15 @@ typedef enum State
     /// Checks if the slave reset is complete.
     State_CheckSlaveResetComplete,
     
-    /// Processes tasks related to the default I2C slave translator mode.
-    State_SlaveTranslator,
+    /// Processes tasks related to the default I2C slave translate mode.
+    State_SlaveTranslate,
     
     /// Processes tasks related to the I2C slave update mode.
     State_SlaveUpdate,
     
-    /// The slave translator failed to initialize. Send a generic error message
+    /// The slave translate failed to initialize. Send a generic error message
     /// to the host.
-    State_SlaveTranslatorFailed,
+    State_SlaveTranslateFailed,
     
     /// The slave update failed to initialize. Send a generic error message to
     /// the host.
@@ -99,8 +99,8 @@ typedef union ModeChange
     /// change is requested.
     struct
     {
-        /// Change to touch firmware translator mode is pending.
-        bool translatorPending : 1;
+        /// Change to touch firmware translate mode is pending.
+        bool translatePending : 1;
         
         /// Change to touch firmware update mode is pending.
         bool updatePending : 1;
@@ -224,7 +224,7 @@ SystemStatus resetHeap(void)
 }
 
 
-/// Initializes the host comm in translator mode.
+/// Initializes the host comm in translate mode.
 /// @return Status indicating if an error occured. See the definition of the
 ///         SystemStatus union.
 SystemStatus initHostComm(void)
@@ -302,9 +302,9 @@ bool processSlaveResetComplete(void)
 }
 
 
-/// Processes all tasks associated with initializing the I2C slave translator.
+/// Processes all tasks associated with initializing the I2C slave translate.
 /// @return If the initialization was successful.
-bool processInitSlaveTranslator(void)
+bool processInitSlaveTranslate(void)
 {
     SystemStatus status = initHostComm();
     if (!status.errorOccurred)
@@ -317,7 +317,7 @@ bool processInitSlaveTranslator(void)
             uint16_t requirement = i2cTouch_getHeapWordRequirement();
             if (getFreeHeapWordSize() < requirement)
                 status.invalidScratchBuffer = true;
-            status.translatorError = true;
+            status.translateError = true;
         }
         else
             g_heap.freeOffset += size;
@@ -328,9 +328,9 @@ bool processInitSlaveTranslator(void)
 }
 
 
-/// Processes all tasks associated with the I2C slave translator.
-/// @return If the translator processed successfully.
-bool processSlaveTranslator(void)
+/// Processes all tasks associated with the I2C slave translation.
+/// @return If processed successfully.
+bool processSlaveTranslate(void)
 {
     bool processed = false;
     if (true)
@@ -352,6 +352,15 @@ bool processSlaveTranslator(void)
 /// @return If the initialization was successful.
 bool processInitSlaveUpdate(void)
 {
+    // @TODO: implement.
+    return true;
+}
+
+
+/// Processes all tasks associated with the I2C slave update.
+/// @return If processed successfully.
+bool processSlaveUpdate(void)
+{
     bool processed = false;
     {
         processed = uartUpdate_process();
@@ -360,21 +369,12 @@ bool processInitSlaveUpdate(void)
 }
 
 
-/// Processes all tasks associated with the I2C slave update.
-/// @return If the update processed successfully.
-bool processSlaveUpdate(void)
-{
-    // @TODO: implement.
-    return true;
-}
-
-
-/// Processes the case where the slave translator initialization failed. The
+/// Processes the case where the slave translate initialization failed. The
 /// function will intermittently transmit an ASCII error message over the host
 /// UART bus.
-void processHostTranslatorFailed(void)
+void processHostTranslateFailed(void)
 {
-    static char const* ErrorMessage = "ERROR: slave translator failed init!\r\n";
+    static char const* ErrorMessage = "ERROR: slave translate failed init!\r\n";
     
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
     if (!messageAlarm.armed)
@@ -462,16 +462,16 @@ void bridgeFsm_process(void)
             if (processInitSlaveReset())
                 g_state = State_CheckSlaveResetComplete;
             else
-                g_state = State_InitSlaveTranslator;
+                g_state = State_InitSlaveTranslate;
             break;
         }
         
-        case State_InitSlaveTranslator:
+        case State_InitSlaveTranslate:
         {
-            if (processInitSlaveTranslator())
-                g_state = State_SlaveTranslator;
+            if (processInitSlaveTranslate())
+                g_state = State_SlaveTranslate;
             else
-                g_state = State_SlaveTranslatorFailed;
+                g_state = State_SlaveTranslateFailed;
             break;
         }
         
@@ -485,15 +485,15 @@ void bridgeFsm_process(void)
         case State_CheckSlaveResetComplete:
         {
             if (processSlaveResetComplete())
-                g_state = State_InitSlaveTranslator;
+                g_state = State_InitSlaveTranslate;
             else if (!g_resetAlarm.armed)
-                g_state = State_InitSlaveTranslator;
+                g_state = State_InitSlaveTranslate;
             break;
         }
         
-        case State_SlaveTranslator:
+        case State_SlaveTranslate:
         {
-            processSlaveTranslator();
+            processSlaveTranslate();
             break;
         }
         
@@ -503,9 +503,9 @@ void bridgeFsm_process(void)
             break;
         }
         
-        case State_SlaveTranslatorFailed:
+        case State_SlaveTranslateFailed:
         {
-            processHostTranslatorFailed();
+            processHostTranslateFailed();
             // Do not transition out of this state.
             break;
         }
@@ -532,10 +532,10 @@ void bridgeFsm_process(void)
 }
 
 
-void bridgeFsm_requestTranslatorMode(void)
+void bridgeFsm_requestTranslateMode(void)
 {
     g_modeChange.pending = false;
-    g_modeChange.translatorPending = true;
+    g_modeChange.translatePending = true;
 }
 
 

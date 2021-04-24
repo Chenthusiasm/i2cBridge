@@ -42,8 +42,8 @@
         /// Anonymous struct of 1-bit flags indicating specific errors.
         struct
         {
-            /// The error pertains to the translator.
-            bool translatorError: 1;
+            /// The error pertains to the translate/normal.
+            bool translateError: 1;
             
             /// The error pertains to the update.
             bool updateError : 1;
@@ -83,13 +83,13 @@
     /// machine.
     void bridgeFsm_process(void);
     
-    /// Prep the bridge to change to touch firmware translator mode.
-    void bridgeFsm_requestTranslatorMode(void);
+    /// Prep the bridge to change to touch firmware translate mode.
+    void bridgeFsm_requestTranslateMode(void);
     
     /// Prep the bridge to change to touch firmware update mode.
     void bridgeFsm_requestUpdateMode(void);
     
-    /// Prep the bridge to change to touch firmware update mode.
+    /// Prep the bridge to prepare for a system reset.
     void bridgeFsm_requestReset(void);
     
     
