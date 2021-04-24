@@ -22,7 +22,7 @@
 #include "bridgeFsm.h"
 #include "debug.h"
 #include "hwSystemTime.h"
-#include "i2cTouch.h"
+#include "i2c.h"
 #include "project.h"
 #include "uart.h"
 

@@ -18,7 +18,7 @@
 #include "debug.h"
 #include "error.h"
 #include "heap.h"
-#include "i2cTouch.h"
+#include "i2c.h"
 #include "project.h"
 #include "smallPrintf.h"
 #include "uart.h"

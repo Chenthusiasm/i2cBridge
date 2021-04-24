@@ -25,7 +25,7 @@
     #include <stdint.h>
     
     #include "bridgeFsm.h"
-    #include "i2cTouch.h"
+    #include "i2c.h"
     
     
     // === TYPE DEFINES ========================================================

@@ -21,7 +21,7 @@
 #include "debug.h"
 #include "error.h"
 #include "hwSystemTime.h"
-#include "i2cTouch.h"
+#include "i2c.h"
 #include "project.h"
 #include "queue.h"
 #include "uartTranslate.h"
