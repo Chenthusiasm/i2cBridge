@@ -24,7 +24,7 @@
 #include "hwSystemTime.h"
 #include "i2cTouch.h"
 #include "project.h"
-#include "uartCommon.h"
+#include "uart.h"
 
 
 // === DEFINES =================================================================
@@ -42,7 +42,7 @@ static void init(void)
     debug_init();
     hwSystemTime_init(DEFAULT_SYSTICK_PERIOD_MS);
     i2cTouch_init();
-    uartCommon_init();
+    uart_init();
     
     // Initialize state machines and system controls.
     bridgeFsm_init();

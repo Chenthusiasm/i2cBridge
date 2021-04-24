@@ -12,7 +12,7 @@
 
 // === DEPENDENCIES ============================================================
 
-#include "uartCommon.h"
+#include "uart.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -452,11 +452,6 @@ static uint8_t const ScratchSize = 16u;
 /// The amount of time between receipts of bytes before we automatically reset
 /// the receive state machine.
 static uint16_t const RxResetTimeoutMS = 2000u;
-
-
-// === EXTERNED GLOBALS ========================================================
-
-
 
 
 // === GLOBALS =================================================================
@@ -1203,11 +1198,11 @@ static void initRx(void)
 }
 
 
-/// Initializes the decoded receive queue when in standard/normal mode.
-/// @param[in]  heap    Pointer to the specific normal heap data structure that
-///                     defines the address offset for the heap data,
+/// Initializes the decoded receive queue when in translate/normal mode.
+/// @param[in]  heap    Pointer to the specific translate heap data structure
+///                     that defines the address offset for the heap data,
 ///                     specifically the queue data.
-static void initDecodedRxQueue(TranslateHeap* heap)
+static void initTranslateDecodedRxQueue(TranslateHeap* heap)
 {
     queue_deregisterEnqueueCallback(&g_heap->decodedRxQueue);
     g_heap->decodedRxQueue.data = heap->heapData.decodedRxQueueData;
@@ -1219,11 +1214,11 @@ static void initDecodedRxQueue(TranslateHeap* heap)
 }
 
 
-/// Initializes the transmit queue when in standard/normal mode.
-/// @param[in]  heap    Pointer to the specific normal heap data structure that
-///                     defines the address offset for the heap data,
+/// Initializes the transmit queue when in translate/normal mode.
+/// @param[in]  heap    Pointer to the specific translate heap data structure
+///                     that defines the address offset for the heap data,
 ///                     specifically the queue data.
-static void initTxQueue(TranslateHeap* heap)
+static void initTranslateTxQueue(TranslateHeap* heap)
 {
     queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
     g_heap->txQueue.data = heap->heapData.txQueueData;
@@ -1280,8 +1275,23 @@ static void initUpdatePacket(UpdateHeap* heap)
 /// Register the callback functions for I2C-related events.
 static void registerI2cCallbacks(void)
 {
-    i2cTouch_registerRxCallback(uartCommon_txEnqueueData);
+    i2cTouch_registerRxCallback(uart_txEnqueueData);
     i2cTouch_registerErrorCallback(processI2cErrors);
+}
+
+
+/// General deactivation function that applies to both the translate and update
+/// heap variants.
+/// @return If the module had to be deactivated. Returns false if the module
+///         was already deactivated.
+static bool deactivate(void)
+{
+    bool deactivate = false;
+    if (g_heap != NULL)
+        g_heap = NULL;
+    resetUpdateFile();
+    g_updateFile.updateChunk = NULL;
+    return deactivate;
 }
 
 
@@ -1315,106 +1325,43 @@ static void isr(void)
 
 // === PUBLIC FUNCTIONS ========================================================
 
-void uartCommon_init(void)
+void uart_init(void)
 {
-    uartCommon_deactivate();
+    deactivate();
     
     // Setup the UART hardware.
     COMPONENT(HOST_UART, SetCustomInterruptHandler)(isr);
     COMPONENT(HOST_UART, Start)();
 }
 
-void uartCommon_initRxQueue(void)
+void uart_initRxQueue(void)
 {
     resetRxTime();
 }
 
 
-void uartCommon_initTxQueue(void)
+void uart_initTxQueue(void)
 {
     queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
     resetPendingTxEnqueue();
 }
 
 
-uint16_t uartCommon_getHeapWordRequirement(bool enableUpdate)
-{
-    uint16_t size = (enableUpdate) ? (sizeof(UpdateHeap)) : (sizeof(TranslateHeap));
-    return heap_calculateHeapWordRequirement(size);
-}
-
-
-uint16_t uartCommon_activate(heapWord_t* memory, uint16_t size, bool enableUpdate)
-{
-    uint16_t allocatedSize = 0;
-    uint16_t requiredSize = uartCommon_getHeapWordRequirement(enableUpdate);
-    if ((memory != NULL) && (size >= requiredSize))
-    {
-        g_heap = (Heap*)memory;
-        if (enableUpdate)
-        {
-            UpdateHeap* heap = (UpdateHeap*)g_heap;
-            initUpdateDecodedRxQueue(heap);
-            initUpdateTxQueue(heap);
-            initUpdatePacket(heap);
-            resetUpdateFile();
-        }
-        else
-        {
-            TranslateHeap* heap = (TranslateHeap*)g_heap;
-            initDecodedRxQueue(heap);
-            initTxQueue(heap);
-            g_updateFile.updateChunk = NULL;
-        }
-        initRx();
-        registerI2cCallbacks();
-        allocatedSize = requiredSize;
-    }
-    return allocatedSize;
-}
-
-
-uint16_t uartCommon_deactivate(void)
-{
-    uint16_t size = 0u;
-    if (g_heap != NULL)
-    {
-        size = uartCommon_getHeapWordRequirement(isUpdateEnabled());
-        g_heap = NULL;
-    }
-    resetUpdateFile();
-    g_updateFile.updateChunk = NULL;
-    return size;
-}
-
-
-bool uartCommon_isActivated(void)
-{
-    return ((g_heap != NULL) && !isUpdateEnabled());
-}
-
-
-bool uartCommon_isUpdateActivated(void)
-{
-    return ((g_heap != NULL) && isUpdateEnabled());
-}
-
-
-void uartCommon_registerRxOutOfFrameCallback(UartRxOutOfFrameCallback callback)
+void uart_registerRxOutOfFrameCallback(UartRxOutOfFrameCallback callback)
 {
     if (callback != NULL)
         g_rxOutOfFrameCallback = callback;
 }
 
 
-void uartCommon_registerRxFrameOverflowCallback(UartRxFrameOverflowCallback callback)
+void uart_registerRxFrameOverflowCallback(UartRxFrameOverflowCallback callback)
 {
     if (callback != NULL)
         g_rxFrameOverflowCallback = callback;
 }
 
 
-bool uartCommon_isTxQueueEmpty(void)
+bool uart_isTxQueueEmpty(void)
 {
     bool empty = false;
     if (g_heap != NULL)
@@ -1423,7 +1370,7 @@ bool uartCommon_isTxQueueEmpty(void)
 }
 
 
-uint16_t uartCommon_processRx(uint32_t timeoutMS)
+uint16_t uart_processRx(uint32_t timeoutMS)
 {
     uint16_t count = 0;
     if (g_heap != NULL)
@@ -1450,7 +1397,7 @@ uint16_t uartCommon_processRx(uint32_t timeoutMS)
 }
 
 
-uint16_t uartCommon_processTx(uint32_t timeoutMS)
+uint16_t uart_processTx(uint32_t timeoutMS)
 {
     uint16_t count = 0;
     if (g_heap != NULL)
@@ -1480,7 +1427,7 @@ uint16_t uartCommon_processTx(uint32_t timeoutMS)
 }
 
 
-bool uartCommon_txEnqueueData(uint8_t const data[], uint16_t size)
+bool uart_txEnqueueData(uint8_t const data[], uint16_t size)
 {
     bool status = false;
     if ((g_heap != NULL) && !queue_isFull(&g_heap->txQueue))
@@ -1494,7 +1441,7 @@ bool uartCommon_txEnqueueData(uint8_t const data[], uint16_t size)
 }
 
 
-bool uartCommon_txEnqueueError(uint8_t const data[], uint16_t size)
+bool uart_txEnqueueError(uint8_t const data[], uint16_t size)
 {
     bool status = false;
     if (error_getMode() == ErrorMode_Global)
@@ -1511,10 +1458,95 @@ bool uartCommon_txEnqueueError(uint8_t const data[], uint16_t size)
 }
 
 
-void uartCommon_write(char const string[])
+void uart_write(char const string[])
 {
     if (g_heap == NULL)
         COMPONENT(HOST_UART, UartPutString)(string);
+}
+
+
+// === PUBLIC FUNCTIONS: uartTranslate =========================================
+
+uint16_t uartTranslate_getHeapWordRequirement(void)
+{
+    return heap_calculateHeapWordRequirement(sizeof(TranslateHeap));
+}
+
+
+uint16_t uartTranslate_activate(heapWord_t memory[], uint16_t size)
+{
+    uint16_t allocatedSize = 0;
+    uint16_t requiredSize = uartTranslate_getHeapWordRequirement();
+    if ((memory != NULL) && (size >= requiredSize))
+    {
+        g_heap = (Heap*)memory;
+        TranslateHeap* heap = (TranslateHeap*)g_heap;
+        initTranslateDecodedRxQueue(heap);
+        initTranslateTxQueue(heap);
+        g_updateFile.updateChunk = NULL;
+        initRx();
+        registerI2cCallbacks();
+        allocatedSize = requiredSize;
+    }
+    return allocatedSize;
+}
+
+
+uint16_t uartTranslate_deactivate(void)
+{
+    uint16_t size = 0u;
+    if (deactivate())
+        size = uartTranslate_getHeapWordRequirement();
+    return size;
+}
+
+
+bool uartTranslate_isActivated(void)
+{
+    return ((g_heap != NULL) && !isUpdateEnabled());
+}
+
+
+// === PUBLIC FUNCTIONS: uartUpdate ============================================
+
+uint16_t uartUpdate_getHeapWordRequirement(void)
+{
+    return heap_calculateHeapWordRequirement(sizeof(UpdateHeap));
+}
+
+
+uint16_t uartUpdate_activate(heapWord_t memory[], uint16_t size)
+{
+    uint16_t allocatedSize = 0;
+    uint16_t requiredSize = uartUpdate_getHeapWordRequirement();
+    if ((memory != NULL) && (size >= requiredSize))
+    {
+        g_heap = (Heap*)memory;
+        UpdateHeap* heap = (UpdateHeap*)g_heap;
+        initUpdateDecodedRxQueue(heap);
+        initUpdateTxQueue(heap);
+        initUpdatePacket(heap);
+        resetUpdateFile();
+        initRx();
+        registerI2cCallbacks();
+        allocatedSize = requiredSize;
+    }
+    return allocatedSize;
+}
+
+
+uint16_t uartUpdate_deactivate(void)
+{
+    uint16_t size = 0u;
+    if (deactivate())
+        size = uartUpdate_getHeapWordRequirement();
+    return size;
+}
+
+
+bool uartUpdate_isActivated(void)
+{
+    return ((g_heap != NULL) && isUpdateEnabled());
 }
 
 

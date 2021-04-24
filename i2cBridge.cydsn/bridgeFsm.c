@@ -21,7 +21,9 @@
 #include "i2cTouch.h"
 #include "project.h"
 #include "smallPrintf.h"
-#include "uartCommon.h"
+#include "uart.h"
+#include "uartTranslate.h"
+#include "uartUpdate.h"
 #include "utility.h"
 
 
@@ -211,9 +213,10 @@ SystemStatus resetHeap(void)
     uint16_t deactivationSize = 0;
     if (i2cTouch_isActivated())
         deactivationSize += i2cTouch_deactivate();
-    if (uartCommon_isActivated() || uartCommon_isUpdateActivated())
-        deactivationSize += uartCommon_deactivate();
-        
+    if (uartTranslate_isActivated())
+        deactivationSize += uartTranslate_deactivate();
+    if (uartUpdate_isActivated())
+        deactivationSize += uartUpdate_deactivate();
     if (deactivationSize != g_heap.freeOffset)
         status.memoryLeak = true;
     g_heap.freeOffset = 0u;
@@ -226,25 +229,21 @@ SystemStatus resetHeap(void)
 ///         SystemStatus union.
 SystemStatus initHostComm(void)
 {
-    static bool const EnableUpdate = false;
-    
     SystemStatus status = { false };
-    if (uartCommon_isUpdateActivated())
+    if (uartUpdate_isActivated())
         status = resetHeap();
     if (!status.errorOccurred)
     {
-        if (!uartCommon_isActivated())
+        if (!uartTranslate_isActivated())
         {
-            uint16_t size = uartCommon_activate(
-                &g_heap.data[g_heap.freeOffset],
-                getFreeHeapWordSize(), EnableUpdate);
+            uint16_t size = uartTranslate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
             debug_uartPrintHexUint16(size);
             if (size > 0)
                 g_heap.freeOffset += size;
             else
             {
                 status.invalidScratchOffset = true;
-                uint16_t requirement = uartCommon_getHeapWordRequirement(EnableUpdate);
+                uint16_t requirement = uartTranslate_getHeapWordRequirement();
                 if (getFreeHeapWordSize() < requirement)
                     status.invalidScratchBuffer = true;
             }
@@ -341,9 +340,9 @@ bool processSlaveTranslator(void)
         uint32_t const UartProcessTxTimeoutMS = 3u;
         uint32_t const I2cProcessTimeoutMS = 5u;
         
-        uartCommon_processRx(UartProcessRxTimeoutMS);
+        uart_processRx(UartProcessRxTimeoutMS);
         i2cTouch_process(I2cProcessTimeoutMS);
-        uartCommon_processTx(UartProcessTxTimeoutMS);
+        uart_processTx(UartProcessTxTimeoutMS);
     }
     return processed;
 }
@@ -380,7 +379,7 @@ void processHostTranslatorFailed(void)
     if (alarm_hasElapsed(&messageAlarm))
     {
         alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
-        uartCommon_write(ErrorMessage);
+        uart_write(ErrorMessage);
     }
 }
 
@@ -398,7 +397,7 @@ void processHostUpdateFailed(void)
     if (alarm_hasElapsed(&messageAlarm))
     {
         alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
-        uartCommon_write(ErrorMessage);
+        uart_write(ErrorMessage);
     }
 }
 
@@ -416,12 +415,12 @@ void processHostCommFailed(void)
     if (alarm_hasElapsed(&messageAlarm))
     {
         alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
-        uint16_t normalRequiredSize = uartCommon_getHeapWordRequirement(false);
-        uint16_t updateRequiredSize = uartCommon_getHeapWordRequirement(true);
-        uartCommon_write(ErrorMessage);
+        uint16_t translateRequiredSize = uartTranslate_getHeapWordRequirement();
+        uint16_t updateRequiredSize = uartUpdate_getHeapWordRequirement();
+        uart_write(ErrorMessage);
         char message[ERROR_MESSAGE_BUFFER_SIZE];
-        smallSprintf(message, ErrorDetailFormat, HEAP_SIZE, normalRequiredSize, updateRequiredSize);
-        uartCommon_write(message);
+        smallSprintf(message, ErrorDetailFormat, HEAP_SIZE, translateRequiredSize, updateRequiredSize);
+        uart_write(message);
     }
 }
 
