@@ -1334,18 +1334,6 @@ void uart_init(void)
     COMPONENT(HOST_UART, Start)();
 }
 
-void uart_initRxQueue(void)
-{
-    resetRxTime();
-}
-
-
-void uart_initTxQueue(void)
-{
-    queue_registerEnqueueCallback(&g_heap->txQueue, encodeData);
-    resetPendingTxEnqueue();
-}
-
 
 void uart_registerRxOutOfFrameCallback(UartRxOutOfFrameCallback callback)
 {

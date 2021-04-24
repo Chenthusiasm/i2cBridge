@@ -46,47 +46,6 @@
     /// Initializes the communications interface.
     void uart_init(void);
     
-    void uart_initRxQueue(void);
-    
-    void uart_initTxQueue(void);
-    
-    /// Accessor to get the number of heap words required for global variables.
-    /// @param[in]  enableUpdate   Flag indicating if update mode is enabled,
-    ///                             otherwise normal mode is enabled.
-    /// @return The number of heap words needed for global variables.
-    //uint16_t uart_getHeapWordRequirement(bool enableUpdate);
-    
-    /// Activates the UART module and sets up its globals.
-    /// This must be invoked before using any processRx or processTx-like
-    /// functions.
-    /// @param[in]  memory          Memory buffer that is available for the
-    ///                             module's globals. This is an array of 32-bit
-    ///                             worlds to help preserve word alignment.
-    /// @param[in]  size            The size (in 32-bit words) of the memory
-    ///                             array.
-    /// @param[in]  enableUpdate   Flag indicating if update mode is enabled,
-    ///                             otherwise normal mode is enabled.
-    /// @return The number of 32-bit words the module used for its globals. If 0
-    ///         Then there was an error and the module hasn't started.
-    //uint16_t uart_activate(heapWord_t memory[], uint16_t size, bool enableUpdate);
-    
-    /// Deactivates the UART module and effectively deallocates
-    /// the global memory.
-    /// @return The heap word size that was freed by deactivating. If 0, then
-    ///         the module was probably not activated upon this function call so
-    ///         there was nothing to deallocate.
-    //uint16_t uart_deactivate(void);
-    
-    /// Checks if the module is activated and the heap has been allocated for
-    /// normal mode.
-    /// @return If normal mode is activated.
-    //bool uart_isActivated(void);
-    
-    /// Checks if the module is activated and the heap has been allocated for
-    /// update mode.
-    /// @return If normal mode is activated.
-    //bool uart_isUpdateActivated(void);
-    
     /// Registers the receive callback function that should be invoked when
     /// data is received out of frame.
     /// @param[in]  callback    Pointer to the callback function.
