@@ -22,6 +22,8 @@
 #include "error.h"
 #include "hwSystemTime.h"
 #include "i2c.h"
+#include "i2cTouch.h"
+#include "i2cUpdate.h"
 #include "project.h"
 #include "queue.h"
 #include "uartTranslate.h"
@@ -939,10 +941,10 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             case BridgeCommand_SlaveRead:
             {
                 if (size > PacketOffset_I2cData)
-                    i2c_read(data[PacketOffset_I2cAddress], data[PacketOffset_I2cData]);
+                    i2cTouch_read(data[PacketOffset_I2cAddress], data[PacketOffset_I2cData]);
                 else if (size > PacketOffset_I2cAddress)
                     // Read at least one byte.
-                    i2c_read(data[PacketOffset_I2cAddress], 1u);
+                    i2cTouch_read(data[PacketOffset_I2cAddress], 1u);
                 break;
             }
             
@@ -955,7 +957,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             case BridgeCommand_SlaveWrite:
             {
                 if (size > PacketOffset_I2cData)
-                    i2c_write(data[PacketOffset_I2cAddress], &data[PacketOffset_I2cData], size - PacketOffset_I2cData);
+                    i2cTouch_write(data[PacketOffset_I2cAddress], &data[PacketOffset_I2cData], size - PacketOffset_I2cData);
                 break;
             }
             

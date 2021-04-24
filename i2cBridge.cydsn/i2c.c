@@ -1436,51 +1436,6 @@ void i2c_registerErrorCallback(I2cErrorCallback callback)
 }
 
 
-I2cStatus i2c_process(uint32_t timeoutMS)
-{
-    g_callsite.value = 0u;
-    g_callsite.topCall = 1u;
-    
-    I2cStatus status = { false };
-    
-#if ENABLE_I2C_LOCKED_BUS_DETECTION
-    if (isBusLocked())
-        status = recoverFromLockedBus();
-    else
-#endif // ENABLE_I2C_LOCKED_BUS_DETECTION
-    {
-        if (g_heap != NULL)
-            status = processCommFsm(timeoutMS);
-        else
-            status.deactivated = true;
-    }
-    processError(status);
-    return status;
-}
-
-
-I2cStatus i2c_read(uint8_t address, uint16_t size)
-{
-    g_callsite.value = 0u;
-    g_callsite.topCall = 2u;
-    
-    I2cStatus status = xferEnqueueRead(address, size);
-    processError(status);
-    return status;
-}
-
-
-I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size)
-{
-    g_callsite.value = 0u;
-    g_callsite.topCall = 3u;
-    
-    I2cStatus status = xferEnqueueWrite(address, data, size);
-    processError(status);
-    return status;
-}
-
-
 I2cStatus i2c_ack(uint8_t address, uint32_t timeoutMS)
 {
     g_callsite.value = 0u;
@@ -1542,6 +1497,51 @@ uint16_t i2cTouch_deactivate(void)
 bool i2cTouch_isActivated(void)
 {
     return (g_heap != NULL);
+}
+
+
+I2cStatus i2cTouch_process(uint32_t timeoutMS)
+{
+    g_callsite.value = 0u;
+    g_callsite.topCall = 1u;
+    
+    I2cStatus status = { false };
+    
+#if ENABLE_I2C_LOCKED_BUS_DETECTION
+    if (isBusLocked())
+        status = recoverFromLockedBus();
+    else
+#endif // ENABLE_I2C_LOCKED_BUS_DETECTION
+    {
+        if (g_heap != NULL)
+            status = processCommFsm(timeoutMS);
+        else
+            status.deactivated = true;
+    }
+    processError(status);
+    return status;
+}
+
+
+I2cStatus i2cTouch_read(uint8_t address, uint16_t size)
+{
+    g_callsite.value = 0u;
+    g_callsite.topCall = 2u;
+    
+    I2cStatus status = xferEnqueueRead(address, size);
+    processError(status);
+    return status;
+}
+
+
+I2cStatus i2cTouch_write(uint8_t address, uint8_t const data[], uint16_t size)
+{
+    g_callsite.value = 0u;
+    g_callsite.topCall = 3u;
+    
+    I2cStatus status = xferEnqueueWrite(address, data, size);
+    processError(status);
+    return status;
 }
 
 

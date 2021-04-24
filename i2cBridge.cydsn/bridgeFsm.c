@@ -343,7 +343,7 @@ bool processSlaveTranslate(void)
         uint32_t const I2cProcessTimeoutMS = 5u;
         
         uartTranslate_processRx(UartProcessRxTimeoutMS);
-        i2c_process(I2cProcessTimeoutMS);
+        i2cTouch_process(I2cProcessTimeoutMS);
         uartTranslate_processTx(UartProcessTxTimeoutMS);
     }
     return processed;

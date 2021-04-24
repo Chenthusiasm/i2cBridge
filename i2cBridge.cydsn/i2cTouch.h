@@ -56,6 +56,32 @@
     /// @return If the module is activated.
     bool i2cTouch_isActivated(void);
     
+    /// Process any pending receive or transmit transactions.
+    /// @param[in]  timeoutMS   The amount of time the process can occur before
+    ///                         it times out and must finish. If 0, then there's
+    ///                         no timeout and the function blocks until all
+    ///                         pending actions are completed.
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2cStatus union.
+    I2cStatus i2cTouch_process(uint32_t timeoutMS);
+    
+    /// Queue up a read from the I2C bus. The i2c_registerRxCallback
+    /// function must be invoked with a valid callback function to handle the
+    /// received data.
+    /// @param[in]  address The 7-bit I2C address.
+    /// @param[in]  size    The number of bytes to read.
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2cStatus union.
+    I2cStatus i2cTouch_read(uint8_t address, uint16_t size);
+    
+    /// Queue up a write to the I2C bus.
+    /// @param[in]  address The 7-bit I2C address.
+    /// @param[in]  data    The data buffer to that contains the data to write.
+    /// @param[in]  size    The number of bytes to write.
+    /// @return Status indicating if an error occured. See the definition of the
+    ///         I2cStatus union.
+    I2cStatus i2cTouch_write(uint8_t address, uint8_t const data[], uint16_t size);
+    
     
     #ifdef __cplusplus
     } // extern "C"
