@@ -1538,4 +1538,12 @@ bool uartUpdate_isActivated(void)
 }
 
 
+bool uartUpdate_process(void)
+{
+    bool status = false;
+    
+    return status;
+}
+
+
 /* [] END OF FILE */

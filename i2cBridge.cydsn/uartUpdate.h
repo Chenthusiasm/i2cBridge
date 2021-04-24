@@ -57,6 +57,11 @@
     /// @return If normal mode is activated.
     bool uartUpdate_isActivated(void);
     
+    /// General process function of any pending UART receive or transmit
+    /// functionality when in update mode.
+    /// @return If the pending UART transactions were executed successfully.
+    bool uartUpdate_process(void);
+    
     
     #ifdef __cplusplus
         } // extern "C"

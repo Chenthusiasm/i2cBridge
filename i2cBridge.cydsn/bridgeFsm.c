@@ -352,8 +352,11 @@ bool processSlaveTranslator(void)
 /// @return If the initialization was successful.
 bool processInitSlaveUpdate(void)
 {
-    // @TODO: implement.
-    return true;
+    bool processed = false;
+    {
+        processed = uartUpdate_process();
+    }
+    return processed;
 }
 
 
