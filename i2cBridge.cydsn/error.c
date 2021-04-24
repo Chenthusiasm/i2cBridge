@@ -316,8 +316,8 @@ int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cStatus i2cStat
     {
         if (size >= sizeof(I2cError))
         {
-            uint16_t driverStatus = i2cTouch_getLastDriverStatusMask();
-            uint16_t driverReturnValue = i2cTouch_getLastDriverReturnValue();
+            uint16_t driverStatus = i2c_getLastDriverStatusMask();
+            uint16_t driverReturnValue = i2c_getLastDriverReturnValue();
             I2cError error =
             {
                 ErrorType_I2c,

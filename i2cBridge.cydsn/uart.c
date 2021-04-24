@@ -930,7 +930,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             case BridgeCommand_SlaveAddress:
             {
                 if (size > PacketOffset_I2cAddress)
-                    i2cTouch_setSlaveAddress(data[PacketOffset_I2cAddress]);
+                    i2c_setSlaveAddress(data[PacketOffset_I2cAddress]);
                 else
                     status = false;
                 break;
@@ -939,10 +939,10 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             case BridgeCommand_SlaveRead:
             {
                 if (size > PacketOffset_I2cData)
-                    i2cTouch_read(data[PacketOffset_I2cAddress], data[PacketOffset_I2cData]);
+                    i2c_read(data[PacketOffset_I2cAddress], data[PacketOffset_I2cData]);
                 else if (size > PacketOffset_I2cAddress)
                     // Read at least one byte.
-                    i2cTouch_read(data[PacketOffset_I2cAddress], 1u);
+                    i2c_read(data[PacketOffset_I2cAddress], 1u);
                 break;
             }
             
@@ -955,7 +955,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             case BridgeCommand_SlaveWrite:
             {
                 if (size > PacketOffset_I2cData)
-                    i2cTouch_write(data[PacketOffset_I2cAddress], &data[PacketOffset_I2cData], size - PacketOffset_I2cData);
+                    i2c_write(data[PacketOffset_I2cAddress], &data[PacketOffset_I2cData], size - PacketOffset_I2cData);
                 break;
             }
             
@@ -963,9 +963,9 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
             {
                 I2cStatus i2cStatus;
                 if (size > PacketOffset_BridgeData)
-                    i2cStatus = i2cTouch_ack(data[PacketOffset_BridgeData], 0);
+                    i2cStatus = i2c_ack(data[PacketOffset_BridgeData], 0);
                 else
-                    i2cStatus = i2cTouch_ackApp(0);
+                    i2cStatus = i2c_ackApp(0);
                 if (!i2cStatus.errorOccurred)
                     txEnqueueCommandResponse(BridgeCommand_SlaveAck, NULL, 0);
                 break;
@@ -1275,8 +1275,8 @@ static void initUpdatePacket(UpdateHeap* heap)
 /// Register the callback functions for I2C-related events.
 static void registerI2cCallbacks(void)
 {
-    i2cTouch_registerRxCallback(uart_txEnqueueData);
-    i2cTouch_registerErrorCallback(processI2cErrors);
+    i2c_registerRxCallback(uart_txEnqueueData);
+    i2c_registerErrorCallback(processI2cErrors);
 }
 
 

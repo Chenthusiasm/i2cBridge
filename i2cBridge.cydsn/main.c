@@ -41,7 +41,7 @@ static void init(void)
     // Initialize the hardware resources.
     debug_init();
     hwSystemTime_init(DEFAULT_SYSTICK_PERIOD_MS);
-    i2cTouch_init();
+    i2c_init();
     uart_init();
     
     // Initialize state machines and system controls.

@@ -886,7 +886,7 @@ static I2cStatus write(uint8_t address, uint8_t const data[], uint16_t size)
             // component has already been set.
             COMPONENT(SLAVE_I2C, Init)();
             COMPONENT(SLAVE_I2C, Enable)();
-            status = i2cTouch_ackApp(0);
+            status = i2c_ackApp(0);
             #endif
             g_lockedBus.recoveryAttempts++;
             debug_setPin1(true);
@@ -1379,26 +1379,26 @@ CY_ISR(slaveIsr)
 
 // === PUBLIC FUNCTIONS ========================================================
 
-void i2cTouch_init(void)
+void i2c_init(void)
 {
     reinitAll();
-    i2cTouch_resetSlaveAddress();
+    i2c_resetSlaveAddress();
     
     COMPONENT(SLAVE_I2C, Start)();
     COMPONENT(SLAVE_IRQ, StartEx)(slaveIsr);
 }
 
 
-uint16_t i2cTouch_getHeapWordRequirement(void)
+uint16_t i2c_getHeapWordRequirement(void)
 {
     return heap_calculateHeapWordRequirement(sizeof(Heap));
 }
 
 
-uint16_t i2cTouch_activate(heapWord_t memory[], uint16_t size)
+uint16_t i2c_activate(heapWord_t memory[], uint16_t size)
 {
     uint16_t allocatedSize = 0;
-    uint16_t requiredSize = i2cTouch_getHeapWordRequirement();
+    uint16_t requiredSize = i2c_getHeapWordRequirement();
     if ((memory != NULL) && (size >= requiredSize))
     {
         g_heap = (Heap*)memory;
@@ -1410,12 +1410,12 @@ uint16_t i2cTouch_activate(heapWord_t memory[], uint16_t size)
 }
  
 
-uint16_t i2cTouch_deactivate(void)
+uint16_t i2c_deactivate(void)
 {
     uint16_t size = 0u;
     if (g_heap != NULL)
     {
-        size = i2cTouch_getHeapWordRequirement();
+        size = i2c_getHeapWordRequirement();
         g_heap = NULL;
     }
     reinitAll();
@@ -1423,13 +1423,13 @@ uint16_t i2cTouch_deactivate(void)
 }
 
 
-bool i2cTouch_isActivated(void)
+bool i2c_isActivated(void)
 {
     return (g_heap != NULL);
 }
 
 
-void i2cTouch_setSlaveAddress(uint8_t address)
+void i2c_setSlaveAddress(uint8_t address)
 {
     if (address != g_slaveAddress)
     {
@@ -1439,7 +1439,7 @@ void i2cTouch_setSlaveAddress(uint8_t address)
 }
 
 
-void i2cTouch_resetSlaveAddress(void)
+void i2c_resetSlaveAddress(void)
 {
     if (g_slaveAddress != SlaveAddress_App)
     {
@@ -1449,33 +1449,33 @@ void i2cTouch_resetSlaveAddress(void)
 }
 
 
-uint16_t i2cTouch_getLastDriverStatusMask(void)
+uint16_t i2c_getLastDriverStatusMask(void)
 {
     return (uint16_t)g_lastDriverStatus;
 }
 
 
-uint16_t i2cTouch_getLastDriverReturnValue(void)
+uint16_t i2c_getLastDriverReturnValue(void)
 {
     return g_lastDriverReturnValue;
 }
 
     
-void i2cTouch_registerRxCallback(I2cRxCallback callback)
+void i2c_registerRxCallback(I2cRxCallback callback)
 {
     if (callback != NULL)
         g_rxCallback = callback;
 }
 
 
-void i2cTouch_registerErrorCallback(I2cErrorCallback callback)
+void i2c_registerErrorCallback(I2cErrorCallback callback)
 {
     if (callback != NULL)
         g_errorCallback = callback;
 }
 
 
-I2cStatus i2cTouch_process(uint32_t timeoutMS)
+I2cStatus i2c_process(uint32_t timeoutMS)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 1u;
@@ -1498,7 +1498,7 @@ I2cStatus i2cTouch_process(uint32_t timeoutMS)
 }
 
 
-I2cStatus i2cTouch_read(uint8_t address, uint16_t size)
+I2cStatus i2c_read(uint8_t address, uint16_t size)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 2u;
@@ -1509,7 +1509,7 @@ I2cStatus i2cTouch_read(uint8_t address, uint16_t size)
 }
 
 
-I2cStatus i2cTouch_write(uint8_t address, uint8_t const data[], uint16_t size)
+I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 3u;
@@ -1520,7 +1520,7 @@ I2cStatus i2cTouch_write(uint8_t address, uint8_t const data[], uint16_t size)
 }
 
 
-I2cStatus i2cTouch_ack(uint8_t address, uint32_t timeoutMS)
+I2cStatus i2c_ack(uint8_t address, uint32_t timeoutMS)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 4u;
@@ -1531,7 +1531,7 @@ I2cStatus i2cTouch_ack(uint8_t address, uint32_t timeoutMS)
 }
 
 
-I2cStatus i2cTouch_ackApp(uint32_t timeoutMS)
+I2cStatus i2c_ackApp(uint32_t timeoutMS)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 5u;
