@@ -36,8 +36,8 @@
     /// @return The number of heap words needed for global variables.
     uint16_t i2cTouch_getHeapWordRequirement(void);
     
-    /// Activates the slave I2C gen 2 module and sets up its globals. This must
-    /// be invoked before using any processRx or processTx-like functions.
+    /// Activates the slave I2C module and sets up its globals for touch mode.
+    /// This must be invoked before using any read/write/process functions.
     /// @param[in]  memory  Memory buffer that is available for the module's
     ///                     globals. This is an array of 32-bit words to help
     ///                     preserve word alignment.
@@ -52,7 +52,8 @@
     ///         there was nothing to deallocate.
     uint16_t i2cTouch_deactivate(void);
     
-    /// Checks if the module is activated and the heap has been allocated.
+    /// Checks if the module is activated and the heap has been allocated for
+    /// touch mode.
     /// @return If the module is activated.
     bool i2cTouch_isActivated(void);
     
