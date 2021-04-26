@@ -1675,11 +1675,101 @@ bool i2cUpdate_isActivated(void)
 
 I2cStatus i2cUpdate_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t timeoutMS)
 {
+    Alarm alarm;
+    if (timeoutMS <= 0)
+        timeoutMS = findExtendedTimeoutMS(size);
+    alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
+    
+    bool sent = false;
+    bool done = false;
+    I2cStatus status = { false };
+    while (!done)
+    {
+        if (alarm.armed && alarm_hasElapsed(&alarm))
+        {
+            status.timedOut = true;
+            break;
+        }
+        
+        if (!sent)
+        {
+            if (isBusReady(NULL))
+            {
+                status = read(address, data, size);
+                if (status.errorOccurred)
+                    done = true;
+                else
+                    sent = true;
+            }
+        }
+        else
+        {
+            // Check the driver status, block until the transaction is done.
+            mstatus_t driverStatus = checkDriverStatus();
+            if (driverStatus == COMPONENT(SLAVE_I2C, I2C_MSTAT_CLEAR))
+                done = true;
+            if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_RD_CMPLT)) > 0)
+            {
+                if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_ADDR_NAK)) > 0)
+                    status.nak = true;
+                else if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_MASK)) > 0)
+                    status.driverError = true;
+                done = true;
+            }
+        }
+    }
+    processError(status);
+    return status;
 }
 
 
 I2cStatus i2cUpdate_write(uint8_t address, uint8_t const data[], uint16_t size, uint32_t timeoutMS)
 {
+    Alarm alarm;
+    if (timeoutMS <= 0)
+        timeoutMS = findExtendedTimeoutMS(size);
+    alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
+    
+    bool sent = false;
+    bool done = false;
+    I2cStatus status = { false };
+    while (!done)
+    {
+        if (alarm.armed && alarm_hasElapsed(&alarm))
+        {
+            status.timedOut = true;
+            break;
+        }
+        
+        if (!sent)
+        {
+            if (isBusReady(NULL))
+            {
+                status = write(address, data, size);
+                if (status.errorOccurred)
+                    done = true;
+                else
+                    sent = true;
+            }
+        }
+        else
+        {
+            // Check the driver status, block until the transaction is done.
+            mstatus_t driverStatus = checkDriverStatus();
+            if (driverStatus == COMPONENT(SLAVE_I2C, I2C_MSTAT_CLEAR))
+                done = true;
+            if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_RD_CMPLT)) > 0)
+            {
+                if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_ADDR_NAK)) > 0)
+                    status.nak = true;
+                else if ((driverStatus & COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_MASK)) > 0)
+                    status.driverError = true;
+                done = true;
+            }
+        }
+    }
+    processError(status);
+    return status;
 }
 
 
