@@ -146,7 +146,16 @@ typedef struct Heap
 
 /// The default period between writing of error messages to the host UART bus
 /// when a general error occurs.
-static uint32_t G_ErrorMessagePeriodMS = 5000u;
+static uint32_t const G_ErrorMessagePeriodMS = 5000u;
+
+/// The default timeout in milliseconds for processing UART receives.
+static uint32_t const G_UartProcessRxTimeoutMS = 2u;
+
+/// The default timeout in milliseconds for processing UART transmits.
+static uint32_t const G_UartProcessTxTimeoutMS = 3u;
+
+/// The default timeout in milliseconds for processing I2C transactions.
+static uint32_t const G_I2cProcessTimeoutMS = 5u;
 
 
 // === GLOBAL VARIABLES ========================================================
@@ -234,22 +243,16 @@ SystemStatus resetHeap(void)
 SystemStatus initHostComm(void)
 {
     SystemStatus status = { false };
-    if (!uartTranslate_isActivated())
+    uint16_t size = uartTranslate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
+    if (size > 0)
+        g_heap.freeOffset += size;
+    else
     {
-        status = resetHeap();
-        if (!status.errorOccurred)
-        {
-            uint16_t size = uartTranslate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
-            if (size > 0)
-                g_heap.freeOffset += size;
-            else
-            {
-                status.invalidScratchOffset = true;
-                uint16_t requirement = uartTranslate_getHeapWordRequirement();
-                if (getFreeHeapWordSize() < requirement)
-                    status.invalidScratchBuffer = true;
-            }
-        }
+        status.translateError = true;
+        status.invalidScratchOffset = true;
+        uint16_t requirement = uartTranslate_getHeapWordRequirement();
+        if (getFreeHeapWordSize() < requirement)
+            status.invalidScratchBuffer = true;
     }
     return status;
 }
@@ -259,6 +262,7 @@ SystemStatus initHostComm(void)
 /// @return If host was initialized.
 bool processInitHostComm(void)
 {
+    resetHeap();
     SystemStatus status = initHostComm();
     processError(status);
     return !status.errorOccurred;;
@@ -298,6 +302,11 @@ bool processSlaveResetComplete(void)
             status.slaveResetFailed = true;
         alarm_disarm(&g_resetAlarm);
     }
+    else
+    {
+        uartTranslate_processRx(G_UartProcessRxTimeoutMS);
+        uartTranslate_processTx(G_UartProcessTxTimeoutMS);
+    }
     processError(status);
     return complete;
 }
@@ -307,22 +316,27 @@ bool processSlaveResetComplete(void)
 /// @return If the initialization was successful.
 bool processInitSlaveTranslate(void)
 {
-    SystemStatus status = initHostComm();
-    if (!status.errorOccurred)
+    SystemStatus status = { false };
+    if (!(uartTranslate_isActivated() && i2cTouch_isActivated()))
     {
-        if (!i2cTouch_isActivated())
+        status = resetHeap();
+        if (!status.errorOccurred)
         {
-            uint16_t size = i2cTouch_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
-            if (size <= 0)
+            status = initHostComm();
+            if (!status.errorOccurred)
             {
-                status.invalidScratchOffset = true;
-                uint16_t requirement = i2cTouch_getHeapWordRequirement();
-                if (getFreeHeapWordSize() < requirement)
-                    status.invalidScratchBuffer = true;
-                status.translateError = true;
+                uint16_t size = i2cTouch_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
+                if (size > 0)
+                    g_heap.freeOffset += size;
+                else
+                {
+                    status.translateError = true;
+                    status.invalidScratchOffset = true;
+                    uint16_t requirement = i2cTouch_getHeapWordRequirement();
+                    if (getFreeHeapWordSize() < requirement)
+                        status.invalidScratchBuffer = true;
+                }
             }
-            else
-                g_heap.freeOffset += size;
         }
     }
     processError(status);
@@ -337,14 +351,10 @@ bool processSlaveTranslate(void)
     bool processed = false;
     if (true)
     {
+        uartTranslate_processRx(G_UartProcessRxTimeoutMS);
+        i2cTouch_process(G_I2cProcessTimeoutMS);
+        uartTranslate_processTx(G_UartProcessTxTimeoutMS);
         processed = true;
-        uint32_t const UartProcessRxTimeoutMS = 2u;
-        uint32_t const UartProcessTxTimeoutMS = 3u;
-        uint32_t const I2cProcessTimeoutMS = 5u;
-        
-        uartTranslate_processRx(UartProcessRxTimeoutMS);
-        i2cTouch_process(I2cProcessTimeoutMS);
-        uartTranslate_processTx(UartProcessTxTimeoutMS);
     }
     return processed;
 }
@@ -361,32 +371,31 @@ bool processInitSlaveUpdate(void)
         if (!status.errorOccurred)
         {
             uint16_t size = uartUpdate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
-            if (size <= 0)
-            {
-                status.invalidScratchOffset = true;
-                uint16_t requirement = uartUpdate_getHeapWordRequirement();
-                if (getFreeHeapWordSize() < requirement)
-                    status.invalidScratchBuffer = true;
-                status.updateError = true;
-            }
-            else
+            if (size > 0)
             {
                 g_heap.freeOffset += size;
                 size = i2cUpdate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
-                if (size <= 0)
+                if (size > 0)
+                    g_heap.freeOffset += size;
+                else
                 {
+                    status.updateError = true;
                     status.invalidScratchOffset = true;
                     uint16_t requirement = i2cUpdate_getHeapWordRequirement();
                     if (getFreeHeapWordSize() < requirement)
                         status.invalidScratchBuffer = true;
-                    status.updateError = true;
                 }
-                else
-                    g_heap.freeOffset += size;
+            }
+            else
+            {
+                status.updateError = true;
+                status.invalidScratchOffset = true;
+                uint16_t requirement = uartUpdate_getHeapWordRequirement();
+                if (getFreeHeapWordSize() < requirement)
+                    status.invalidScratchBuffer = true;
             }
         }
     }
-    
     processError(status);
     return !status.errorOccurred;
 }
@@ -397,8 +406,10 @@ bool processInitSlaveUpdate(void)
 bool processSlaveUpdate(void)
 {
     bool processed = false;
+    if (true)
     {
-        processed = uartUpdate_process();
+        uartUpdate_process();
+        processed = true;
     }
     return processed;
 }
