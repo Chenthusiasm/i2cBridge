@@ -361,6 +361,27 @@ typedef struct CommFsm
 /// must be run in a mutual exclusive fashion (one or the other; no overlap).
 typedef struct Heap
 {
+    /// Pointer to the queue data structure used by the module..
+    Queue* queue;
+    
+    /// Pointer to the raw receive data buffer.
+    uint8_t* rxBuffer;
+    
+    /// Size of the raw receive data buffer.
+    uint16_t rxBufferSize;
+    
+    /// The I2C address and direction associated with the transaction that is
+    /// waiting to be enqueued into the transfer queue. This must be set prior
+    /// to enqueueing data into the transfer queue.
+    I2cXfer pendingQueueXfer;
+    
+} Heap;
+
+
+/// Data extension for the Heap structure. Defines the data buffers when in the
+/// touch mode.
+typedef struct TouchHeapData
+{
     /// Host transfer queue.
     Queue xferQueue;
     
@@ -377,37 +398,6 @@ typedef struct Heap
     
     /// The raw receive buffer.
     uint8_t rxBuffer[TOUCH_RX_BUFFER_SIZE];
-    
-    /// The I2C address and direction associated with the transaction that is
-    /// waiting to be enqueued into the transfer queue. This must be set prior
-    /// to enqueueing data into the transfer queue.
-    I2cXfer pendingQueueXfer;
-    
-} Heap;
-
-
-/// Data extension for the Heap structure. Defines the data buffers when in the
-/// touch mode.
-typedef struct TouchHeapData
-{
-    /// Array of transfer queue elements for the transfer queue.
-    QueueElement xferQueueElements[XFER_QUEUE_MAX_SIZE];
-    
-    /// Array to hold the data of the elements in the transfer queue. Note that
-    /// each transfer queue element has at least 2 bytes:
-    /// [0]: I2cXfer (adress and direction)
-    /// [1]:
-    ///     read: number of bytes to read.
-    ///     write: data payload...
-    uint8_t xferQueueData[XFER_QUEUE_DATA_SIZE];
-    
-    /// The raw receive buffer.
-    uint8_t rxBuffer[TOUCH_RX_BUFFER_SIZE];
-    
-    /// The I2C address and direction associated with the transaction that is
-    /// waiting to be enqueued into the transfer queue. This must be set prior
-    /// to enqueueing data into the transfer queue.
-    I2cXfer pendingQueueXfer;
     
 } TouchHeapData;
 
@@ -628,17 +618,6 @@ static uint16_t prepareXferQueueData(uint8_t target[], uint16_t targetSize, uint
         size += sourceSize;
     }
     return size;
-}
-
-/// Initializes the transmit queue.
-static void initTxQueue(void)
-{
-    queue_registerEnqueueCallback(&g_heap->xferQueue, prepareXferQueueData);
-    g_heap->xferQueue.data = g_heap->xferQueueData;
-    g_heap->xferQueue.elements = g_heap->xferQueueElements;
-    g_heap->xferQueue.maxDataSize = XFER_QUEUE_DATA_SIZE;
-    g_heap->xferQueue.maxSize = XFER_QUEUE_MAX_SIZE;
-    queue_empty(&g_heap->xferQueue);
 }
 
 
@@ -1009,7 +988,7 @@ static I2cStatus processCommFsm(uint32_t timeoutMS)
     {
         if (g_commFsm.rxPending && isIrqAsserted())
             g_commFsm.state = CommState_RxPending;
-        else if (!queue_isEmpty(&g_heap->xferQueue))
+        else if (!queue_isEmpty(g_heap->queue))
             g_commFsm.state = CommState_XferDequeueAndAct;
     }
     
@@ -1187,7 +1166,7 @@ static I2cStatus processCommFsm(uint32_t timeoutMS)
                 if (isBusReady(&status))
                 {
                     uint8_t* data;
-                    uint16_t size = queue_dequeue(&g_heap->xferQueue, &data);
+                    uint16_t size = queue_dequeue(g_heap->queue, &data);
                     if (size > XferQueueDataOffset_Data)
                     {
                         g_commFsm.pendingRxSize = 0u;
@@ -1280,12 +1259,12 @@ I2cStatus xferEnqueueRead(uint8_t address, uint16_t size)
     {
         if ((size > 0) && (size <= UINT8_MAX))
         {
-            if (!queue_isFull(&g_heap->xferQueue))
+            if (!queue_isFull(g_heap->queue))
             {
                 uint8_t readSize = size;
                 g_heap->pendingQueueXfer.address = address;
                 g_heap->pendingQueueXfer.direction = I2cDirection_Read;
-                if (!queue_enqueue(&g_heap->xferQueue, &readSize, sizeof(readSize)))
+                if (!queue_enqueue(g_heap->queue, &readSize, sizeof(readSize)))
                     status.queueFull = true;
             }
             else
@@ -1313,11 +1292,11 @@ I2cStatus xferEnqueueWrite(uint8_t address, uint8_t const data[], uint16_t size)
     {
         if ((data != NULL) && (size > 0))
         {
-            if (!queue_isFull(&g_heap->xferQueue))
+            if (!queue_isFull(g_heap->queue))
             {
                 g_heap->pendingQueueXfer.address = address;
                 g_heap->pendingQueueXfer.direction = I2cDirection_Write;
-                if (!queue_enqueue(&g_heap->xferQueue, data, size))
+                if (!queue_enqueue(g_heap->queue, data, size))
                     status.queueFull = true;
             }
             else
@@ -1433,6 +1412,50 @@ static void reinitAll(void)
 }
 
 
+/// Initializes the heap when in touch mode.
+/// @param[in]  heap    Pointer to the specific touch heap data structure that
+///                     defines the address offset for the heap data,
+///                     specifically the queue data.
+static void initTouchHeap(TouchHeap* heap)
+{
+    queue_registerEnqueueCallback(&heap->heapData.xferQueue, prepareXferQueueData);
+    heap->heapData.xferQueue.data = heap->heapData.xferQueueData;
+    heap->heapData.xferQueue.elements = heap->heapData.xferQueueElements;
+    heap->heapData.xferQueue.maxDataSize = XFER_QUEUE_DATA_SIZE;
+    heap->heapData.xferQueue.maxSize = XFER_QUEUE_MAX_SIZE;
+    queue_empty(&heap->heapData.xferQueue);
+    g_heap->queue = &heap->heapData.xferQueue;
+    g_heap->rxBuffer = heap->heapData.rxBuffer;
+    g_heap->rxBufferSize = TOUCH_RX_BUFFER_SIZE;
+}
+
+
+/// Initializes the heap when in update mode.
+/// @param[in]  heap    Pointer to the specific touch heap data structure that
+///                     defines the address offset for the heap data,
+///                     specifically the queue data.
+static void initUpdateHeap(UpdateHeap* heap)
+{
+    g_heap->queue = NULL;
+    g_heap->rxBuffer = heap->heapData.rxBuffer;
+    g_heap->rxBufferSize = UPDATE_RX_BUFFER_SIZE;
+}
+
+
+/// General deactivation function that applies to both the touch and update
+/// heap variants.
+/// @return If the module had to be deactivated. Returns false if the module
+///         was already deactivated.
+static bool deactivate(void)
+{
+    bool deactivate = false;
+    if (g_heap != NULL)
+        g_heap = NULL;
+    reinitAll();
+    return deactivate;
+}
+
+
 // === ISR =====================================================================
 
 /// ISR for the slaveIRQ (for the slaveIRQPin). The IRQ is asserted when there's
@@ -1530,7 +1553,7 @@ I2cStatus i2c_ackApp(uint32_t timeoutMS)
 
 uint16_t i2cTouch_getHeapWordRequirement(void)
 {
-    return heap_calculateHeapWordRequirement(sizeof(Heap));
+    return heap_calculateHeapWordRequirement(sizeof(TouchHeap));
 }
 
 
@@ -1541,7 +1564,8 @@ uint16_t i2cTouch_activate(heapWord_t memory[], uint16_t size)
     if ((memory != NULL) && (size >= requiredSize))
     {
         g_heap = (Heap*)memory;
-        initTxQueue();
+        TouchHeap* heap = (TouchHeap*)g_heap;
+        initTouchHeap(heap);
         allocatedSize = requiredSize;
         reinitAll();
     }
@@ -1552,19 +1576,15 @@ uint16_t i2cTouch_activate(heapWord_t memory[], uint16_t size)
 uint16_t i2cTouch_deactivate(void)
 {
     uint16_t size = 0u;
-    if (g_heap != NULL)
-    {
+    if (deactivate())
         size = i2cTouch_getHeapWordRequirement();
-        g_heap = NULL;
-    }
-    reinitAll();
     return size;
 }
 
 
 bool i2cTouch_isActivated(void)
 {
-    return (g_heap != NULL);
+    return ((g_heap != NULL) && (g_heap->queue != NULL));
 }
 
 
@@ -1618,24 +1638,38 @@ I2cStatus i2cTouch_write(uint8_t address, uint8_t const data[], uint16_t size)
 
 uint16_t i2cUpdate_getHeapWordRequirement(void)
 {
+    return heap_calculateHeapWordRequirement(sizeof(UpdateHeap));
 }
 
 
 uint16_t i2cUpdate_activate(heapWord_t memory[], uint16_t size)
 {
+    uint16_t allocatedSize = 0;
+    uint16_t requiredSize = i2cUpdate_getHeapWordRequirement();
+    if ((memory != NULL) && (size >= requiredSize))
+    {
+        g_heap = (Heap*)memory;
+        UpdateHeap* heap = (UpdateHeap*)g_heap;
+        initUpdateHeap(heap);
+        allocatedSize = requiredSize;
+        reinitAll();
+    }
+    return allocatedSize;
 }
 
 
 uint16_t i2cUpdate_deactivate(void)
 {
-    uint16_t size = 0;
+    uint16_t size = 0u;
+    if (deactivate())
+        size = i2cUpdate_getHeapWordRequirement();
     return size;
 }
 
 
 bool i2cUpdate_isActivated(void)
 {
-    return (g_heap != NULL);
+    return ((g_heap != NULL) && (g_heap->queue == NULL));
 }
 
 
