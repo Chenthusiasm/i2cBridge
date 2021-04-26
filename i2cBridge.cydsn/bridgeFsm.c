@@ -215,6 +215,8 @@ SystemStatus resetHeap(void)
     uint16_t deactivationSize = 0;
     if (i2cTouch_isActivated())
         deactivationSize += i2cTouch_deactivate();
+    if (i2cUpdate_isActivated())
+        deactivationSize += i2cUpdate_deactivate();
     if (uartTranslate_isActivated())
         deactivationSize += uartTranslate_deactivate();
     if (uartUpdate_isActivated())
@@ -232,14 +234,12 @@ SystemStatus resetHeap(void)
 SystemStatus initHostComm(void)
 {
     SystemStatus status = { false };
-    if (uartUpdate_isActivated())
-        status = resetHeap();
-    if (!status.errorOccurred)
+    if (!uartTranslate_isActivated())
     {
-        if (!uartTranslate_isActivated())
+        status = resetHeap();
+        if (!status.errorOccurred)
         {
             uint16_t size = uartTranslate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
-            debug_uartPrintHexUint16(size);
             if (size > 0)
                 g_heap.freeOffset += size;
             else
@@ -249,7 +249,6 @@ SystemStatus initHostComm(void)
                 if (getFreeHeapWordSize() < requirement)
                     status.invalidScratchBuffer = true;
             }
-            debug_uartPrintHexUint16(g_heap.freeOffset);
         }
     }
     return status;
@@ -311,19 +310,20 @@ bool processInitSlaveTranslate(void)
     SystemStatus status = initHostComm();
     if (!status.errorOccurred)
     {
-        uint16_t size = i2cTouch_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
-        debug_uartPrintHexUint16(size);
-        if (size <= 0)
+        if (!i2cTouch_isActivated())
         {
-            status.invalidScratchOffset = true;
-            uint16_t requirement = i2cTouch_getHeapWordRequirement();
-            if (getFreeHeapWordSize() < requirement)
-                status.invalidScratchBuffer = true;
-            status.translateError = true;
+            uint16_t size = i2cTouch_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
+            if (size <= 0)
+            {
+                status.invalidScratchOffset = true;
+                uint16_t requirement = i2cTouch_getHeapWordRequirement();
+                if (getFreeHeapWordSize() < requirement)
+                    status.invalidScratchBuffer = true;
+                status.translateError = true;
+            }
+            else
+                g_heap.freeOffset += size;
         }
-        else
-            g_heap.freeOffset += size;
-        debug_uartPrintHexUint16(g_heap.freeOffset);
     }
     processError(status);
     return !status.errorOccurred;
@@ -354,8 +354,41 @@ bool processSlaveTranslate(void)
 /// @return If the initialization was successful.
 bool processInitSlaveUpdate(void)
 {
-    // @TODO: implement.
-    return true;
+    SystemStatus status = { false };
+    if (!(uartUpdate_isActivated() && i2cUpdate_isActivated()))
+    {
+        status = resetHeap();
+        if (!status.errorOccurred)
+        {
+            uint16_t size = uartUpdate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
+            if (size <= 0)
+            {
+                status.invalidScratchOffset = true;
+                uint16_t requirement = uartUpdate_getHeapWordRequirement();
+                if (getFreeHeapWordSize() < requirement)
+                    status.invalidScratchBuffer = true;
+                status.updateError = true;
+            }
+            else
+            {
+                g_heap.freeOffset += size;
+                size = i2cUpdate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
+                if (size <= 0)
+                {
+                    status.invalidScratchOffset = true;
+                    uint16_t requirement = i2cUpdate_getHeapWordRequirement();
+                    if (getFreeHeapWordSize() < requirement)
+                        status.invalidScratchBuffer = true;
+                    status.updateError = true;
+                }
+                else
+                    g_heap.freeOffset += size;
+            }
+        }
+    }
+    
+    processError(status);
+    return !status.errorOccurred;
 }
 
 
