@@ -835,8 +835,8 @@ static I2cStatus write(uint8_t address, uint8_t const data[], uint16_t size)
     I2cStatus status;
     if ((data != NULL) && (size > 0))
     {
-        // Note: remove the const typing in order to utilize the low-level
-        // driver function.
+        // Note: typecast of data to (uint8_t*) to remove the const typing in
+        // order to utilize the low-level driver function.
         g_lastDriverReturnValue = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, (uint8_t*)data, size, G_DefaultTransferMode);
         status = updateDriverStatus(g_lastDriverReturnValue);
     #if !ENABLE_ALL_CHANGE_TO_RESPONSE
@@ -1265,8 +1265,9 @@ I2cStatus xferEnqueueWrite(uint8_t address, uint8_t const data[], uint16_t size)
 }
 
 
-/// Perform an I2C slave ACK: attempt to read one byte from a specific slave
+/// Performs an I2C slave ACK: attempt to read one byte from a specific slave
 /// address. If the slave address exists, the address byte will be acknowledged.
+/// Note that this is a blocking function.
 /// @param[in]  address The 7-bit I2C address.
 /// @param[in]  timeout The amount of time in milliseconds the function can wait
 ///                     for the I2C bus to free up before timing out. If 0, then
@@ -1544,6 +1545,41 @@ I2cStatus i2cTouch_write(uint8_t address, uint8_t const data[], uint16_t size)
     return status;
 }
 
+
+// === PUBLIC FUNCTIONS: i2cUpdate =============================================
+
+
+uint16_t i2cUpdate_getHeapWordRequirement(void)
+{
+}
+
+
+uint16_t i2cUpdate_activate(heapWord_t memory[], uint16_t size)
+{
+}
+
+
+uint16_t i2cUpdate_deactivate(void)
+{
+    uint16_t size = 0;
+    return size;
+}
+
+
+bool i2cUpdate_isActivated(void)
+{
+    return (g_heap != NULL);
+}
+
+
+I2cStatus i2cUpdate_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t timeoutMS)
+{
+}
+
+
+I2cStatus i2cUpdate_write(uint8_t address, uint8_t const data[], uint16_t size, uint32_t timeoutMS)
+{
+}
 
 
 /* [] END OF FILE */
