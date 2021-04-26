@@ -376,7 +376,7 @@ typedef struct Heap
 
 
 /// Data extension for the Heap structure. Defines the data buffers when in the
-/// normal translate mode.
+/// translate mode.
 typedef struct TranslateHeapData
 {
     /// Array of decoded receive queue elements for the receive queue; these
@@ -419,14 +419,14 @@ typedef struct UpdateHeapData
 
 
 /// Structure used to define the memory allocation of the heap + associated
-/// heap data in normal mode. Only used to determine the organization of the
+/// heap data in translate mode. Only used to determine the organization of the
 /// two data structures in unallocated memory to ensure alignment.
 typedef struct TranslateHeap
 {
     /// Heap data structure.
     Heap heap;
     
-    /// HeapData data structure when in normal translater mode.
+    /// HeapData data structure when in normal translate mode.
     TranslateHeapData heapData;
     
 } TranslateHeap;

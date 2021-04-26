@@ -42,8 +42,11 @@
 ///         response buffer must always be done on interrupt.
 #define ENABLE_ALL_CHANGE_TO_RESPONSE   (false)
 
-/// Size of the raw receive data buffer.
-#define RX_BUFFER_SIZE                  (260u)
+/// Size of the raw receive data buffer in touch mode.
+#define TOUCH_RX_BUFFER_SIZE            (260u)
+
+/// Size of the raw receive data buffer in update mode.
+#define UPDATE_RX_BUFFER_SIZE           (32u)
 
 /// The max size of the transfer queue (the max number of queue elements).
 #define XFER_QUEUE_MAX_SIZE             (8u)
@@ -373,7 +376,7 @@ typedef struct Heap
     uint8_t xferQueueData[XFER_QUEUE_DATA_SIZE];
     
     /// The raw receive buffer.
-    uint8_t rxBuffer[RX_BUFFER_SIZE];
+    uint8_t rxBuffer[TOUCH_RX_BUFFER_SIZE];
     
     /// The I2C address and direction associated with the transaction that is
     /// waiting to be enqueued into the transfer queue. This must be set prior
@@ -381,6 +384,70 @@ typedef struct Heap
     I2cXfer pendingQueueXfer;
     
 } Heap;
+
+
+/// Data extension for the Heap structure. Defines the data buffers when in the
+/// touch mode.
+typedef struct TouchHeapData
+{
+    /// Array of transfer queue elements for the transfer queue.
+    QueueElement xferQueueElements[XFER_QUEUE_MAX_SIZE];
+    
+    /// Array to hold the data of the elements in the transfer queue. Note that
+    /// each transfer queue element has at least 2 bytes:
+    /// [0]: I2cXfer (adress and direction)
+    /// [1]:
+    ///     read: number of bytes to read.
+    ///     write: data payload...
+    uint8_t xferQueueData[XFER_QUEUE_DATA_SIZE];
+    
+    /// The raw receive buffer.
+    uint8_t rxBuffer[TOUCH_RX_BUFFER_SIZE];
+    
+    /// The I2C address and direction associated with the transaction that is
+    /// waiting to be enqueued into the transfer queue. This must be set prior
+    /// to enqueueing data into the transfer queue.
+    I2cXfer pendingQueueXfer;
+    
+} TouchHeapData;
+
+
+/// Data extension for the Heap structure. Defines the data buffers when in
+/// update mode.
+typedef struct UpdateHeapData
+{
+    /// The raw receive buffer.
+    uint8_t rxBuffer[UPDATE_RX_BUFFER_SIZE];
+    
+} UpdateHeapData;
+
+
+/// Structure used to define the memory allocation of the heap + associated
+/// heap data in touch mode. Only used to determine the organization of the
+/// two data structures in unallocated memory to ensure alignment.
+typedef struct TouchHeap
+{
+    /// Common heap data structure.
+    Heap heap;
+    
+    /// HeapData data structure when in normal touch mode.
+    TouchHeapData heapData;
+    
+} TouchHeap;
+
+
+/// Structure used to define the memory allocation of the heap + associated
+/// heap data in update mode. Only used to determine the organization of the
+/// two data structures in unallocated memory to ensure alignment.
+typedef struct UpdateHeap
+{
+    /// Common heap data structure.
+    Heap heap;
+    
+    /// HeapData data structure when in update mode.
+    UpdateHeapData heapData;
+    
+} UpdateHeap;
 
 
 /// Data structure that defines how the callsite variable used for error
