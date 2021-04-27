@@ -979,7 +979,7 @@ static bool processDecodedRxPacket(uint8_t* data, uint16_t size)
                     i2cStatus = i2c_ack(data[PacketOffset_BridgeData], 0);
                 else
                     i2cStatus = i2c_ackApp(0);
-                if (!i2cStatus.errorOccurred)
+                if (!i2c_errorOccurred(i2cStatus))
                     txEnqueueCommandResponse(BridgeCommand_SlaveAck, NULL, 0);
                 break;
             }
@@ -1301,7 +1301,10 @@ static bool deactivate(void)
 {
     bool deactivate = false;
     if (g_heap != NULL)
+    {
         g_heap = NULL;
+        deactivate = true;
+    }
     resetUpdateFile();
     g_updateFile.updateChunk = NULL;
     return deactivate;

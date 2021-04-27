@@ -32,13 +32,9 @@
     /// Structure that holds the status of I2C gen 2 functions.
     typedef union I2cStatus
     {        
-        /// General flag indicating an error occured; if false, no error
-        /// occurred.
-        bool errorOccurred;
-        
         /// 8-bit representation of the status. Used to get the bit mask created
         /// by the following anonymous struct of 1-bit flags.
-        uint8_t value;
+        uint8_t mask;
         
         /// Anonymous struct of 1-bit flags indicating specific errors.
         struct
@@ -91,8 +87,6 @@
     
     /// Initialize the slave I2C hardware.
     void i2c_init(void);
-    
-    
     
     /// Registers the receive callback function that should be invoked when
     /// data is received.
@@ -166,6 +160,11 @@
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cStatus union.
     I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size, uint32_t timeoutMS);
+    
+    /// Checks the SystemStatus and indicates if any error occurs.
+    /// @param[in]  status  The SystemStatus error flags.
+    /// @return If an error occurred according to the SystemStatus.
+    bool i2c_errorOccurred(I2cStatus const status);
     
     
     #ifdef __cplusplus

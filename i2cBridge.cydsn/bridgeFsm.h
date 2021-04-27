@@ -31,13 +31,9 @@
     /// state machine.
     typedef union SystemStatus
     {
-        /// General flag indicating an error occured; if false, no error
-        /// occurred.
-        bool errorOccurred;
-        
         /// 8-bit representation of the status. Used to get the bit mask created
         /// by the following anonymous struct of 1-bit flags.
-        uint8_t value;
+        uint8_t mask;
         
         /// Anonymous struct of 1-bit flags indicating specific errors.
         struct

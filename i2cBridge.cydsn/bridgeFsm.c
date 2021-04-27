@@ -175,6 +175,15 @@ static Heap g_heap;
 
 // === PRIVATE FUNCTIONS =======================================================
 
+/// Checks the SystemStatus and indicates if any error occurs.
+/// @param[in]  status  The SystemStatus error flags.
+/// @return If an error occurred according to the SystemStatus.
+bool errorOccurred(SystemStatus const status)
+{
+    return (status.mask > 0u);
+}
+
+
 /// Checks if the slave is resetting.
 /// Note, the slave reset is configured as an open drain drives low GPIO. The
 /// slave device's XRES line has an internal pull-up and is an active low reset.
@@ -206,7 +215,7 @@ uint16_t getFreeHeapWordSize(void)
 /// Processes any system errors that may have occurred.
 void processError(SystemStatus status)
 {
-    if (status.errorOccurred)
+    if (errorOccurred(status))
         error_tally(ErrorType_System);
 }
 
@@ -271,7 +280,7 @@ bool processInitHostComm(void)
     resetHeap();
     SystemStatus status = initHostComm();
     processError(status);
-    return !status.errorOccurred;;
+    return !errorOccurred(status);
 }
 
 
@@ -288,7 +297,7 @@ bool processInitSlaveReset(void)
     }
     else
         status.slaveResetFailed = true;
-    return !status.errorOccurred;
+    return !errorOccurred(status);
 }
 
 
@@ -326,10 +335,10 @@ bool processInitSlaveTranslate(void)
     if (!(uartTranslate_isActivated() && i2cTouch_isActivated()))
     {
         status = resetHeap();
-        if (!status.errorOccurred)
+        if (!errorOccurred(status))
         {
             status = initHostComm();
-            if (!status.errorOccurred)
+            if (!errorOccurred(status))
             {
                 uint16_t size = i2cTouch_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
                 if (size > 0)
@@ -346,7 +355,7 @@ bool processInitSlaveTranslate(void)
         }
     }
     processError(status);
-    return !status.errorOccurred;
+    return !errorOccurred(status);
 }
 
 
@@ -374,7 +383,7 @@ bool processInitSlaveUpdate(void)
     if (!(uartUpdate_isActivated() && i2cUpdate_isActivated()))
     {
         status = resetHeap();
-        if (!status.errorOccurred)
+        if (!errorOccurred(status))
         {
             uint16_t size = uartUpdate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
             if (size > 0)
@@ -403,7 +412,7 @@ bool processInitSlaveUpdate(void)
         }
     }
     processError(status);
-    return !status.errorOccurred;
+    return !errorOccurred(status);
 }
 
 
@@ -518,7 +527,8 @@ void bridgeFsm_process(void)
         
         case State_InitSlaveTranslate:
         {
-            if (processInitSlaveTranslate())
+            bool processed = processInitSlaveTranslate();
+            if (processed)
                 g_state = State_SlaveTranslate;
             else
                 g_state = State_SlaveTranslateFailed;

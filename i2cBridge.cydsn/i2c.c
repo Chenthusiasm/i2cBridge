@@ -729,7 +729,7 @@ static mstatus_t checkDriverStatus(void)
 ///                         definition of the I2cStatus union.
 static void processError(I2cStatus status)
 {
-    if (status.errorOccurred && (g_errorCallback != NULL))
+    if (i2c_errorOccurred(status) && (g_errorCallback != NULL))
         g_errorCallback(status, g_callsite.value);
 }
 
@@ -767,7 +767,7 @@ static bool isBusReady(I2cStatus* status)
     COMPONENT(SLAVE_I2C, I2CMasterClearStatus)();
     bool ready = (g_lastDriverStatus & BusyMask) == 0;
     I2cStatus localStatus = processPreviousTranferErrors(g_lastDriverStatus);
-    if (localStatus.errorOccurred)
+    if (i2c_errorOccurred(localStatus))
     {
         g_callsite.isBusReady = true;
         processError(localStatus);
@@ -862,7 +862,7 @@ static I2cStatus read(uint8_t address, uint8_t data[], uint16_t size)
 {
     g_lastDriverReturnValue = COMPONENT(SLAVE_I2C, I2CMasterReadBuf)(address, data, size, G_DefaultTransferMode);
     I2cStatus status = updateDriverStatus(g_lastDriverReturnValue);
-    if (status.errorOccurred)
+    if (i2c_errorOccurred(status))
         g_callsite.lowLevelCall = 1u;
     return status;
 }
@@ -886,7 +886,7 @@ static I2cStatus write(uint8_t address, uint8_t const data[], uint16_t size)
         g_lastDriverReturnValue = (uint16_t)COMPONENT(SLAVE_I2C, I2CMasterWriteBuf)(address, (uint8_t*)data, size, G_DefaultTransferMode);
         status = updateDriverStatus(g_lastDriverReturnValue);
     #if !ENABLE_ALL_CHANGE_TO_RESPONSE
-        if (!status.errorOccurred)
+        if (!i2c_errorOccurred(status))
         {
             if (address == g_slaveAddress)
                 g_slaveAppResponseActive = (data[XferQueueDataOffset_Xfer] >= AppBufferOffset_Response);
@@ -895,7 +895,7 @@ static I2cStatus write(uint8_t address, uint8_t const data[], uint16_t size)
     }
     else
         status.invalidInputParameters = true;
-    if (status.errorOccurred)
+    if (i2c_errorOccurred(status))
         g_callsite.lowLevelCall = 2u;
     return status;
 }
@@ -937,7 +937,7 @@ static I2cStatus write(uint8_t address, uint8_t const data[], uint16_t size)
             g_lockedBus.recoveryAttempts++;
             debug_setPin1(true);
         }
-        if (status.errorOccurred)
+        if (i2c_errorOccurred(status))
             g_callsite.recoverFromLockedBus = true;
         return status;
     }
@@ -1027,7 +1027,7 @@ static I2cStatus processCommFsm(uint32_t timeoutMS)
                 if (isBusReady(&status))
                 {
                     status = changeSlaveAppToResponseBuffer();
-                    if (!status.errorOccurred)
+                    if (!i2c_errorOccurred(status))
                         g_commFsm.state = CommState_RxReadLength;
                     else
                         g_commFsm.state = CommState_Waiting;
@@ -1042,7 +1042,7 @@ static I2cStatus processCommFsm(uint32_t timeoutMS)
                 if (isBusReady(&status))
                 {
                     status = read(g_slaveAddress, g_heap->rxBuffer, g_commFsm.pendingRxSize);
-                    if (!status.errorOccurred)
+                    if (!i2c_errorOccurred(status))
                         g_commFsm.state = CommState_RxProcessLength;
                     else
                         g_commFsm.state = CommState_Waiting;
@@ -1117,7 +1117,7 @@ static I2cStatus processCommFsm(uint32_t timeoutMS)
                 if (isBusReady(&status))
                 {
                     status = read(g_slaveAddress, g_heap->rxBuffer, g_commFsm.pendingRxSize);
-                    if (!status.errorOccurred)
+                    if (!i2c_errorOccurred(status))
                         g_commFsm.state = CommState_RxProcessExtraData;
                     else
                         g_commFsm.state = CommState_Waiting;
@@ -1184,7 +1184,7 @@ static I2cStatus processCommFsm(uint32_t timeoutMS)
                             alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMS(g_commFsm.pendingRxSize));
                             status = read(xfer.address, g_heap->rxBuffer, data[XferQueueDataOffset_Data]);
                         }
-                        if (!status.errorOccurred)
+                        if (!i2c_errorOccurred(status))
                         {
                             // If pendingRxSize > 0, then a read is occurring,
                             // otherwise a write is occurring.
@@ -1371,7 +1371,7 @@ I2cStatus ack(uint8_t address, uint32_t timeoutMS)
             if (isBusReady(NULL))
             {
                 status = read(address, &dummy, sizeof(dummy));
-                if (status.errorOccurred)
+                if (i2c_errorOccurred(status))
                     done = true;
                 else
                     ackSent = true;
@@ -1463,7 +1463,10 @@ static bool deactivate(void)
 {
     bool deactivate = false;
     if (g_heap != NULL)
+    {
         g_heap = NULL;
+        deactivate = true;
+    }
     reinitAll();
     return deactivate;
 }
@@ -1585,7 +1588,7 @@ I2cStatus i2c_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t time
             if (isBusReady(NULL))
             {
                 status = read(address, data, size);
-                if (status.errorOccurred)
+                if (i2c_errorOccurred(status))
                     done = true;
                 else
                     sent = true;
@@ -1625,7 +1628,7 @@ I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size, uint32
             if (isBusReady(NULL))
             {
                 status = write(address, data, size);
-                if (status.errorOccurred)
+                if (i2c_errorOccurred(status))
                     done = true;
                 else
                     sent = true;
@@ -1639,6 +1642,12 @@ I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size, uint32
     }
     processError(status);
     return status;
+}
+
+
+bool i2c_errorOccurred(I2cStatus const status)
+{
+    return (status.mask > 0u);
 }
 
 

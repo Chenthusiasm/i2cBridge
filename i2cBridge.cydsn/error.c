@@ -262,7 +262,7 @@ int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, SystemStatus s
             SystemError error =
             {
                 ErrorType_System,
-                systemStatus.value,
+                systemStatus.mask,
                 {
                     HI_BYTE_16_BIT(callsite),
                     LO_BYTE_16_BIT(callsite),
@@ -321,7 +321,7 @@ int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cStatus i2cStat
             I2cError error =
             {
                 ErrorType_I2c,
-                i2cStatus.value,
+                i2cStatus.mask,
                 {
                     HI_BYTE_16_BIT(callsite),
                     LO_BYTE_16_BIT(callsite),
