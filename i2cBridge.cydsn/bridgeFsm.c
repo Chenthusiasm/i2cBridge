@@ -165,6 +165,10 @@ static ModeChange g_modeChange = { false };
 /// An alarm used to indicate how long to hold the slave device in reset.
 static Alarm g_resetAlarm;
 
+/// An alarm used to indicate when to transmit error messages when the host comm
+/// fails to initialize.
+static Alarm g_errorMessageAlarm;
+
 /// Heap data structure used for "dynamic" memory allocation.
 static Heap g_heap;
 
@@ -204,6 +208,13 @@ void processError(SystemStatus status)
 {
     if (status.errorOccurred)
         error_tally(ErrorType_System);
+}
+
+
+/// Rearms/arms the error message alarm.
+void rearmErrorMessageAlarm(void)
+{
+    alarm_arm(&g_errorMessageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
 }
 
 
@@ -415,12 +426,11 @@ bool processSlaveUpdate(void)
 /// UART bus.
 void processHostTranslateFailed(void)
 {
-    static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
-    if (!messageAlarm.armed)
-        alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
-    if (alarm_hasElapsed(&messageAlarm))
+    if (!g_errorMessageAlarm.armed)
+        rearmErrorMessageAlarm();
+    if (alarm_hasElapsed(&g_errorMessageAlarm))
     {
-        alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
+        rearmErrorMessageAlarm();
         uart_write("ERROR: slave translate failed init!\r\n");
     }
 }
@@ -431,12 +441,11 @@ void processHostTranslateFailed(void)
 /// UART bus.
 void processHostUpdateFailed(void)
 {
-    static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
-    if (!messageAlarm.armed)
-        alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
-    if (alarm_hasElapsed(&messageAlarm))
+    if (!g_errorMessageAlarm.armed)
+        rearmErrorMessageAlarm();
+    if (alarm_hasElapsed(&g_errorMessageAlarm))
     {
-        alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
+        rearmErrorMessageAlarm();
         uart_write("ERROR: slave update failed init!\r\n");
     }
 }
@@ -446,12 +455,11 @@ void processHostUpdateFailed(void)
 /// will intermittently transmit an ASCII error message over the host UART bus.
 void processHostCommFailed(void)
 {
-    static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
-    if (!messageAlarm.armed)
-        alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
-    if (alarm_hasElapsed(&messageAlarm))
+    if (!g_errorMessageAlarm.armed)
+        rearmErrorMessageAlarm();
+    if (alarm_hasElapsed(&g_errorMessageAlarm))
     {
-        alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
+        rearmErrorMessageAlarm();
         uint16_t translateRequiredSize = uartTranslate_getHeapWordRequirement();
         uint16_t updateRequiredSize = uartUpdate_getHeapWordRequirement();
         uart_write("ERROR: heap memory low!\r\n");
@@ -481,6 +489,8 @@ void reset(void)
 void bridgeFsm_init(void)
 {
     reset();
+    alarm_disarm(&g_resetAlarm);
+    alarm_disarm(&g_errorMessageAlarm);
 }
 
 
