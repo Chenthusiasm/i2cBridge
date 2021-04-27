@@ -22,7 +22,6 @@
 #include "i2cTouch.h"
 #include "i2cUpdate.h"
 #include "project.h"
-#include "smallPrintf.h"
 #include "uart.h"
 #include "uartTranslate.h"
 #include "uartUpdate.h"
@@ -178,7 +177,7 @@ static Heap g_heap;
 /// Checks the SystemStatus and indicates if any error occurs.
 /// @param[in]  status  The SystemStatus error flags.
 /// @return If an error occurred according to the SystemStatus.
-bool errorOccurred(SystemStatus const status)
+static bool errorOccurred(SystemStatus const status)
 {
     return (status.mask > 0u);
 }
@@ -188,7 +187,7 @@ bool errorOccurred(SystemStatus const status)
 /// Note, the slave reset is configured as an open drain drives low GPIO. The
 /// slave device's XRES line has an internal pull-up and is an active low reset.
 /// @return If the slave is currently resetting (active low).
-bool isSlaveResetting(void)
+static bool isSlaveResetting(void)
 {
     return (COMPONENT(SLAVE_RESET, Read)() <= 0);
 }
@@ -198,7 +197,7 @@ bool isSlaveResetting(void)
 /// input parameter.
 /// @param[in]  reset   Flag indicating if the slave should be put in reset or
 ///                     not.
-void resetSlave(bool reset)
+static void resetSlave(bool reset)
 {
     COMPONENT(SLAVE_RESET, Write)((reset) ? (0u) : (1u));
 }
@@ -206,14 +205,14 @@ void resetSlave(bool reset)
 
 /// Get the remaining size in words of the heap, free for memory allocation.
 /// @return The size, in words, that is free in the heap.
-uint16_t getFreeHeapWordSize(void)
+static uint16_t getFreeHeapWordSize(void)
 {
     return (HEAP_SIZE - g_heap.freeOffset);
 }
 
 
 /// Processes any system errors that may have occurred.
-void processError(SystemStatus status)
+static void processError(SystemStatus status)
 {
     if (errorOccurred(status))
         error_tally(ErrorType_System);
@@ -221,7 +220,7 @@ void processError(SystemStatus status)
 
 
 /// Rearms/arms the error message alarm.
-void rearmErrorMessageAlarm(void)
+static void rearmErrorMessageAlarm(void)
 {
     alarm_arm(&g_errorMessageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
 }
@@ -231,7 +230,7 @@ void rearmErrorMessageAlarm(void)
 /// the heaps used by the host and slave communications.
 /// @return Status indicating if an error occured. See the definition of the
 ///         SystemStatus union.
-SystemStatus resetHeap(void)
+static SystemStatus resetHeap(void)
 {
     SystemStatus status = { false };
     
@@ -255,7 +254,7 @@ SystemStatus resetHeap(void)
 /// Initializes the host comm in translate mode.
 /// @return Status indicating if an error occured. See the definition of the
 ///         SystemStatus union.
-SystemStatus initHostComm(void)
+static SystemStatus initHostComm(void)
 {
     SystemStatus status = { false };
     uint16_t size = uartTranslate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
@@ -275,7 +274,7 @@ SystemStatus initHostComm(void)
 
 /// Initializes the host communication bus.
 /// @return If host was initialized.
-bool processInitHostComm(void)
+static bool processInitHostComm(void)
 {
     resetHeap();
     SystemStatus status = initHostComm();
@@ -286,7 +285,7 @@ bool processInitHostComm(void)
 
 /// Initialize the slave reset.
 /// @return If the slave reset was initialized successfully.
-bool processInitSlaveReset(void)
+static bool processInitSlaveReset(void)
 {
     SystemStatus status = { false };
     if (!isSlaveResetting())
@@ -303,7 +302,7 @@ bool processInitSlaveReset(void)
 
 /// Processes checking if the slave reset is complete.
 /// @return If the slave reset completed.
-bool processSlaveResetComplete(void)
+static bool processSlaveResetComplete(void)
 {
     bool complete = false;
     SystemStatus status = { false };
@@ -329,7 +328,7 @@ bool processSlaveResetComplete(void)
 
 /// Processes all tasks associated with initializing the I2C slave translate.
 /// @return If the initialization was successful.
-bool processInitSlaveTranslate(void)
+static bool processInitSlaveTranslate(void)
 {
     SystemStatus status = { false };
     if (!(uartTranslate_isActivated() && i2cTouch_isActivated()))
@@ -362,7 +361,7 @@ bool processInitSlaveTranslate(void)
 
 /// Processes all tasks associated with the I2C slave translation.
 /// @return If processed successfully.
-bool processSlaveTranslate(void)
+static bool processSlaveTranslate(void)
 {
     bool processed = false;
     if (true)
@@ -378,7 +377,7 @@ bool processSlaveTranslate(void)
 
 /// Processes all tasks associated with initializing the I2C slave update.
 /// @return If the initialization was successful.
-bool processInitSlaveUpdate(void)
+static bool processInitSlaveUpdate(void)
 {
     SystemStatus status = { false };
     if (!(uartUpdate_isActivated() && i2cUpdate_isActivated()))
@@ -420,7 +419,7 @@ bool processInitSlaveUpdate(void)
 
 /// Processes all tasks associated with the I2C slave update.
 /// @return If processed successfully.
-bool processSlaveUpdate(void)
+static bool processSlaveUpdate(void)
 {
     bool processed = false;
     if (true)
@@ -432,10 +431,41 @@ bool processSlaveUpdate(void)
 }
 
 
+/// Writes the heap size to UART.
+static void writeHeapSize(void)
+{
+    uart_write("\theap = ");
+    uart_writeHexUint16(HEAP_SIZE);
+    uart_writeNewline();
+}
+
+
+/// Writes the translate heap requirement size to UART.
+static void writeTranslateHeapRequirement(void)
+{
+    uart_write("\ttranslate = ");
+    uart_writeHexUint16(uartTranslate_getHeapWordRequirement());
+    uart_write(" + ");
+    uart_writeHexUint16(i2cTouch_getHeapWordRequirement());
+    uart_writeNewline();
+}
+
+
+/// Writes the update heap requirement size to UART.
+static void writeUpdateHeapRequirement(void)
+{
+    uart_write("\tupdate = ");
+    uart_writeHexUint16(uartUpdate_getHeapWordRequirement());
+    uart_write(" + ");
+    uart_writeHexUint16(i2cUpdate_getHeapWordRequirement());
+    uart_writeNewline();
+}
+
+
 /// Processes the case where the slave translate initialization failed. The
 /// function will intermittently transmit an ASCII error message over the host
 /// UART bus.
-void processHostTranslateFailed(void)
+static void processHostTranslateFailed(void)
 {
     if (!g_errorMessageAlarm.armed)
         rearmErrorMessageAlarm();
@@ -443,6 +473,8 @@ void processHostTranslateFailed(void)
     {
         rearmErrorMessageAlarm();
         uart_write("ERROR: slave translate failed init!\r\n");
+        writeHeapSize();
+        writeTranslateHeapRequirement();
     }
 }
 
@@ -450,7 +482,7 @@ void processHostTranslateFailed(void)
 /// Processes the case where the slave update initialization failed. The
 /// function will intermittently transmit an ASCII error message over the host
 /// UART bus.
-void processHostUpdateFailed(void)
+static void processHostUpdateFailed(void)
 {
     if (!g_errorMessageAlarm.armed)
         rearmErrorMessageAlarm();
@@ -458,13 +490,15 @@ void processHostUpdateFailed(void)
     {
         rearmErrorMessageAlarm();
         uart_write("ERROR: slave update failed init!\r\n");
+        writeHeapSize();
+        writeUpdateHeapRequirement();
     }
 }
 
 
 /// Processes the case where the host comm initialization failed. The function
 /// will intermittently transmit an ASCII error message over the host UART bus.
-void processHostCommFailed(void)
+static void processHostCommFailed(void)
 {
     if (!g_errorMessageAlarm.armed)
         rearmErrorMessageAlarm();
@@ -472,25 +506,15 @@ void processHostCommFailed(void)
     {
         rearmErrorMessageAlarm();
         uart_write("ERROR: heap memory low!\r\n");
-        uart_write("\theap = ");
-        uart_writeHexUint16(HEAP_SIZE);
-        uart_writeNewline();
-        uart_write("\ttranslate = ");
-        uart_writeHexUint16(uartTranslate_getHeapWordRequirement());
-        uart_write(" + ");
-        uart_writeHexUint16(i2cTouch_getHeapWordRequirement());
-        uart_writeNewline();
-        uart_write("\tupdate = ");
-        uart_writeHexUint16(uartUpdate_getHeapWordRequirement());
-        uart_write(" + ");
-        uart_writeHexUint16(i2cUpdate_getHeapWordRequirement());
-        uart_writeNewline();
+        writeHeapSize();
+        writeTranslateHeapRequirement();
+        writeUpdateHeapRequirement();
     }
 }
 
 
 /// Resets the bridge finite state machine (FSM) to the default state.
-void reset(void)
+static void reset(void)
 {
     g_state = State_InitHostComm;
     resetHeap();
@@ -531,8 +555,7 @@ void bridgeFsm_process(void)
         
         case State_InitSlaveTranslate:
         {
-            bool processed = processInitSlaveTranslate();
-            if (processed)
+            if (processInitSlaveTranslate())
                 g_state = State_SlaveTranslate;
             else
                 g_state = State_SlaveTranslateFailed;
@@ -541,8 +564,10 @@ void bridgeFsm_process(void)
         
         case State_InitSlaveUpdate:
         {
-            processInitSlaveUpdate();
-            g_state = State_SlaveUpdate;
+            if (processInitSlaveUpdate())
+                g_state = State_SlaveUpdate;
+            else
+                g_state = State_SlaveUpdateFailed;
             break;
         }
         
