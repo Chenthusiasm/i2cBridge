@@ -74,32 +74,22 @@
     /// @return If the data was successfully enqueued.
     bool uart_txEnqueueError(uint8_t const data[], uint16_t size);
     
-    /// Directly write a string to the UART. The write only occurs if the
-    /// the module is deactivated; use the txEnqueData and processTx if the
-    /// module is activated.
+    /// Directly write a string to the UART.
     /// @param[in]  string  The string to write to the UART.
     void uart_write(char const string[]);
     
-    /// Directly write a carriage return and line feed to the UART. The write
-    /// only occurs if the module is deactivated; use the txEnqueueData and
-    /// processTx if the module is activated.
+    /// Directly write a carriage return and line feed to the UART.
     void uart_writeNewline(void);
     
     /// Directly write a unsigned 8-bit integer value in ASCII hex to the UART.
-    /// The write only occurs if the module is deactivated; use the
-    /// txEnqueueData and processTx if the module is activated.
     /// @param[in]  value   The value to write.
     void uart_writeHexUint8(uint8_t value);
     
     /// Directly write a unsigned 16-bit integer value in ASCII hex to the UART.
-    /// The write only occurs if the module is deactivated; use the
-    /// txEnqueueData and processTx if the module is activated.
     /// @param[in]  value   The value to write.
     void uart_writeHexUint16(uint16_t value);
     
     /// Directly write a unsigned 32-bit integer value in ASCII hex to the UART.
-    /// The write only occurs if the module is deactivated; use the
-    /// txEnqueueData and processTx if the module is activated.
     /// @param[in]  value   The value to write.
     void uart_writeHexUint32(uint32_t value);
     

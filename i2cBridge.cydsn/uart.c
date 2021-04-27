@@ -68,6 +68,14 @@
 /// for the change in the receive/transmit balance.
 #define UPDATE_TX_QUEUE_DATA_SIZE       (100u)
 
+/// Shift to get the next character when writing hex unsigned integers as ASCII
+/// characters.
+#define ASCII_HEX_CHAR_SHIFT            (4u)
+
+/// Mask to isolate an individual character when writing hex unsigned integers
+/// as ASCII characters.
+#define ASCII_HEX_CHAR_MASK             ((1u << ASCII_HEX_CHAR_SHIFT) - 1u)
+
 
 // === TYPE DEFINES ============================================================
 
@@ -457,14 +465,6 @@ static uint16_t const G_RxResetTimeoutMS = 2000u;
 
 /// ASCII hex table for writing hex unsigned integers as ASCII characters.
 static char const G_AsciiHexTable[] = "0123456789abcdef";
-
-/// Mask to isolate an individual character when writing hex unsigned integers
-/// as ASCII characters.
-static uint8_t const G_AsciiHexCharMask = 0xff;
-
-/// Shift to get the next character when writing hex unsigned integers as ASCII
-/// characters.
-static uint8_t const G_AsciiHexCharShift = 4u;
 
 
 // === GLOBALS =================================================================
@@ -1407,75 +1407,62 @@ bool uart_txEnqueueError(uint8_t const data[], uint16_t size)
 
 void uart_write(char const string[])
 {
-    if (g_heap == NULL)
-        COMPONENT(HOST_UART, UartPutString)(string);
+    COMPONENT(HOST_UART, UartPutString)(string);
 }
 
 
 void uart_writeNewline(void)
 {
-    if (g_heap == NULL)
-    {
-        COMPONENT(HOST_UART, UartPutChar)('\r');
-        COMPONENT(HOST_UART, UartPutChar)('\n');
-    }
+    COMPONENT(HOST_UART, UartPutChar)('\r');
+    COMPONENT(HOST_UART, UartPutChar)('\n');
 }
 
 
 void uart_writeHexUint8(uint8_t value)
 {
-    if (g_heap == NULL)
+    char string[] = "0x00";
+    // Offset = rightmost character; c-strings are null-terminated so the
+    // size via sizeof is the # of characters + 1, therefore, the rightmost
+    // character is sizeof - 2.
+    uint8_t offset = sizeof(string) - 2u;
+    while (value != 0u)
     {
-        char string[] = "0x00";
-        // Offset = rightmost character; c-strings are null-terminated so the
-        // size via sizeof is the # of characters + 1, therefore, the rightmost
-        // character is sizeof - 2.
-        uint8_t offset = sizeof(string) - 2u;
-        while (value != 0u)
-        {
-            string[offset--] = value & G_AsciiHexCharMask;
-            value >>= G_AsciiHexCharShift;
-        }
-        COMPONENT(HOST_UART, UartPutString)(string);
+        string[offset--] = G_AsciiHexTable[value & ASCII_HEX_CHAR_MASK];
+        value >>= ASCII_HEX_CHAR_SHIFT;
     }
+    COMPONENT(HOST_UART, UartPutString)(string);
 }
 
 
 void uart_writeHexUint16(uint16_t value)
 {
-    if (g_heap == NULL)
+    char string[] = "0x0000";
+    // Offset = rightmost character; c-strings are null-terminated so the
+    // size via sizeof is the # of characters + 1, therefore, the rightmost
+    // character is sizeof - 2.
+    uint8_t offset = sizeof(string) - 2u;
+    while (value != 0u)
     {
-        char string[] = "0x0000";
-        // Offset = rightmost character; c-strings are null-terminated so the
-        // size via sizeof is the # of characters + 1, therefore, the rightmost
-        // character is sizeof - 2.
-        uint8_t offset = sizeof(string) - 2u;
-        while (value != 0u)
-        {
-            string[offset--] = value & G_AsciiHexCharMask;
-            value >>= G_AsciiHexCharShift;
-        }
-        COMPONENT(HOST_UART, UartPutString)(string);
+        string[offset--] = G_AsciiHexTable[value & ASCII_HEX_CHAR_MASK];
+        value >>= ASCII_HEX_CHAR_SHIFT;
     }
+    COMPONENT(HOST_UART, UartPutString)(string);
 }
 
 
 void uart_writeHexUint32(uint32_t value)
 {
-    if (g_heap == NULL)
+    char string[] = "0x00000000";
+    // Offset = rightmost character; c-strings are null-terminated so the
+    // size via sizeof is the # of characters + 1, therefore, the rightmost
+    // character is sizeof - 2.
+    uint8_t offset = sizeof(string) - 2u;
+    while (value != 0u)
     {
-        char string[] = "0x00000000";
-        // Offset = rightmost character; c-strings are null-terminated so the
-        // size via sizeof is the # of characters + 1, therefore, the rightmost
-        // character is sizeof - 2.
-        uint8_t offset = sizeof(string) - 2u;
-        while (value != 0u)
-        {
-            string[offset--] = value & G_AsciiHexCharMask;
-            value >>= G_AsciiHexCharShift;
-        }
-        COMPONENT(HOST_UART, UartPutString)(string);
+        string[offset--] = G_AsciiHexTable[value & ASCII_HEX_CHAR_MASK];
+        value >>= ASCII_HEX_CHAR_SHIFT;
     }
+    COMPONENT(HOST_UART, UartPutString)(string);
 }
 
 

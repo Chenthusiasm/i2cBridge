@@ -35,7 +35,7 @@
 #define SLAVE_RESET                     slaveReset_
 
 /// The size of the heap for "dynamic" memory allocation in bytes.
-#define HEAP_BYTE_SIZE                  (2800u)
+#define HEAP_BYTE_SIZE                  (2500u)
 
 /// The size of the heap for "dynamic" memory allocation. Note that the heap
 /// contains data of type heapWord_t to keep word aligned; therefore, the byte
@@ -350,6 +350,7 @@ bool processInitSlaveTranslate(void)
                     uint16_t requirement = i2cTouch_getHeapWordRequirement();
                     if (getFreeHeapWordSize() < requirement)
                         status.invalidScratchBuffer = true;
+                    resetHeap();
                 }
             }
         }
@@ -399,6 +400,7 @@ bool processInitSlaveUpdate(void)
                     uint16_t requirement = i2cUpdate_getHeapWordRequirement();
                     if (getFreeHeapWordSize() < requirement)
                         status.invalidScratchBuffer = true;
+                    resetHeap();
                 }
             }
             else
@@ -469,17 +471,19 @@ void processHostCommFailed(void)
     if (alarm_hasElapsed(&g_errorMessageAlarm))
     {
         rearmErrorMessageAlarm();
-        uint16_t translateRequiredSize = uartTranslate_getHeapWordRequirement();
-        uint16_t updateRequiredSize = uartUpdate_getHeapWordRequirement();
         uart_write("ERROR: heap memory low!\r\n");
         uart_write("\theap = ");
         uart_writeHexUint16(HEAP_SIZE);
         uart_writeNewline();
         uart_write("\ttranslate = ");
-        uart_writeHexUint16(translateRequiredSize);
+        uart_writeHexUint16(uartTranslate_getHeapWordRequirement());
+        uart_write(" + ");
+        uart_writeHexUint16(i2cTouch_getHeapWordRequirement());
         uart_writeNewline();
         uart_write("\tupdate = ");
-        uart_writeHexUint16(updateRequiredSize);
+        uart_writeHexUint16(uartUpdate_getHeapWordRequirement());
+        uart_write(" + ");
+        uart_writeHexUint16(i2cUpdate_getHeapWordRequirement());
         uart_writeNewline();
     }
 }
