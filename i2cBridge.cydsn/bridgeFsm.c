@@ -43,11 +43,6 @@
 /// the heapWord_t is a uint32_t (see heapWord_t).
 #define HEAP_SIZE                       (HEAP_BYTE_SIZE / sizeof(heapWord_t))
 
-/// The size of the error message buffer (for use with smallSprintf). Do not
-/// make generic error messages larger than this, otherwise a buffer overflow
-/// will occur.
-#define ERROR_MESSAGE_BUFFER_SIZE       (64u)
-
 
 // === TYPE DEFINES ============================================================
 
@@ -420,15 +415,13 @@ bool processSlaveUpdate(void)
 /// UART bus.
 void processHostTranslateFailed(void)
 {
-    static char const* ErrorMessage = "ERROR: slave translate failed init!\r\n";
-    
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
     if (!messageAlarm.armed)
         alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
     if (alarm_hasElapsed(&messageAlarm))
     {
         alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
-        uart_write(ErrorMessage);
+        uart_write("ERROR: slave translate failed init!\r\n");
     }
 }
 
@@ -438,15 +431,13 @@ void processHostTranslateFailed(void)
 /// UART bus.
 void processHostUpdateFailed(void)
 {
-    static char const* ErrorMessage = "ERROR: slave update failed init!\r\n";
-    
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
     if (!messageAlarm.armed)
         alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
     if (alarm_hasElapsed(&messageAlarm))
     {
         alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
-        uart_write(ErrorMessage);
+        uart_write("ERROR: slave update failed init!\r\n");
     }
 }
 
@@ -455,9 +446,6 @@ void processHostUpdateFailed(void)
 /// will intermittently transmit an ASCII error message over the host UART bus.
 void processHostCommFailed(void)
 {
-    static char const* ErrorMessage = "ERROR: heap memory low!\r\n";
-    static char const* ErrorDetailFormat = "\t%d [%d|%d]\r\n";
-    
     static Alarm messageAlarm = { 0u, 0u, false, AlarmType_ContinuousNotification };
     if (!messageAlarm.armed)
         alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
@@ -466,10 +454,16 @@ void processHostCommFailed(void)
         alarm_arm(&messageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
         uint16_t translateRequiredSize = uartTranslate_getHeapWordRequirement();
         uint16_t updateRequiredSize = uartUpdate_getHeapWordRequirement();
-        uart_write(ErrorMessage);
-        char message[ERROR_MESSAGE_BUFFER_SIZE];
-        smallSprintf(message, ErrorDetailFormat, HEAP_SIZE, translateRequiredSize, updateRequiredSize);
-        uart_write(message);
+        uart_write("ERROR: heap memory low!\r\n");
+        uart_write("\theap = ");
+        uart_writeHexUint16(HEAP_SIZE);
+        uart_writeNewline();
+        uart_write("\ttranslate = ");
+        uart_writeHexUint16(translateRequiredSize);
+        uart_writeNewline();
+        uart_write("\tupdate = ");
+        uart_writeHexUint16(updateRequiredSize);
+        uart_writeNewline();
     }
 }
 
