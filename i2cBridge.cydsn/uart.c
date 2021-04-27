@@ -449,11 +449,22 @@ typedef struct UpdateHeap
 // === CONSTANTS ===============================================================
 
 /// Size (in bytes) for scratch buffers.
-static uint8_t const ScratchSize = 16u;
+static uint8_t const G_ScratchSize = 16u;
 
 /// The amount of time between receipts of bytes before we automatically reset
 /// the receive state machine.
-static uint16_t const RxResetTimeoutMS = 2000u;
+static uint16_t const G_RxResetTimeoutMS = 2000u;
+
+/// ASCII hex table for writing hex unsigned integers as ASCII characters.
+static char const G_AsciiHexTable[] = "0123456789abcdef";
+
+/// Mask to isolate an individual character when writing hex unsigned integers
+/// as ASCII characters.
+static uint8_t const G_AsciiHexCharMask = 0xff;
+
+/// Shift to get the next character when writing hex unsigned integers as ASCII
+/// characters.
+static uint8_t const G_AsciiHexCharShift = 4u;
 
 
 // === GLOBALS =================================================================
@@ -756,7 +767,7 @@ static bool __attribute__((unused)) txEnqueueUartError(uint16_t callsite)
     bool result = false;
     if (!queue_isFull(&g_heap->txQueue))
     {
-        uint8_t scratch[ScratchSize];
+        uint8_t scratch[G_ScratchSize];
         int size = error_makeUartErrorMessage(scratch, sizeof(scratch), 0, callsite);
         if (size > 0)
         {
@@ -781,7 +792,7 @@ static bool txEnqueueI2cError(I2cStatus status, uint16_t callsite)
     bool result = false;
     if (!queue_isFull(&g_heap->txQueue))
     {
-        uint8_t scratch[ScratchSize];
+        uint8_t scratch[G_ScratchSize];
         int size = error_makeI2cErrorMessage(scratch, sizeof(scratch), status, callsite);
         if (size > 0)
         {
@@ -842,7 +853,7 @@ static bool processErrorCommand(uint8_t const* data, uint16_t size)
     bool status = false;
     if (!queue_isFull(&g_heap->txQueue))
     {
-        uint8_t scratch[ScratchSize];
+        uint8_t scratch[G_ScratchSize];
         int size = error_makeModeMessage(scratch, sizeof(scratch));
         if (size > 0)
         {
@@ -1395,6 +1406,73 @@ void uart_write(char const string[])
 {
     if (g_heap == NULL)
         COMPONENT(HOST_UART, UartPutString)(string);
+}
+
+
+void uart_writeNewline(void)
+{
+    if (g_heap == NULL)
+    {
+        COMPONENT(HOST_UART, UartPutChar)('\r');
+        COMPONENT(HOST_UART, UartPutChar)('\n');
+    }
+}
+
+
+void uart_writeHexUint8(uint8_t value)
+{
+    if (g_heap == NULL)
+    {
+        char string[] = "0x00";
+        // Offset = rightmost character; c-strings are null-terminated so the
+        // size via sizeof is the # of characters + 1, therefore, the rightmost
+        // character is sizeof - 2.
+        uint8_t offset = sizeof(string) - 2u;
+        while (value != 0u)
+        {
+            string[offset--] = value & G_AsciiHexCharMask;
+            value >>= G_AsciiHexCharShift;
+        }
+        COMPONENT(HOST_UART, UartPutString)(string);
+    }
+}
+
+
+void uart_writeHexUint16(uint16_t value)
+{
+    if (g_heap == NULL)
+    {
+        char string[] = "0x0000";
+        // Offset = rightmost character; c-strings are null-terminated so the
+        // size via sizeof is the # of characters + 1, therefore, the rightmost
+        // character is sizeof - 2.
+        uint8_t offset = sizeof(string) - 2u;
+        while (value != 0u)
+        {
+            string[offset--] = value & G_AsciiHexCharMask;
+            value >>= G_AsciiHexCharShift;
+        }
+        COMPONENT(HOST_UART, UartPutString)(string);
+    }
+}
+
+
+void uart_writeHexUint32(uint32_t value)
+{
+    if (g_heap == NULL)
+    {
+        char string[] = "0x00000000";
+        // Offset = rightmost character; c-strings are null-terminated so the
+        // size via sizeof is the # of characters + 1, therefore, the rightmost
+        // character is sizeof - 2.
+        uint8_t offset = sizeof(string) - 2u;
+        while (value != 0u)
+        {
+            string[offset--] = value & G_AsciiHexCharMask;
+            value >>= G_AsciiHexCharShift;
+        }
+        COMPONENT(HOST_UART, UartPutString)(string);
+    }
 }
 
 
