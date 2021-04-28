@@ -1511,7 +1511,7 @@ bool uartTranslate_isActivated(void)
 uint16_t uartTranslate_processRx(uint32_t timeoutMS)
 {
     uint16_t count = 0;
-    if (g_heap != NULL)
+    if (uartTranslate_isActivated())
     {
         Alarm alarm;
         if (timeoutMS > 0)
@@ -1527,8 +1527,10 @@ uint16_t uartTranslate_processRx(uint32_t timeoutMS)
             uint8_t* data;
             uint16_t size = queue_dequeue(&g_heap->decodedRxQueue, &data);
             if (size > 0)
+            {
                 if (processDecodedRxPacket(data, size))
                     ++count;
+            }
         }
     }
     return count;
@@ -1538,7 +1540,7 @@ uint16_t uartTranslate_processRx(uint32_t timeoutMS)
 uint16_t uartTranslate_processTx(uint32_t timeoutMS)
 {
     uint16_t count = 0;
-    if (g_heap != NULL)
+    if (uartTranslate_isActivated())
     {
         Alarm alarm;
         if (timeoutMS > 0)
@@ -1610,8 +1612,30 @@ bool uartUpdate_isActivated(void)
 
 bool uartUpdate_process(void)
 {
-    bool status = false;
+    static uint32_t const TimeoutMS = 30u;
     
+    bool status = false;
+    if (uartUpdate_isActivated())
+    {
+        Alarm alarm;
+        alarm_arm(&alarm, TimeoutMS, AlarmType_ContinuousNotification);
+        while (!queue_isEmpty(&g_heap->decodedRxQueue))
+        {
+            if (alarm.armed && alarm_hasElapsed(&alarm))
+                break;
+            
+            uint8_t* data;
+            uint16_t size = queue_dequeue(&g_heap->decodedRxQueue, &data);
+            if (size > 0)
+            {
+                // Check the packet contents.
+                // Direct I2C write to the slave device (bootloader address).
+                // Direct I2C read status.
+                // Save status contents to FW update status structure.
+            }
+        }
+        status = true;
+    }
     return status;
 }
 
