@@ -202,8 +202,8 @@ typedef enum UpdateOffset
     /// Offset for the file size. Note this is a big-endian 16-bit value.
     UpdateOffset_FileSize               = 1u,
     
-    /// Offset for the chunk size.
-    UpdateOffset_ChunkSize              = 3u,
+    /// Offset for the subchunk size.
+    UpdateOffset_SubchunkSize           = 3u,
     
     /// Offset for total number of chunks.
     UpdateOffset_NumberOfChunks         = 4u,
@@ -892,11 +892,11 @@ static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
             if (size > UpdateOffset_DelayMS)
             {
                 g_updateFile.size = utility_bigEndianUint16(&data[UpdateOffset_FileSize]);
-                g_updateFile.subchunkSize = data[UpdateOffset_ChunkSize];
+                g_updateFile.subchunkSize = data[UpdateOffset_SubchunkSize];
                 if (g_updateFile.subchunkSize < MinChunkSize)
                     g_updateFile.subchunkSize += ChunkSizeAdjustment;
                 g_updateFile.totalChunks = data[UpdateOffset_NumberOfChunks];
-                g_updateFile.delayMS = data[UpdateOffset_ChunkSize];
+                g_updateFile.delayMS = data[UpdateOffset_DelayMS];
             }
             status = true;
         }
