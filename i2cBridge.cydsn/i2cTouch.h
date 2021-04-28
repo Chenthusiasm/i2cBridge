@@ -58,13 +58,13 @@
     bool i2cTouch_isActivated(void);
     
     /// Process any pending receive or transmit transactions.
-    /// @param[in]  timeoutMS   The amount of time the process can occur before
+    /// @param[in]  timeoutMs   The amount of time the process can occur before
     ///                         it times out and must finish. If 0, then there's
     ///                         no timeout and the function blocks until all
     ///                         pending actions are completed.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cStatus union.
-    I2cStatus i2cTouch_process(uint32_t timeoutMS);
+    I2cStatus i2cTouch_process(uint32_t timeoutMs);
     
     /// Queue up a read from the I2C bus. The i2c_registerRxCallback
     /// function must be invoked with a valid callback function to handle the

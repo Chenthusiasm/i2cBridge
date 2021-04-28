@@ -34,7 +34,7 @@ static bool g_running = false;
 
 
 /// The current watchdog timeout period.
-static uint16_t g_timeoutMS = 0;
+static uint16_t g_timeoutMs = 0;
 
 
 // === PRIVATE FUNCTIONS =======================================================
@@ -49,9 +49,9 @@ CY_ISR(watchdogIsr)
 
 // === PUBLIC FUNCTIONS ========================================================
 
-void hwWatchdog_init(uint16_t timeoutMS)
+void hwWatchdog_init(uint16_t timeoutMs)
 {
-    if (g_timeoutMS == 0)
+    if (g_timeoutMs == 0)
     {
         CyIntSetVector(WATCHDOG_INTERRUPT_NUMBER, watchdogIsr);
         CyIntEnable(WATCHDOG_INTERRUPT_NUMBER);
@@ -63,9 +63,9 @@ void hwWatchdog_init(uint16_t timeoutMS)
         hwWatchdog_feed();
         hwWatchdog_stop();
     }
-    if (timeoutMS <= 0)
-        timeoutMS = DEFAULT_TIMEOUT_MS;
-    g_timeoutMS = timeoutMS;
+    if (timeoutMs <= 0)
+        timeoutMs = DEFAULT_TIMEOUT_MS;
+    g_timeoutMs = timeoutMs;
     hwWatchdog_start();
 }
 

@@ -36,9 +36,9 @@
 
 // === GLOBALS =================================================================
 
-static volatile uint32_t g_currentTimeMS = DEFAULT_INITIAL_CURRENT_TIME_MS;
+static volatile uint32_t g_currentTimeMs = DEFAULT_INITIAL_CURRENT_TIME_MS;
 
-static uint16_t g_periodMS = DEFAULT_PERIOD_MS;
+static uint16_t g_periodMs = DEFAULT_PERIOD_MS;
 
 
 // === ISR =====================================================================
@@ -46,31 +46,31 @@ static uint16_t g_periodMS = DEFAULT_PERIOD_MS;
 CY_ISR(SysTickIsr)
 {
     debug_setPin0(false);
-    g_currentTimeMS += g_periodMS;
+    g_currentTimeMs += g_periodMs;
     debug_setPin0(true);
 }
 
 
 // === PUBLIC FUNCTIONS ========================================================
 
-void hwSystemTime_init(uint16_t periodMS)
+void hwSystemTime_init(uint16_t periodMs)
 {
     // Reset the current time.
-    g_currentTimeMS = DEFAULT_INITIAL_CURRENT_TIME_MS;
+    g_currentTimeMs = DEFAULT_INITIAL_CURRENT_TIME_MS;
     
-    g_periodMS = periodMS;
+    g_periodMs = periodMs;
     
     // Configure the ISR for the system tick.
     CyIntSetSysVector((SysTick_IRQn + 16u), SysTickIsr);
     
     // Configure and enable the system tick.
-    SysTick_Config(periodMS * ONE_MILLISECOND);
+    SysTick_Config(periodMs * ONE_MILLISECOND);
 }
 
 
-uint32_t hwSystemTime_getCurrentMS(void)
+uint32_t hwSystemTime_getCurrentMs(void)
 {
-    return g_currentTimeMS;
+    return g_currentTimeMs;
 }
 
 

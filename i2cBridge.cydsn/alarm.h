@@ -46,11 +46,11 @@
     typedef struct Alarm
     {
         /// The system time when the alarm was armed in milliseconds.
-        uint32_t    startTimeMS;
+        uint32_t    startTimeMs;
         
         /// The amount of time that needs to elapse before the alarm has "fired" in
         /// milliseconds.
-        uint32_t    durationMS;
+        uint32_t    durationMs;
         
         /// Flag indicating whether the alarm is armed.
         bool        armed;
@@ -65,10 +65,10 @@
     
     /// Set and arm an alarm.
     /// @param  alarm       The alarm to set.
-    /// @param  durationMS  Number of milliseconds after which this alarm should
+    /// @param  durationMs  Number of milliseconds after which this alarm should
     ///                     "fire".
     /// @param  type        The type of alarm.
-    void alarm_arm(Alarm volatile* alarm, uint32_t durationMS, AlarmType type);
+    void alarm_arm(Alarm volatile* alarm, uint32_t durationMs, AlarmType type);
     
     /// Disarm an alarm. Also serves to initialize the alarm
     /// @param alarm   The alarm to disarm.
@@ -77,9 +77,9 @@
     /// Add additional time to the duration to effectively snooze the alarm and
     /// expire at a later time.
     /// @param  alarm       The alarm to set.
-    /// @param  additionalTimeMS    The number of milliseconds to add before the
+    /// @param  additionalTimeMs    The number of milliseconds to add before the
     ///                             alarm "fires".
-    void alarm_snooze(Alarm volatile* alarm, uint32_t additionalTimeMS);
+    void alarm_snooze(Alarm volatile* alarm, uint32_t additionalTimeMs);
     
     /// Check if an alarm has elapsed. Note, the alarm must also be armed in
     /// order for the result to indicate that the alarm has elapsed. In the case

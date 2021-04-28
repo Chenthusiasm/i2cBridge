@@ -125,7 +125,7 @@
     ///                     timeout period.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cStatus union.
-    I2cStatus i2c_ack(uint8_t address, uint32_t timeoutMS);
+    I2cStatus i2c_ack(uint8_t address, uint32_t timeoutMs);
     
     /// Perform an ACK handshake with the slave app.
     /// @param[in]  timeout The amount of time in milliseconds the function
@@ -134,32 +134,32 @@
     ///                     timeout period.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cStatus union.
-    I2cStatus i2c_ackApp(uint32_t timeoutMS);
+    I2cStatus i2c_ackApp(uint32_t timeoutMs);
     
     /// Perform a blocking read of data from a specific slave device.
     /// @param[in]  address     The 7-bit I2C address.
     /// @param[in]  data        The data buffer to read the data to.
     /// @param[in]  size        The number of bytes to read.
-    /// @param[in]  timeoutMS   The amount of time the process can occur before
+    /// @param[in]  timeoutMs   The amount of time the process can occur before
     ///                         it times out and must finish. If 0, then the
     ///                         function will determine the timeout based on
     ///                         the desired bytes to read.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cStatus union.
-    I2cStatus i2c_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t timeoutMS);
+    I2cStatus i2c_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t timeoutMs);
     
     /// Perform a blocking write of data to a specific slave device.
     /// @param[in]  address     The 7-bit I2C address.
     /// @param[in]  data        The data buffer to that contains the data to
     ///                         write.
     /// @param[in]  size        The number of bytes to write.
-    /// @param[in]  timeoutMS   The amount of time the process can occur before
+    /// @param[in]  timeoutMs   The amount of time the process can occur before
     ///                         it times out and must finish. If 0, then the
     ///                         function will determine the timeout based on
     ///                         the desired bytes to write.
     /// @return Status indicating if an error occured. See the definition of the
     ///         I2cStatus union.
-    I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size, uint32_t timeoutMS);
+    I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size, uint32_t timeoutMs);
     
     /// Checks the SystemStatus and indicates if any error occurs.
     /// @param[in]  status  The SystemStatus error flags.

@@ -24,17 +24,17 @@
 
 /// Alias to get the current system time. Redefine to match what works for the
 /// system.
-#define GET_TIME_MS()                   (hwSystemTime_getCurrentMS())
+#define GET_TIME_MS()                   (hwSystemTime_getCurrentMs())
 
 
 // === PUBLIC FUNCTIONS ========================================================
 
-void alarm_arm(Alarm volatile* alarm, uint32_t durationMS, AlarmType type)
+void alarm_arm(Alarm volatile* alarm, uint32_t durationMs, AlarmType type)
 {
     if (alarm != NULL)
     {
-        alarm->durationMS = durationMS;
-        alarm->startTimeMS = GET_TIME_MS();
+        alarm->durationMs = durationMs;
+        alarm->startTimeMs = GET_TIME_MS();
         alarm->type = type;
         alarm->armed = true;
     }
@@ -46,19 +46,19 @@ void alarm_disarm(Alarm volatile* alarm)
     if (alarm != NULL)
     {
         alarm->armed = false;
-        alarm->durationMS = 0;
+        alarm->durationMs = 0;
     }
 }
 
 
-void alarm_snooze(Alarm volatile* alarm, uint32_t additionalTimeMS)
+void alarm_snooze(Alarm volatile* alarm, uint32_t additionalTimeMs)
 {
     if ((alarm != NULL) && alarm->armed)
     {
-        if ((UINT32_MAX - additionalTimeMS) >= alarm->durationMS)
-            alarm->durationMS += additionalTimeMS;
+        if ((UINT32_MAX - additionalTimeMs) >= alarm->durationMs)
+            alarm->durationMs += additionalTimeMs;
         else
-            alarm->durationMS = UINT32_MAX;
+            alarm->durationMs = UINT32_MAX;
     }
 }
 
@@ -70,11 +70,11 @@ bool alarm_hasElapsed(Alarm volatile* alarm)
     bool elapsed = false;
     if ((alarm != NULL) && alarm->armed)
     {
-        if ((alarm->durationMS == 0 ) || (GET_TIME_MS() - alarm->startTimeMS >= alarm->durationMS))
+        if ((alarm->durationMs == 0 ) || (GET_TIME_MS() - alarm->startTimeMs >= alarm->durationMs))
         {
             if (alarm->type == AlarmType_SingleNotification)
                 alarm->armed = false;
-            alarm->durationMS = 0;
+            alarm->durationMs = 0;
             elapsed = true;
         }
     }

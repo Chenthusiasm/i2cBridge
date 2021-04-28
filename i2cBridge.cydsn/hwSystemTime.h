@@ -28,13 +28,13 @@
     // === FUNCTIONS ===========================================================
     
     /// Initializes the system timer.
-    /// @param[in]  periodMS    The time period in milliseconds at which the
+    /// @param[in]  periodMs    The time period in milliseconds at which the
     ///                         system time will be tracked.
-    void hwSystemTime_init(uint16_t periodMS);
+    void hwSystemTime_init(uint16_t periodMs);
     
     /// Gets the current value of the system time in milliseconds.
     /// @return The current system time in milliseconds.
-    uint32_t hwSystemTime_getCurrentMS(void);
+    uint32_t hwSystemTime_getCurrentMs(void);
     
     
     #ifdef __cplusplus

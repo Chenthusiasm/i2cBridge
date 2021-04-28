@@ -510,7 +510,7 @@ static uint8_t const G_InvalidRxAppPacketLength = 0xff;
 /// The default amount of time to allow for a I2C stop condition to be sent
 /// before timing out. If a time out occurs, the I2C module is reset. This is
 /// in milliseconds.
-static uint32_t const G_DefaultSendStopTimeoutMS = 5u;
+static uint32_t const G_DefaultSendStopTimeoutMs = 5u;
 
 /// Message to write to the I2C slave to clear the IRQ. This can also be used
 /// to switch to the response buffer.
@@ -527,11 +527,11 @@ static uint8_t const G_ResponseBufferSize = sizeof(G_ClearIrqMessage) - 1u;
 static uint8_t const G_DefaultTransferMode = COMPONENT(SLAVE_I2C, I2C_MODE_COMPLETE_XFER);
 
 /// Default timeout for the alarm for detecting a locked bus condition.
-static uint32_t const G_DefaultLockedBusDetectTimeoutMS = 100u;
+static uint32_t const G_DefaultLockedBusDetectTimeoutMs = 100u;
 
 /// Default timeout for the alarm used to determine how often to attempt to
 /// recover from the locked bus.
-static uint32_t const G_DefaultLockedBusRecoveryPeriodMS = 50u;
+static uint32_t const G_DefaultLockedBusRecoveryPeriodMs = 50u;
 
 /// Max number of recovery attempts before performing a system reset.
 static uint8_t const G_MaxRecoveryAttempts = 10u;
@@ -698,16 +698,16 @@ static bool isIrqAsserted(void)
 /// round up with an adjustment.
 /// @param[in]  transactionSize The size in bytes of the additional transaction.
 /// @return The additional time to add to the timeout in milliseconds.
-static uint32_t findExtendedTimeoutMS(uint16_t transactionSize)
+static uint32_t findExtendedTimeoutMs(uint16_t transactionSize)
 {
     static uint32_t const WordSize = 9u;
-    static uint32_t const PeriodUS = 10u;
+    static uint32_t const PeriodUs = 10u;
     static uint32_t const Shift = 10u;
     static uint32_t const Adjustment = 1u;
     
-    uint32_t extendedTimeoutMS = transactionSize * WordSize * PeriodUS;
-    extendedTimeoutMS = (extendedTimeoutMS >> Shift) + Adjustment;
-    return extendedTimeoutMS;
+    uint32_t extendedTimeoutMs = transactionSize * WordSize * PeriodUs;
+    extendedTimeoutMs = (extendedTimeoutMs >> Shift) + Adjustment;
+    return extendedTimeoutMs;
 }
 
 
@@ -830,9 +830,9 @@ I2cStatus updateDriverStatus(mreturn_t result)
                 (g_lockedBus.detectAlarm.armed && alarm_hasElapsed(&g_lockedBus.detectAlarm));
             status.lockedBus = g_lockedBus.locked;
             if (!g_lockedBus.detectAlarm.armed)
-                alarm_arm(&g_lockedBus.detectAlarm, G_DefaultLockedBusDetectTimeoutMS, AlarmType_ContinuousNotification);
+                alarm_arm(&g_lockedBus.detectAlarm, G_DefaultLockedBusDetectTimeoutMs, AlarmType_ContinuousNotification);
             if (g_lockedBus.locked && !g_lockedBus.recoverAlarm.armed)
-                alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMS, AlarmType_ContinuousNotification);
+                alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMs, AlarmType_ContinuousNotification);
         }
     #endif // ENABLE_I2C_LOCKED_BUS_DETECTION
     }
@@ -921,7 +921,7 @@ static I2cStatus write(uint8_t address, uint8_t const data[], uint16_t size)
                 //CySoftwareReset();
             }
             // Rearm the alarm for the next attempt.
-            alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMS, AlarmType_ContinuousNotification);
+            alarm_arm(&g_lockedBus.recoverAlarm, G_DefaultLockedBusRecoveryPeriodMs, AlarmType_ContinuousNotification);
             
             #if true
             // First attempt to restart the I2C component.
@@ -969,17 +969,17 @@ static I2cStatus changeSlaveAppToResponseBuffer(void)
 
 /// Communications finite state machine (FSM) to process any receive and
 /// transmit transactions pertaining to the I2C bus.
-/// @param[in]  timeoutMS   The amount of time the process can occur before it
+/// @param[in]  timeoutMs   The amount of time the process can occur before it
 ///                         times out and must finish. If 0, then there's no
 ///                         timeout and the function blocks until all pending
 ///                         actions are completed.
 /// @return Status indicating if an error occured. See the definition of the
 ///         I2cStatus union.
-static I2cStatus processCommFsm(uint32_t timeoutMS)
+static I2cStatus processCommFsm(uint32_t timeoutMs)
 {
     I2cStatus status = { false };
-    if (timeoutMS > 0)
-        alarm_arm(&g_commFsm.timeoutAlarm, timeoutMS, AlarmType_ContinuousNotification);
+    if (timeoutMs > 0)
+        alarm_arm(&g_commFsm.timeoutAlarm, timeoutMs, AlarmType_ContinuousNotification);
     else
         alarm_disarm(&g_commFsm.timeoutAlarm);
     
@@ -1064,7 +1064,7 @@ static I2cStatus processCommFsm(uint32_t timeoutMS)
                             g_commFsm.state = CommState_RxProcessExtraData;
                         else
                         {
-                            alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMS(g_commFsm.pendingRxSize));
+                            alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMs(g_commFsm.pendingRxSize));
                             g_commFsm.state = CommState_RxReadExtraData;
                         }
                     }
@@ -1175,13 +1175,13 @@ static I2cStatus processCommFsm(uint32_t timeoutMS)
                         {
                             // Exclude the I2cXfer byte in the transmit size.
                             size--;
-                            alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMS(size));
+                            alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMs(size));
                             status = write(xfer.address, &data[XferQueueDataOffset_Data], size);
                         }
                         else if (xfer.direction == I2cDirection_Read)
                         {
                             g_commFsm.pendingRxSize = data[XferQueueDataOffset_Data];
-                            alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMS(g_commFsm.pendingRxSize));
+                            alarm_snooze(&g_commFsm.timeoutAlarm, findExtendedTimeoutMs(g_commFsm.pendingRxSize));
                             status = read(xfer.address, g_heap->rxBuffer, data[XferQueueDataOffset_Data]);
                         }
                         if (!i2c_errorOccurred(status))
@@ -1343,14 +1343,14 @@ bool isLastTransferComplete(I2cStatus* status)
 ///                     the function will wait for a default timeout period.
 /// @return Status indicating if an error occured. See the definition of the
 ///         I2cStatus union.
-I2cStatus ack(uint8_t address, uint32_t timeoutMS)
+I2cStatus ack(uint8_t address, uint32_t timeoutMs)
 {
     static uint32_t const DefaultAckTimeout = 2u;
     
     Alarm alarm;
-    if (timeoutMS <= 0)
-        timeoutMS = DefaultAckTimeout;
-    alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
+    if (timeoutMs <= 0)
+        timeoutMs = DefaultAckTimeout;
+    alarm_arm(&alarm, timeoutMs, AlarmType_ContinuousNotification);
     
     bool ackSent = false;
     bool done = false;
@@ -1543,34 +1543,34 @@ void i2c_registerErrorCallback(I2cErrorCallback callback)
 }
 
 
-I2cStatus i2c_ack(uint8_t address, uint32_t timeoutMS)
+I2cStatus i2c_ack(uint8_t address, uint32_t timeoutMs)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 4u;
     
-    I2cStatus status = ack(address, timeoutMS);
+    I2cStatus status = ack(address, timeoutMs);
     processError(status);
     return status;
 }
 
 
-I2cStatus i2c_ackApp(uint32_t timeoutMS)
+I2cStatus i2c_ackApp(uint32_t timeoutMs)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 5u;
     
-    I2cStatus status = ack(g_slaveAddress, timeoutMS);
+    I2cStatus status = ack(g_slaveAddress, timeoutMs);
     processError(status);
     return status;
 }
 
 
-I2cStatus i2c_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t timeoutMS)
+I2cStatus i2c_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t timeoutMs)
 {
     Alarm alarm;
-    if (timeoutMS <= 0)
-        timeoutMS = findExtendedTimeoutMS(size);
-    alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
+    if (timeoutMs <= 0)
+        timeoutMs = findExtendedTimeoutMs(size);
+    alarm_arm(&alarm, timeoutMs, AlarmType_ContinuousNotification);
     
     bool sent = false;
     bool done = false;
@@ -1605,12 +1605,12 @@ I2cStatus i2c_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t time
 }
 
 
-I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size, uint32_t timeoutMS)
+I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size, uint32_t timeoutMs)
 {
     Alarm alarm;
-    if (timeoutMS <= 0)
-        timeoutMS = findExtendedTimeoutMS(size);
-    alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
+    if (timeoutMs <= 0)
+        timeoutMs = findExtendedTimeoutMs(size);
+    alarm_arm(&alarm, timeoutMs, AlarmType_ContinuousNotification);
     
     bool sent = false;
     bool done = false;
@@ -1690,7 +1690,7 @@ bool i2cTouch_isActivated(void)
 }
 
 
-I2cStatus i2cTouch_process(uint32_t timeoutMS)
+I2cStatus i2cTouch_process(uint32_t timeoutMs)
 {
     g_callsite.value = 0u;
     g_callsite.topCall = 1u;
@@ -1704,7 +1704,7 @@ I2cStatus i2cTouch_process(uint32_t timeoutMS)
 #endif // ENABLE_I2C_LOCKED_BUS_DETECTION
     {
         if (g_heap != NULL)
-            status = processCommFsm(timeoutMS);
+            status = processCommFsm(timeoutMs);
         else
             status.deactivated = true;
     }
@@ -1775,15 +1775,15 @@ bool i2cUpdate_isActivated(void)
 }
 
 
-I2cStatus i2cUpdate_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t timeoutMS)
+I2cStatus i2cUpdate_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t timeoutMs)
 {
-    return i2c_read(address, data, size, timeoutMS);
+    return i2c_read(address, data, size, timeoutMs);
 }
 
 
-I2cStatus i2cUpdate_write(uint8_t address, uint8_t const data[], uint16_t size, uint32_t timeoutMS)
+I2cStatus i2cUpdate_write(uint8_t address, uint8_t const data[], uint16_t size, uint32_t timeoutMs)
 {
-    return i2c_write(address, data, size, timeoutMS);
+    return i2c_write(address, data, size, timeoutMs);
 }
 
 

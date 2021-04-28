@@ -32,10 +32,10 @@
     
     /// Initializes the watchdog, sets up the watchdog timeout, and starts the
     /// watchdog.
-    /// @param[in]  timeoutMS   The timeout period in milliseconds. If the
+    /// @param[in]  timeoutMs   The timeout period in milliseconds. If the
     ///                         timeout expires, the watchdog will trigger a
     ///                         system reset.
-    void hwWatchdog_init(uint16_t timeoutMS);
+    void hwWatchdog_init(uint16_t timeoutMs);
     
     /// Accessor that checks if the watchdog is running (started).
     /// @return If the watchdog is running (started).

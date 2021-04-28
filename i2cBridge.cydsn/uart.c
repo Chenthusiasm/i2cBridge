@@ -209,7 +209,7 @@ typedef enum UpdateOffset
     UpdateOffset_NumberOfChunks         = 4u,
     
     /// Offset for the delay in milliseconds (currently not used).
-    UpdateOffset_DelayMS                = 5u,
+    UpdateOffset_DelayMs                = 5u,
     
 } UpdateOffset;
 
@@ -362,7 +362,7 @@ typedef struct UpdateFile
     uint8_t chunk;
     
     /// The delay in milliseconds (unused).
-    uint8_t delayMS;
+    uint8_t delayMs;
     
 } UpdateFile;
 
@@ -461,7 +461,7 @@ static uint8_t const G_ScratchSize = 16u;
 
 /// The amount of time between receipts of bytes before we automatically reset
 /// the receive state machine.
-static uint16_t const G_RxResetTimeoutMS = 2000u;
+static uint16_t const G_RxResetTimeoutMs = 2000u;
 
 /// ASCII hex table for writing hex unsigned integers as ASCII characters.
 static char const G_AsciiHexTable[] = "0123456789abcdef";
@@ -480,7 +480,7 @@ static UpdateFile g_updateFile = { NULL, 0, 0, 0, 0, 0, 0 };
 static volatile RxState g_rxState = RxState_OutOfFrame;
 
 /// The last time data was received in milliseconds.
-static volatile uint32_t g_lastRxTimeMS = 0u;
+static volatile uint32_t g_lastRxTimeMs = 0u;
 
 /// Settings associated with the pending transmit enqueue.
 static TxEnqueueSettings g_pendingTxEnqueue = { BridgeCommand_None, false, false };
@@ -511,7 +511,7 @@ static void resetUpdateFile(void)
     g_updateFile.totalSize = 0;
     g_updateFile.subchunkSize = 0;
     g_updateFile.totalChunks = 0;
-    g_updateFile.delayMS = 0;
+    g_updateFile.delayMs = 0;
     g_updateFile.size = 0;
     g_updateFile.chunk = 0;
 }
@@ -534,7 +534,7 @@ static void resetUpdateChunk(void)
 /// an initial state.
 static void resetRxTime(void)
 {
-    g_lastRxTimeMS = hwSystemTime_getCurrentMS();
+    g_lastRxTimeMs = hwSystemTime_getCurrentMs();
 }
 
 
@@ -889,14 +889,14 @@ static bool processSlaveUpdateCommand(uint8_t const* data, uint16_t size)
         }
         if (flags.updateFileInfo)
         {
-            if (size > UpdateOffset_DelayMS)
+            if (size > UpdateOffset_DelayMs)
             {
                 g_updateFile.size = utility_bigEndianUint16(&data[UpdateOffset_FileSize]);
                 g_updateFile.subchunkSize = data[UpdateOffset_SubchunkSize];
                 if (g_updateFile.subchunkSize < MinChunkSize)
                     g_updateFile.subchunkSize += ChunkSizeAdjustment;
                 g_updateFile.totalChunks = data[UpdateOffset_NumberOfChunks];
-                g_updateFile.delayMS = data[UpdateOffset_DelayMS];
+                g_updateFile.delayMs = data[UpdateOffset_DelayMs];
             }
             status = true;
         }
@@ -1334,7 +1334,7 @@ static void isr(void)
         // rate.
         COMPONENT(HOST_UART, ClearRxInterruptSource)(COMPONENT(HOST_UART, INTR_RX_FRAME_ERROR));
     }
-    g_lastRxTimeMS = hwSystemTime_getCurrentMS();
+    g_lastRxTimeMs = hwSystemTime_getCurrentMs();
     COMPONENT(HOST_UART, ClearPendingInt)();
 }
 
@@ -1508,14 +1508,14 @@ bool uartTranslate_isActivated(void)
 }
 
 
-uint16_t uartTranslate_processRx(uint32_t timeoutMS)
+uint16_t uartTranslate_processRx(uint32_t timeoutMs)
 {
     uint16_t count = 0;
     if (uartTranslate_isActivated())
     {
         Alarm alarm;
-        if (timeoutMS > 0)
-            alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
+        if (timeoutMs > 0)
+            alarm_arm(&alarm, timeoutMs, AlarmType_ContinuousNotification);
         else
             alarm_disarm(&alarm);
             
@@ -1537,14 +1537,14 @@ uint16_t uartTranslate_processRx(uint32_t timeoutMS)
 }
 
 
-uint16_t uartTranslate_processTx(uint32_t timeoutMS)
+uint16_t uartTranslate_processTx(uint32_t timeoutMs)
 {
     uint16_t count = 0;
     if (uartTranslate_isActivated())
     {
         Alarm alarm;
-        if (timeoutMS > 0)
-            alarm_arm(&alarm, timeoutMS, AlarmType_ContinuousNotification);
+        if (timeoutMs > 0)
+            alarm_arm(&alarm, timeoutMs, AlarmType_ContinuousNotification);
         else
             alarm_disarm(&alarm);
             
@@ -1612,13 +1612,13 @@ bool uartUpdate_isActivated(void)
 
 bool uartUpdate_process(void)
 {
-    static uint32_t const TimeoutMS = 30u;
+    static uint32_t const TimeoutMs = 30u;
     
     bool status = false;
     if (uartUpdate_isActivated())
     {
         Alarm alarm;
-        alarm_arm(&alarm, TimeoutMS, AlarmType_ContinuousNotification);
+        alarm_arm(&alarm, TimeoutMs, AlarmType_ContinuousNotification);
         while (!queue_isEmpty(&g_heap->decodedRxQueue))
         {
             if (alarm.armed && alarm_hasElapsed(&alarm))

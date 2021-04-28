@@ -140,16 +140,16 @@ typedef struct Heap
 
 /// The default period between writing of error messages to the host UART bus
 /// when a general error occurs.
-static uint32_t const G_ErrorMessagePeriodMS = 5000u;
+static uint32_t const G_ErrorMessagePeriodMs = 5000u;
 
 /// The default timeout in milliseconds for processing UART receives.
-static uint32_t const G_UartProcessRxTimeoutMS = 2u;
+static uint32_t const G_UartProcessRxTimeoutMs = 2u;
 
 /// The default timeout in milliseconds for processing UART transmits.
-static uint32_t const G_UartProcessTxTimeoutMS = 3u;
+static uint32_t const G_UartProcessTxTimeoutMs = 3u;
 
 /// The default timeout in milliseconds for processing I2C transactions.
-static uint32_t const G_I2cProcessTimeoutMS = 5u;
+static uint32_t const G_I2cProcessTimeoutMs = 5u;
 
 
 // === GLOBAL VARIABLES ========================================================
@@ -222,7 +222,7 @@ static void processError(SystemStatus status)
 /// Rearms/arms the error message alarm.
 static void rearmErrorMessageAlarm(void)
 {
-    alarm_arm(&g_errorMessageAlarm, G_ErrorMessagePeriodMS, AlarmType_ContinuousNotification);
+    alarm_arm(&g_errorMessageAlarm, G_ErrorMessagePeriodMs, AlarmType_ContinuousNotification);
 }
 
 
@@ -290,8 +290,8 @@ static bool processInitSlaveReset(void)
     SystemStatus status = { false };
     if (!isSlaveResetting())
     {
-        static uint32_t const DefaultResetTimeoutMS = 100u;
-        alarm_arm(&g_resetAlarm, DefaultResetTimeoutMS, AlarmType_ContinuousNotification);
+        static uint32_t const DefaultResetTimeoutMs = 100u;
+        alarm_arm(&g_resetAlarm, DefaultResetTimeoutMs, AlarmType_ContinuousNotification);
         resetSlave(true);
     }
     else
@@ -318,8 +318,8 @@ static bool processSlaveResetComplete(void)
     }
     else
     {
-        uartTranslate_processRx(G_UartProcessRxTimeoutMS);
-        uartTranslate_processTx(G_UartProcessTxTimeoutMS);
+        uartTranslate_processRx(G_UartProcessRxTimeoutMs);
+        uartTranslate_processTx(G_UartProcessTxTimeoutMs);
     }
     processError(status);
     return complete;
@@ -366,9 +366,9 @@ static bool processSlaveTranslate(void)
     bool processed = false;
     if (true)
     {
-        uartTranslate_processRx(G_UartProcessRxTimeoutMS);
-        i2cTouch_process(G_I2cProcessTimeoutMS);
-        uartTranslate_processTx(G_UartProcessTxTimeoutMS);
+        uartTranslate_processRx(G_UartProcessRxTimeoutMs);
+        i2cTouch_process(G_I2cProcessTimeoutMs);
+        uartTranslate_processTx(G_UartProcessTxTimeoutMs);
         processed = true;
     }
     return processed;

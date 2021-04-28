@@ -59,21 +59,21 @@
     
     /// Processes any pending receives and executes any functionality associated
     /// with received UART packets when in translate mode.
-    /// @param[in]  timeoutMS   The amount of time the process can occur before
+    /// @param[in]  timeoutMs   The amount of time the process can occur before
     ///                         it times out and must finish. If 0, then there's
     ///                         no timeout and the function blocks until all
     ///                         pending actions are completed.
     /// @return The number of packets that were processed.
-    uint16_t uartTranslate_processRx(uint32_t timeoutMS);
+    uint16_t uartTranslate_processRx(uint32_t timeoutMs);
     
     /// Processes any pending transmits and attempts to transmit any UART
     /// packets waiting to be sent when in translate mode.
-    /// @param[in]  timeoutMS   The amount of time the process can occur before
+    /// @param[in]  timeoutMs   The amount of time the process can occur before
     ///                         it times out and must finish. If 0, then there's
     ///                         no timeout and the function blocks until all
     ///                         pending actions are completed.
     /// @return The number of packets that were processed.
-    uint16_t uartTranslate_processTx(uint32_t timeoutMS);
+    uint16_t uartTranslate_processTx(uint32_t timeoutMs);
     
     
     #ifdef __cplusplus
