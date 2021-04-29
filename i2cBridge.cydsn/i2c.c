@@ -241,6 +241,43 @@ typedef enum I2cDirection
 } I2cDirection;
 
 
+typedef enum UpdateCommand
+{
+    UpdateCommand_GetProtocol                               = 0x00,
+    
+    UpdateCommand_GetVersion                                = 0x01,
+    
+    UpdateCommand_GetAppBuildInfo                           = 0x02,
+    
+    UpdateCommand_FlashFcs                                  = 0x03,
+    
+    UpdateCommand_GetMetadata                               = 0x04,
+    
+    UpdateCommand_GetUpdateReport                           = 0x05,
+    
+    UpdateCommand_GetSequenceNumber                         = 0x06,
+    
+    UpdateCommand_GetChecksum                               = 0x07,
+    
+    UpdateCommand_EnterUpdateMode                           = 0x08,
+    
+    UpdateCommand_RowUpdatePacket                           = 0x09,
+    
+    UpdateCommand_SplitUpdatePacket                         = 0x0a,
+    
+    UpdateCommand_ExitUpdateMode                            = 0x0b,
+    
+    UpdateCommand_AbortUpdate                               = 0x0c,
+    
+    UpdateCommand_ValidateApp                               = 0x0d,
+    
+    UpdateCommand_Reboot                                    = 0x0e,
+    
+    UpdateCommand_GetBootloaderRuntimeInfo                  = 0x0f,
+    
+} UpdateCommand;
+
+
 typedef enum UpdateOffset
 {
     UpdateOffset_Code                   = 0u,
@@ -252,7 +289,8 @@ typedef enum UpdateOffset
     UpdateOffset_Payload                = 10u,
     
 } UpdateOffset;
-    
+
+
 typedef enum RowUpdateOffset
 {
     RowUpdateOffset_BlockId             = 10u,
@@ -571,6 +609,15 @@ static uint32_t const G_DefaultLockedBusRecoveryPeriodMs = 50u;
 
 /// Max number of recovery attempts before performing a system reset.
 static uint8_t const G_MaxRecoveryAttempts = 10u;
+
+/// Valid code indicating the packet is meant for the bootloader.
+static uint8_t const G_UpdateCode = 0xff;
+
+/// Mask or'ed with the command to get a valid firmware update command.
+static uint8_t const G_UpdateCommandMask = 0x30;
+
+/// Valid key indicating that the packet is meant for the bootloader.
+static uint8_t const G_UpdateKey[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
 
 
 // === GLOBALS =================================================================
