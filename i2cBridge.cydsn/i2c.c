@@ -241,6 +241,42 @@ typedef enum I2cDirection
 } I2cDirection;
 
 
+typedef enum UpdateOffset
+{
+    UpdateOffset_Code                   = 0u,
+    
+    UpdateOffset_Command                = 1u,
+    
+    UpdateOffset_Key                    = 2u,
+    
+    UpdateOffset_Payload                = 10u,
+    
+} UpdateOffset;
+    
+typedef enum RowUpdateOffset
+{
+    RowUpdateOffset_BlockId             = 10u,
+    
+    RowUpdateOffset_Data                = 12u,
+    
+} SingleUpdateOffset;
+
+
+typedef enum SplitUpdateOffset
+{
+    SplitUpdateOffset_BlockId           = 10u,
+    
+    SplitUpdateOffset_LastIndex         = 12u,
+    
+    SplitUpdateOffset_Index             = 13u,
+    
+    SplitUpdateOffset_PacketSize        = 14u,
+    
+    SplitUpdateOffset_Data              = 15u,
+    
+} SplitUpdateOffset;
+
+
 /// Contains information about the I2C tranfer including the slave address and
 /// the direction (read or write).
 typedef union I2cXfer
