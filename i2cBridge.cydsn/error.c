@@ -161,13 +161,13 @@ typedef struct MetaData
 } MetaData;
 
 
-// === CONSTANTS ===============================================================
+// === PRIVATE GLOBAL CONSTANTS ================================================
 
 /// CLI error header.
-char const* CliErrorHeader = "ERR";
+static char const* CliErrorHeader __attribute__((unused)) = "ERR";
 
 /// CLI meta data for the different error types.
-MetaData const CliMetaData[] =
+static MetaData const CliMetaData[] =
 {
     // ErrorType_System.
     {
@@ -213,7 +213,7 @@ MetaData const CliMetaData[] =
 };
 
 
-// === GLOBALS =================================================================
+// === PRIVATE GLOBALS =========================================================
 
 /// Indicates the current error mode. Default: legacy.
 /// @TODO: revert to ErrorMode_Legacy.

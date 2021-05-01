@@ -609,7 +609,12 @@ typedef union Callsite
 } Callsite;
 
 
-// === CONSTANTS ===============================================================
+// === PUBLIC GLOBAL CONSTANTS =================================================
+
+I2cStatus const DefaultI2cStatus = { 0u };
+
+
+// === PRIVATE GLOBAL CONSTANTS ================================================
 
 /// The number of bytes to read in order to find the number of bytes in the
 /// receive data payload.
@@ -657,7 +662,7 @@ static uint8_t const G_BootloaderCommandMask = 0x30;
 static uint8_t const G_UpdateKey[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
 
 
-// === GLOBALS =================================================================
+// === PRIVATE GLOBALS =========================================================
 
 /// Heap-like memory that points to the global variables used by the module that
 /// was dynamically allocated. If NULL, then the module's global variables
@@ -935,7 +940,7 @@ static bool isBusLocked(void)
 /// @param[in]  result  The result from the low-level driver function call.
 I2cStatus updateDriverStatus(mreturn_t result)
 {
-    I2cStatus status = { false };
+    I2cStatus status = DefaultI2cStatus;
     if (result != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))            
     {
         status.driverError = true;
@@ -1032,7 +1037,7 @@ static I2cStatus write(uint8_t address, uint8_t const data[], uint16_t size)
     ///         I2cStatus union.
     static I2cStatus recoverFromLockedBus(void)
     {
-        I2cStatus status = { false };
+        I2cStatus status = DefaultI2cStatus;
         if (g_lockedBus.recoverAlarm.armed && alarm_hasElapsed(&g_lockedBus.recoverAlarm))
         {
             debug_setPin1(false);
@@ -1097,7 +1102,7 @@ static I2cStatus changeSlaveAppToResponseBuffer(void)
 ///         I2cStatus union.
 static I2cStatus processCommFsm(uint32_t timeoutMs)
 {
-    I2cStatus status = { false };
+    I2cStatus status = DefaultI2cStatus;
     if (timeoutMs > 0)
         alarm_arm(&g_commFsm.timeoutAlarm, timeoutMs, AlarmType_ContinuousNotification);
     else
@@ -1374,7 +1379,7 @@ static I2cStatus processCommFsm(uint32_t timeoutMs)
 ///         I2cStatus union.
 I2cStatus xferEnqueueRead(uint8_t address, uint16_t size)
 {
-    I2cStatus status = { false };
+    I2cStatus status = DefaultI2cStatus;
     if (g_heap != NULL)
     {
         if ((size > 0) && (size <= UINT8_MAX))
@@ -1407,7 +1412,7 @@ I2cStatus xferEnqueueRead(uint8_t address, uint16_t size)
 ///         I2cStatus union.
 I2cStatus xferEnqueueWrite(uint8_t address, uint8_t const data[], uint16_t size)
 {
-    I2cStatus status = { false };
+    I2cStatus status = DefaultI2cStatus;
     if (g_heap != NULL)
     {
         if ((data != NULL) && (size > 0))
@@ -1474,7 +1479,7 @@ I2cStatus ack(uint8_t address, uint32_t timeoutMs)
     
     bool ackSent = false;
     bool done = false;
-    I2cStatus status = { false };
+    I2cStatus status = DefaultI2cStatus;
     while (!done)
     {
         if (alarm.armed && alarm_hasElapsed(&alarm))
@@ -1694,7 +1699,7 @@ I2cStatus i2c_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t time
     
     bool sent = false;
     bool done = false;
-    I2cStatus status = { false };
+    I2cStatus status = DefaultI2cStatus;
     while (!done)
     {
         if (alarm.armed && alarm_hasElapsed(&alarm))
@@ -1734,7 +1739,7 @@ I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size, uint32
     
     bool sent = false;
     bool done = false;
-    I2cStatus status = { false };
+    I2cStatus status = DefaultI2cStatus;
     while (!done)
     {
         if (alarm.armed && alarm_hasElapsed(&alarm))
@@ -1815,7 +1820,7 @@ I2cStatus i2cTouch_process(uint32_t timeoutMs)
     g_callsite.value = 0u;
     g_callsite.topCall = 1u;
     
-    I2cStatus status = { false };
+    I2cStatus status = DefaultI2cStatus;
     
 #if ENABLE_I2C_LOCKED_BUS_DETECTION
     if (isBusLocked())

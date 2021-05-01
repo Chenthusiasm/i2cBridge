@@ -34,7 +34,7 @@
 #define ONE_MILLISECOND                 (CYDEV_BCLK__SYSCLK__KHZ)
 
 
-// === GLOBALS =================================================================
+// === PRIVATE GLOBALS =========================================================
 
 static volatile uint32_t g_currentTimeMs = DEFAULT_INITIAL_CURRENT_TIME_MS;
 

@@ -454,7 +454,7 @@ typedef struct UpdateHeap
 } UpdateHeap;
 
 
-// === CONSTANTS ===============================================================
+// === PRIVATE GLOBAL CONSTANTS ================================================
 
 /// Size (in bytes) for scratch buffers.
 static uint8_t const G_ScratchSize = 16u;
@@ -467,7 +467,7 @@ static uint16_t const G_RxResetTimeoutMs = 2000u;
 static char const G_AsciiHexTable[] = "0123456789abcdef";
 
 
-// === GLOBALS =================================================================
+// === PRIVATE GLOBALS =========================================================
 
 /// Pointer to the dynamically allocated heap.
 static Heap* g_heap = NULL;

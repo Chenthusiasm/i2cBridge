@@ -83,6 +83,12 @@
     typedef void (*I2cErrorCallback)(I2cStatus, uint16_t);
     
     
+    // === GLOBAL CONSTANTS ====================================================
+    
+    /// The default value for the I2cStatus union.
+    extern I2cStatus const DefaultI2cStatus;
+    
+    
     // === FUNCTIONS ===========================================================
     
     /// Initialize the slave I2C hardware.
