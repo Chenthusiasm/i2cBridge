@@ -241,75 +241,110 @@ typedef enum I2cDirection
 } I2cDirection;
 
 
+/// Enumeration of different bootloader commands.
 typedef enum BootloaderCommand
 {
-    BootloaderCommand_GetProtocol       = 0x00,
+    /// Get the bootloader protocol version.
+    BootloaderCommand_GetProtocol       = 0x30,
     
-    BootloaderCommand_GetVersion        = 0x01,
+    /// Get the bootloader version.
+    BootloaderCommand_GetVersion        = 0x31,
     
-    BootloaderCommand_GetAppBuildInfo   = 0x02,
+    /// Get the application build information.
+    BootloaderCommand_GetAppBuildInfo   = 0x32,
     
-    BootloaderCommand_FlashFcs          = 0x03,
+    /// Verification: get the Fletcher checksum.
+    BootloaderCommand_FlashFcs          = 0x33,
     
-    BootloaderCommand_GetMetadata       = 0x04,
+    /// Get the metadata.
+    BootloaderCommand_GetMetadata       = 0x34,
     
-    BootloaderCommand_GetUpdateReport   = 0x05,
+    /// Get a report that summarizes the update.
+    BootloaderCommand_GetUpdateReport   = 0x35,
     
-    BootloaderCommand_GetSequenceNumber = 0x06,
+    /// Get the current sequence number.
+    BootloaderCommand_GetSequenceNumber = 0x36,
     
-    BootloaderCommand_GetChecksum       = 0x07,
+    /// Get the 16-bit checksum.
+    BootloaderCommand_GetChecksum       = 0x37,
     
-    BootloaderCommand_EnterUpdateMode   = 0x08,
+    /// Enter firmware update mode.
+    BootloaderCommand_EnterUpdateMode   = 0x38,
     
-    BootloaderCommand_RowUpdatePacket   = 0x09,
+    /// Update packet with data contents for an entire flash row.
+    BootloaderCommand_RowUpdatePacket   = 0x39,
     
-    BootloaderCommand_SplitUpdatePacket = 0x0a,
+    /// Split update packet with data contents for part of the flash row.
+    BootloaderCommand_SplitUpdatePacket = 0x3a,
     
-    BootloaderCommand_ExitUpdateMode    = 0x0b,
+    /// Enter firmware update mode.
+    BootloaderCommand_ExitUpdateMode    = 0x3b,
     
-    BootloaderCommand_AbortUpdate       = 0x0c,
+    /// Abort the update.
+    BootloaderCommand_AbortUpdate       = 0x3c,
     
-    BootloaderCommand_ValidateApp       = 0x0d,
+    /// Validation: check that the application flash has a legitimate
+    /// application that can function.
+    BootloaderCommand_ValidateApp       = 0x3d,
     
-    BootloaderCommand_Reboot            = 0x0e,
+    /// Reboot the device.
+    BootloaderCommand_Reboot            = 0x3e,
     
-    BootloaderCommand_GetRuntimeInfo    = 0x0f,
+    /// Get the runtime information.
+    BootloaderCommand_GetRuntimeInfo    = 0x3f,
     
 } BootloaderCommand;
 
 
+/// Defines the offsets for different data in the update packet.
 typedef enum UpdateOffset
 {
+    /// Unique code to identify a packet meant for the bootloader.
     UpdateOffset_Code                   = 0u,
     
+    /// Bootloader command.
     UpdateOffset_Command                = 1u,
     
+    /// Unique key to identify a packet meant for the bootloader.
     UpdateOffset_Key                    = 2u,
     
+    /// The data payload.
     UpdateOffset_Payload                = 10u,
     
 } UpdateOffset;
 
 
+/// Defines the offsets for different data in the update packet specific to the
+/// row update command.
 typedef enum RowUpdateOffset
 {
-    RowUpdateOffset_BlockId             = 10u,
+    /// The flash row the data payload is to be flashed to.
+    RowUpdateOffset_RowId               = 10u,
     
+    /// The data to flash.
     RowUpdateOffset_Data                = 12u,
     
 } SingleUpdateOffset;
 
 
+/// Defines the offsets for different data in the update packet specific to the
+/// split update (multi-packet) command.
 typedef enum SplitUpdateOffset
 {
-    SplitUpdateOffset_BlockId           = 10u,
+    /// The flash row the data payload is to be flashed to.
+    SplitUpdateOffset_RowId             = 10u,
     
+    /// The last split packet index for the row. Helps identify if all the split
+    /// packets for a specific row was received before flashing the entire row.
     SplitUpdateOffset_LastIndex         = 12u,
     
+    /// The current split packet index for the row.
     SplitUpdateOffset_Index             = 13u,
     
+    /// The size of the packet in bytes.
     SplitUpdateOffset_PacketSize        = 14u,
     
+    /// The data to flash.
     SplitUpdateOffset_Data              = 15u,
     
 } SplitUpdateOffset;
