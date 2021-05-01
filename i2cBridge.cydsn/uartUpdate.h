@@ -27,6 +27,42 @@
     #include "heap.h"
     
     
+    // === TYPE DEFINES ========================================================
+    
+    /// Union that holds the status of update functions.
+    typedef struct UpdateStatus
+    {
+        /// 8-bit representation of the status. Used to get the bit mask created
+        /// by the following anonymous struct of 1-bit flags.
+        uint8_t mask;
+        
+        /// Anonymous struct of 1-bit flags indicating specific errors.
+        struct
+        {
+            /// Error tabulating the checksum of the flash row that was to be
+            /// flashed.
+            bool flashRowChecksumError : 1;
+            
+            /// Attempted to update a flash row that is protected (cannot be
+            /// reflashed).
+            bool flashProtectionError : 1;
+            
+            /// Failed to verify the packet checksum.
+            bool packetChecksumError : 1;
+            
+            /// Invalid key was sent.
+            bool invalidKey : 1;
+            
+            /// Invalid command.
+            bool invalidCommand : 1;
+            
+            /// A split-packet error occurred.
+            bool splitPacketError : 1;
+        };
+        
+    } UpdateStatus;
+    
+    
     // === FUNCTIONS ===========================================================
     
     /// Accessor to get the number of heap words required for global variables.

@@ -19,6 +19,8 @@
 #include "alarm.h"
 #include "debug.h"
 #include "error.h"
+#include "i2cTouch.h"
+#include "i2cUpdate.h"
 #include "project.h"
 #include "queue.h"
 #include "utility.h"

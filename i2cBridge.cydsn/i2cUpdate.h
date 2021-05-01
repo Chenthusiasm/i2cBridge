@@ -29,46 +29,6 @@
     
     // === TYPE DEFINES ========================================================
     
-    /// Structure that holds the status of I2C update functions.
-    typedef struct I2cUpdateStatus
-    {
-        /// Anonymous union of update-specific status.
-        union
-        {
-            /// 8-bit representation of the status. Used to get the bit mask created
-            /// by the following anonymous struct of 1-bit flags.
-            uint8_t mask;
-            
-            /// Anonymous struct of 1-bit flags indicating specific errors.
-            struct
-            {
-                /// Error tabulating the checksum of the flash row that was to be
-                /// flashed.
-                bool flashRowChecksumError : 1;
-                
-                /// Attempted to update a flash row that is protected (cannot be
-                /// reflashed).
-                bool flashProtectionError : 1;
-                
-                /// Failed to verify the packet checksum.
-                bool packetChecksumError : 1;
-                
-                /// Invalid key was sent.
-                bool invalidKey : 1;
-                
-                /// Invalid command.
-                bool invalidCommand : 1;
-                
-                /// A split-packet error occurred.
-                bool splitPacketError : 1;
-            };
-        };
-        
-        /// General I2C status.
-        I2cStatus general;
-        
-    } I2cUpdateStatus;
-    
     
     // === FUNCTIONS ===========================================================
     
@@ -106,7 +66,7 @@
     ///                         function will determine the timeout based on
     ///                         the desired bytes to read.
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cStatus union.
+    ///         I2cStatus structure.
     I2cStatus i2cUpdate_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t timeoutMs);
     
     /// Perform a blocking write of data to a specific slave device.
@@ -119,7 +79,7 @@
     ///                         function will determine the timeout based on
     ///                         the desired bytes to write.
     /// @return Status indicating if an error occured. See the definition of the
-    ///         I2cStatus union.
+    ///         I2cStatus structure.
     I2cStatus i2cUpdate_write(uint8_t address, uint8_t const data[], uint16_t size, uint32_t timeoutMs);
     
     
