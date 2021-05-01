@@ -29,7 +29,7 @@
     
     // === TYPE DEFINES ========================================================
     
-    /// Structure that holds the status of I2C gen 2 functions.
+    /// Structure that holds the status of I2C functions.
     typedef union I2cStatus
     {        
         /// 8-bit representation of the status. Used to get the bit mask created
