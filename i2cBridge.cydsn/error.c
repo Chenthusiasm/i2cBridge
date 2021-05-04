@@ -45,7 +45,7 @@ typedef struct SystemError
     
     /// The unique callsite ID that describes the function that triggered the
     /// error.
-    uint8_t callsite[2];
+    uint8_t callsite[sizeof(callsite_t)];
     
 } SystemError;
 
@@ -63,7 +63,7 @@ typedef struct UpdateError
     
     /// The unique callsite ID that describes the function that triggered the
     /// error.
-    uint8_t callsite[2];
+    uint8_t callsite[sizeof(callsite_t)];
     
 } UpdateError;
 
@@ -81,7 +81,7 @@ typedef struct UartError
     
     /// The unique callsite ID that describes the function that triggered the
     /// error.
-    uint8_t callsite[2];
+    uint8_t callsite[sizeof(callsite_t)];
     
 } UartError;
 
@@ -99,7 +99,7 @@ typedef struct I2cError
     
     /// The unique callsite ID that describes the function that triggered the
     /// error.
-    uint8_t callsite[2];
+    uint8_t callsite[sizeof(callsite_t)];
     
     /// The last low-level I2C driver status mask.
     uint8_t driverStatus[2];

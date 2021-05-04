@@ -93,10 +93,10 @@ typedef enum SlaveAddress
 typedef enum XferQueueDataOffset
 {
     /// The I2C address.
-    XferQueueDataOffset_Xfer        = 0u,
+    XferQueueDataOffset_Xfer            = 0u,
     
     /// The start of the data payload.
-    XferQueueDataOffset_Data        = 1u,
+    XferQueueDataOffset_Data            = 1u,
     
 } XferQueueDataOffset;
 
