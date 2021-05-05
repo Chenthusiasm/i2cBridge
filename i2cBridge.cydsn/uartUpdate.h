@@ -30,7 +30,7 @@
     // === TYPE DEFINES ========================================================
     
     /// Union that holds the status of update functions.
-    typedef struct UpdateStatus
+    typedef union UpdateStatus
     {
         /// 8-bit representation of the status. Used to get the bit mask created
         /// by the following anonymous struct of 1-bit flags.
@@ -39,6 +39,13 @@
         /// Anonymous struct of 1-bit flags indicating specific errors.
         struct
         {
+            /// Error flag indicating that the module hasn't been activated and
+            /// the globals have not had memory dynamically allocated.
+            bool deactivated : 1;
+            
+            /// Error flag indicating that the input parameters are invalid.
+            bool invalidInputParameters : 1;
+            
             /// Error tabulating the checksum of the flash row that was to be
             /// flashed.
             bool flashRowChecksumError : 1;
@@ -61,6 +68,12 @@
         };
         
     } UpdateStatus;
+    
+    
+    // === PUBLIC GLOBAL CONSTANTS =============================================
+    
+    /// The default value for the UpdateStatus union.
+    extern UpdateStatus const DefaultUpdateStatus;
     
     
     // === FUNCTIONS ===========================================================

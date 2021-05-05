@@ -543,15 +543,6 @@ static uint32_t const G_DefaultLockedBusRecoveryPeriodMs = 50u;
 /// Max number of recovery attempts before performing a system reset.
 static uint8_t const G_MaxRecoveryAttempts = 10u;
 
-/// Valid code indicating the packet is meant for the bootloader.
-static uint8_t const G_UpdateCode = 0xff;
-
-/// Mask or'ed with the command to get a valid firmware update command.
-static uint8_t const G_BootloaderCommandMask = 0x30;
-
-/// Valid key indicating that the packet is meant for the bootloader.
-static uint8_t const G_UpdateKey[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
-
 
 // === PRIVATE GLOBALS =========================================================
 

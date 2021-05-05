@@ -563,6 +563,11 @@ typedef struct UpdateHeap
 } UpdateHeap;
 
 
+// === PUBLIC GLOBAL CONSTANTS =================================================
+
+UpdateStatus const DefaultUpdateStatus = { 0u };
+
+
 // === PRIVATE GLOBAL CONSTANTS ================================================
 
 /// Size (in bytes) for scratch buffers.
@@ -574,6 +579,12 @@ static uint16_t const G_RxResetTimeoutMs = 2000u;
 
 /// ASCII hex table for writing hex unsigned integers as ASCII characters.
 static char const G_AsciiHexTable[] = "0123456789abcdef";
+
+/// Valid code indicating the packet is meant for the bootloader.
+static uint8_t const G_UpdateCode = 0xff;
+
+/// Valid key indicating that the packet is meant for the bootloader.
+static uint8_t const G_UpdateKey[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
 
 
 // === PRIVATE GLOBALS =========================================================
@@ -1420,6 +1431,35 @@ static bool deactivate(void)
 }
 
 
+/// Validates the update subchunk to ensure it's valid.
+/// @param[in]  data    The subchunk data to validate.
+/// @param[in]  size    The number of bytes in the subchunk.
+/// @return If the update subchunk is valid or not.
+static bool validateUpdateSubchunk(uint8_t const data[], uint16_t size)
+{
+    bool valid = false;
+    if ((data != NULL) && (size >= UpdateSubchunkOffset_Payload))
+    {
+        uint8_t command = data[UpdateSubchunkOffset_Command];
+        if ((data[UpdateSubchunkOffset_Code] == G_UpdateCode) &&
+            (command >= BootloaderCommand_GetProtocol) &&
+            (command <= BootloaderCommand_GetRuntimeInfo))
+        {
+            valid = true;
+            for (uint8_t i = 0; i < sizeof(G_UpdateKey); ++i)
+            {
+                if (data[UpdateSubchunkOffset_Key + i] != G_UpdateKey[i])
+                {
+                    valid = false;
+                    break;
+                }
+            }
+        }
+    }
+    return valid;
+}
+
+
 // === ISR =====================================================================
 
 /// ISR for UART IRQ's in general.
@@ -1723,9 +1763,11 @@ bool uartUpdate_process(void)
 {
     static uint32_t const TimeoutMs = 30u;
     
-    bool status = false;
+    bool processed = false;
+    UpdateStatus status = DefaultUpdateStatus;
     if (uartUpdate_isActivated())
     {
+        
         Alarm alarm;
         alarm_arm(&alarm, TimeoutMs, AlarmType_ContinuousNotification);
         while (!queue_isEmpty(&g_heap->decodedRxQueue))
@@ -1737,15 +1779,22 @@ bool uartUpdate_process(void)
             uint16_t size = queue_dequeue(&g_heap->decodedRxQueue, &data);
             if (size > 0)
             {
-                // Check the packet contents.
-                // Direct I2C write to the slave device (bootloader address).
-                // Direct I2C read status.
-                // Save status contents to FW update status structure.
+                if (validateUpdateSubchunk(data, size))
+                {
+                    // Direct I2C write to the slave device (bootloader address).
+                    // Direct I2C read status.
+                    // Save status contents to FW update status structure.
+                }
+                else
+                    status.invalidInputParameters = true;
             }
         }
-        status = true;
+        processed = true;
     }
-    return status;
+    else
+        status.deactivated = true;
+    
+    return processed;
 }
 
 
