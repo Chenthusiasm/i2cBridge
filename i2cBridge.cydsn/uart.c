@@ -1781,9 +1781,17 @@ bool uartUpdate_process(void)
             {
                 if (validateUpdateSubchunk(data, size))
                 {
-                    // Direct I2C write to the slave device (bootloader address).
-                    // Direct I2C read status.
-                    // Save status contents to FW update status structure.
+                    uint8_t const ReadDataSize = 2u;
+                    uint8_t readData[ReadDataSize];
+                    I2cStatus i2cStatus = i2cUpdate_bootloaderWrite(data, size, 0u);
+                    if (i2cStatus.mask == 0u)
+                    {
+                        i2cStatus = i2cUpdate_bootloaderRead(readData, sizeof(readData), 0u);
+                        if (i2cStatus.mask == 0u)
+                        {
+                            // Save status contents to FW update status structure.
+                        }
+                    }
                 }
                 else
                     status.invalidInputParameters = true;

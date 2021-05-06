@@ -1794,4 +1794,16 @@ I2cStatus i2cUpdate_write(uint8_t address, uint8_t const data[], uint16_t size, 
 }
 
 
+I2cStatus i2cUpdate_bootloaderRead(uint8_t data[], uint16_t size, uint32_t timeoutMs)
+{
+    return i2c_read(SlaveAddress_Bootloader, data, size, timeoutMs);
+}
+
+
+I2cStatus i2cUpdate_bootloaderWrite(uint8_t const data[], uint16_t size, uint32_t timeoutMs)
+{
+    return i2c_write(SlaveAddress_Bootloader, data, size, timeoutMs);
+}
+
+
 /* [] END OF FILE */
