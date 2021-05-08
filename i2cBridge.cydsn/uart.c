@@ -370,6 +370,28 @@ typedef enum BootloaderReadOffset
 } BootloaderReadOffset;
 
 
+/// The bootloader status value. Only the critical values pertaining to the
+/// firmware update are documented.
+typedef enum BootloaderStatus
+{
+    /// Status response generation is pending, need to read again.
+    BootloaderStatus_ResponsePending    = 0x00,
+    
+    /// Update mode is not enabled.
+    BootloaderStatus_UpdateModeDisabled = 0x01,
+    
+    /// Update mode is enabled and last transaction was good.
+    BootloaderStatus_UpdateModeEnabled  = 0x20,
+    
+    /// Last transaction had an invalid key.
+    BootloaderStatus_InvalidKey         = 0x40,
+    
+    /// Last transaction had a command that was not recognized.
+    BootloaderStatus_InvalidCommand     = 0x80,
+    
+} BootloaderStatus;
+
+
 /// Settings pertaining to the transmit enqueue.
 typedef struct TxEnqueueSettings
 {
