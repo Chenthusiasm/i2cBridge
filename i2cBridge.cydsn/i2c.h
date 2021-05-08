@@ -167,9 +167,9 @@
     ///         I2cStatus union.
     I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size, uint32_t timeoutMs);
     
-    /// Checks the SystemStatus and indicates if any error occurs.
-    /// @param[in]  status  The SystemStatus error flags.
-    /// @return If an error occurred according to the SystemStatus.
+    /// Checks the I2cStatus and indicates if any error occurs.
+    /// @param[in]  status  The I2cStatus error flags.
+    /// @return If an error occurred according to the I2cStatus.
     bool i2c_errorOccurred(I2cStatus const status);
     
     

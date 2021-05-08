@@ -89,6 +89,9 @@
     void bridgeFsm_requestReset(void);
     
     
+    bool bridgeFsm_errorOccurred(SystemStatus const status);
+    
+    
     #ifdef __cplusplus
         } // extern "C"
     #endif

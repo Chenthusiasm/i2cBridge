@@ -1892,11 +1892,9 @@ bool uartUpdate_process(void)
                         i2cStatus = i2cUpdate_bootloaderRead(readData, sizeof(readData), 0u);
                         if (i2cStatus.mask == 0u)
                         {
-                            if (data[BootloaderRxOffset_Status] == BootloaderStatus_UpdateModeEnabled)
+                            if (processBootloaderStatus(data[BootloaderRxOffset_Status], &status))
                             {
                             }
-                            else
-                                ;
                         }
                     }
                 }
@@ -1910,6 +1908,12 @@ bool uartUpdate_process(void)
         status.deactivated = true;
     
     return processed;
+}
+
+
+bool uartUpdate_errorOccurred(UpdateStatus const status)
+{
+    return (status.mask != DefaultUpdateStatus);
 }
 
 

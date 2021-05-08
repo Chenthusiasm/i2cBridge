@@ -136,7 +136,7 @@ typedef struct Heap
 } Heap;
 
 
-// === CONSTANTS ===============================================================
+// === PRIVATE GLOBAL CONSTANTS ================================================
 
 /// The default period between writing of error messages to the host UART bus
 /// when a general error occurs.
@@ -152,7 +152,7 @@ static uint32_t const G_UartProcessTxTimeoutMs = 3u;
 static uint32_t const G_I2cProcessTimeoutMs = 5u;
 
 
-// === GLOBAL VARIABLES ========================================================
+// === PRIVATE GLOBALS =========================================================
 
 /// The current state of the state machine.
 static State g_state = State_InitHostComm;
