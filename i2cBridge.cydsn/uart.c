@@ -380,6 +380,12 @@ typedef enum BootloaderStatus
     /// Update mode is not enabled.
     BootloaderStatus_UpdateModeDisabled = 0x01,
     
+    /// The flash row checksum is invalid.
+    BootloaderStatus_RowChecksumInvalid = 0x04,
+    
+    /// The row to be written was protected in flash.
+    BootloaderStatus_FlashRowProtected  = 0x08,
+    
     /// Update mode is enabled and last transaction was good.
     BootloaderStatus_UpdateModeEnabled  = 0x20,
     
@@ -1491,6 +1497,69 @@ static bool validateUpdateSubchunk(uint8_t const data[], uint16_t size)
         }
     }
     return valid;
+}
+
+
+/// Processes the bootloader status to determine the status of the last
+/// bootloader transaction.
+/// @param[in]  bootloaderStatus    The bootloader response status byte.
+/// @param[out] updateStatus        Status indicating if an error occured. See
+///                                 the definition of UpdateStatus.
+/// @return If the last transaction completed; otherwise, the last transaction
+///         is still incomplete and a read must be done at a later time.
+static bool processBootloaderStatus(uint8_t bootloaderStatus, UpdateStatus* updateStatus)
+{
+    bool completed = true;
+    switch (bootloaderStatus)
+    {
+        case BootloaderStatus_ResponsePending:
+        {
+            completed = false;
+            break;
+        }
+        
+        case BootloaderStatus_UpdateModeDisabled:
+        {
+            updateStatus->updateModeDisabled = true;
+            break;
+        }
+        
+        case BootloaderStatus_RowChecksumInvalid:
+        {
+            updateStatus->flashRowChecksumError = true;
+            break;
+        }
+        
+        case BootloaderStatus_FlashRowProtected:
+        {
+            updateStatus->flashProtectionError = true;
+            break;
+        }
+        
+        case BootloaderStatus_UpdateModeEnabled:
+        {
+            // Don't set any error flags.
+            break;
+        }
+        
+        case BootloaderStatus_InvalidKey:
+        {
+            updateStatus->invalidKey = true;
+            break;
+        }
+        
+        case BootloaderStatus_InvalidCommand:
+        {
+            updateStatus->invalidCommand = true;
+            break;
+        }
+        
+        default:
+        {
+            updateStatus->specificError = true;
+        }
+    }
+    return completed;
 }
 
 

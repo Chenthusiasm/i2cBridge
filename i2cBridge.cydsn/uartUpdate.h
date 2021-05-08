@@ -46,6 +46,10 @@
             /// Error flag indicating that the input parameters are invalid.
             bool invalidInputParameters : 1;
             
+            /// The bootloader's update mode is not enabled so updates cannot
+            /// occur.
+            bool updateModeDisabled : 1;
+            
             /// Error tabulating the checksum of the flash row that was to be
             /// flashed.
             bool flashRowChecksumError : 1;
@@ -54,17 +58,16 @@
             /// reflashed).
             bool flashProtectionError : 1;
             
-            /// Failed to verify the packet checksum.
-            bool packetChecksumError : 1;
-            
             /// Invalid key was sent.
             bool invalidKey : 1;
             
             /// Invalid command.
             bool invalidCommand : 1;
             
-            /// A split-packet error occurred.
-            bool splitPacketError : 1;
+            /// A specific bootloader error occurred and the status byte needs
+            /// to be decoded to determine the details of the failure.
+            bool specificError : 1;
+            
         };
         
     } UpdateStatus;
