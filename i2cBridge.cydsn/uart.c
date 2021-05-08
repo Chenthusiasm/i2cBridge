@@ -358,6 +358,18 @@ typedef enum SplitUpdateOffset
 } SplitUpdateOffset;
 
 
+/// Defines the offsets for the read packets from the I2C slave bootloader.
+typedef enum BootloaderReadOffset
+{
+    /// Status byte.
+    BootloaderReadOffset_Status         = 0u,
+    
+    /// Sequence number.
+    BootloaderReadOffset_SequenceNumber = 1u,
+    
+} BootloaderReadOffset;
+
+
 /// Settings pertaining to the transmit enqueue.
 typedef struct TxEnqueueSettings
 {
