@@ -304,70 +304,70 @@ typedef enum BootloaderCommand
 } BootloaderCommand;
 
 
-/// Defines the offsets for different data in the update packet.
-typedef enum UpdateSubchunkOffset
+/// Defines the offsets for different data in the bootloader transmit packets.
+typedef enum BootloaderTxOffset
 {
     /// Unique code to identify a packet meant for the bootloader.
-    UpdateSubchunkOffset_Code           = 0u,
+    BootloaderTxOffset_Code             = 0u,
     
     /// Bootloader command.
-    UpdateSubchunkOffset_Command        = 1u,
+    BootloaderTxOffset_Command          = 1u,
     
     /// Unique key to identify a packet meant for the bootloader.
-    UpdateSubchunkOffset_Key            = 2u,
+    BootloaderTxOffset_Key              = 2u,
     
     /// The data payload.
-    UpdateSubchunkOffset_Payload        = 10u,
+    BootloaderTxOffset_Payload          = 10u,
     
-} UpdateSubchunkOffset;
+} BootloaderTxOffset;
 
 
 /// Defines the offsets for different data in the update packet specific to the
 /// row update command.
-typedef enum RowUpdateOffset
+typedef enum BootloaderTxRowOffset
 {
     /// The flash row the data payload is to be flashed to.
-    RowUpdateOffset_RowId               = 10u,
+    BootloaderTxRowOffset_RowId         = 10u,
     
     /// The data to flash.
-    RowUpdateOffset_Data                = 12u,
+    BootloaderTxRowOffset_Data          = 12u,
     
-} SingleUpdateOffset;
+} BootloaderTxRowOffset;
 
 
 /// Defines the offsets for different data in the update packet specific to the
 /// split update (multi-packet) command.
-typedef enum SplitUpdateOffset
+typedef enum BootloaderTxSplitOffset
 {
     /// The flash row the data payload is to be flashed to.
-    SplitUpdateOffset_RowId             = 10u,
+    BootloaderTxSplitOffset_RowId       = 10u,
     
     /// The last split packet index for the row. Helps identify if all the split
     /// packets for a specific row was received before flashing the entire row.
-    SplitUpdateOffset_LastIndex         = 12u,
+    BootloaderTxSplitOffset_LastIndex   = 12u,
     
     /// The current split packet index for the row.
-    SplitUpdateOffset_Index             = 13u,
+    BootloaderTxSplitOffset_Index       = 13u,
     
     /// The size of the packet in bytes.
-    SplitUpdateOffset_PacketSize        = 14u,
+    BootloaderTxSplitOffset_PacketSize  = 14u,
     
     /// The data to flash.
-    SplitUpdateOffset_Data              = 15u,
+    BootloaderTxSplitOffset_Data        = 15u,
     
-} SplitUpdateOffset;
+} BootloaderTxSplitOffset;
 
 
-/// Defines the offsets for the read packets from the I2C slave bootloader.
-typedef enum BootloaderReadOffset
+/// Defines the offsets for the receive packets from the I2C slave bootloader.
+typedef enum BootloaderRxOffset
 {
     /// Status byte.
-    BootloaderReadOffset_Status         = 0u,
+    BootloaderRxOffset_Status           = 0u,
     
     /// Sequence number.
-    BootloaderReadOffset_SequenceNumber = 1u,
+    BootloaderRxOffset_SequenceNumber   = 1u,
     
-} BootloaderReadOffset;
+} BootloaderRxOffset;
 
 
 /// The bootloader status value. Only the critical values pertaining to the
@@ -1472,17 +1472,17 @@ static bool deactivate(void)
 static bool validateUpdateSubchunk(uint8_t const data[], uint16_t size)
 {
     bool valid = false;
-    if ((data != NULL) && (size >= UpdateSubchunkOffset_Payload))
+    if ((data != NULL) && (size >= BootloaderTxOffset_Payload))
     {
-        uint8_t command = data[UpdateSubchunkOffset_Command];
-        if ((data[UpdateSubchunkOffset_Code] == G_UpdateCode) &&
+        uint8_t command = data[BootloaderTxOffset_Command];
+        if ((data[BootloaderTxOffset_Code] == G_UpdateCode) &&
             (command >= BootloaderCommand_GetProtocol) &&
             (command <= BootloaderCommand_GetRuntimeInfo))
         {
             valid = true;
             for (uint8_t i = 0; i < sizeof(G_UpdateKey); ++i)
             {
-                if (data[UpdateSubchunkOffset_Key + i] != G_UpdateKey[i])
+                if (data[BootloaderTxOffset_Key + i] != G_UpdateKey[i])
                 {
                     valid = false;
                     break;
@@ -1823,7 +1823,11 @@ bool uartUpdate_process(void)
                         i2cStatus = i2cUpdate_bootloaderRead(readData, sizeof(readData), 0u);
                         if (i2cStatus.mask == 0u)
                         {
-                            // Save status contents to FW update status structure.
+                            if (data[BootloaderRxOffset_Status] == BootloaderStatus_UpdateModeEnabled)
+                            {
+                            }
+                            else
+                                ;
                         }
                     }
                 }
