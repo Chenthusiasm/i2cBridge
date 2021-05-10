@@ -603,11 +603,6 @@ typedef struct UpdateHeap
 } UpdateHeap;
 
 
-// === PUBLIC GLOBAL CONSTANTS =================================================
-
-UpdateStatus const DefaultUpdateStatus = { 0u };
-
-
 // === PRIVATE GLOBAL CONSTANTS ================================================
 
 /// Size (in bytes) for scratch buffers.
@@ -625,6 +620,9 @@ static uint8_t const G_UpdateCode = 0xff;
 
 /// Valid key indicating that the packet is meant for the bootloader.
 static uint8_t const G_UpdateKey[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+
+/// The default UpdateStatus with no error flags set.
+UpdateStatus const G_NoErrorUpdateStatus = { 0u };
 
 
 // === PRIVATE GLOBALS =========================================================
@@ -1867,7 +1865,7 @@ bool uartUpdate_process(void)
     static uint32_t const TimeoutMs = 30u;
     
     bool processed = false;
-    UpdateStatus status = DefaultUpdateStatus;
+    UpdateStatus status = uartUpdate_getNoErrorUpdateStatus();
     if (uartUpdate_isActivated())
     {
         
@@ -1913,8 +1911,15 @@ bool uartUpdate_process(void)
 
 bool uartUpdate_errorOccurred(UpdateStatus const status)
 {
-    return (status.mask != DefaultUpdateStatus.mask);
+    return (status.mask != G_NoErrorUpdateStatus.mask);
 }
+
+
+UpdateStatus uartUpdate_getNoErrorUpdateStatus(void)
+{
+    return G_NoErrorUpdateStatus;
+}
+
 
 
 /* [] END OF FILE */

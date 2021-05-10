@@ -500,11 +500,6 @@ typedef union Callsite
 } Callsite;
 
 
-// === PUBLIC GLOBAL CONSTANTS =================================================
-
-I2cStatus const DefaultI2cStatus = { 0u };
-
-
 // === PRIVATE GLOBAL CONSTANTS ================================================
 
 /// The number of bytes to read in order to find the number of bytes in the
@@ -542,6 +537,9 @@ static uint32_t const G_DefaultLockedBusRecoveryPeriodMs = 50u;
 
 /// Max number of recovery attempts before performing a system reset.
 static uint8_t const G_MaxRecoveryAttempts = 10u;
+
+/// The default I2cStatus with no error flags set.
+I2cStatus const G_NoErrorI2cStatus = { 0u };
 
 
 // === PRIVATE GLOBALS =========================================================
@@ -747,7 +745,7 @@ static I2cStatus processPreviousTranferErrors(mstatus_t status)
     static mstatus_t const PreviousDoneMask = COMPONENT(SLAVE_I2C, I2C_MSTAT_RD_CMPLT) | COMPONENT(SLAVE_I2C, I2C_MSTAT_WR_CMPLT);
     static mstatus_t const ErrorMask = COMPONENT(SLAVE_I2C, I2C_MSTAT_ERR_MASK);
     
-    I2cStatus returnStatus = { false };
+    I2cStatus returnStatus = i2c_getNoErrorI2cStatus();
     if ((status & PreviousDoneMask) > 0)
     {
         if ((status & ErrorMask) > 0)
@@ -822,7 +820,7 @@ static bool isBusLocked(void)
 /// @param[in]  result  The result from the low-level driver function call.
 I2cStatus updateDriverStatus(mreturn_t result)
 {
-    I2cStatus status = DefaultI2cStatus;
+    I2cStatus status = i2c_getNoErrorI2cStatus();
     if (result != COMPONENT(SLAVE_I2C, I2C_MSTR_NO_ERROR))            
     {
         status.driverError = true;
@@ -919,7 +917,7 @@ static I2cStatus write(uint8_t address, uint8_t const data[], uint16_t size)
     ///         I2cStatus union.
     static I2cStatus recoverFromLockedBus(void)
     {
-        I2cStatus status = DefaultI2cStatus;
+        I2cStatus status = i2c_getNoErrorI2cStatus();
         if (g_lockedBus.recoverAlarm.armed && alarm_hasElapsed(&g_lockedBus.recoverAlarm))
         {
             debug_setPin1(false);
@@ -984,7 +982,7 @@ static I2cStatus changeSlaveAppToResponseBuffer(void)
 ///         I2cStatus union.
 static I2cStatus processCommFsm(uint32_t timeoutMs)
 {
-    I2cStatus status = DefaultI2cStatus;
+    I2cStatus status = i2c_getNoErrorI2cStatus();
     if (timeoutMs > 0)
         alarm_arm(&g_commFsm.timeoutAlarm, timeoutMs, AlarmType_ContinuousNotification);
     else
@@ -1261,7 +1259,7 @@ static I2cStatus processCommFsm(uint32_t timeoutMs)
 ///         I2cStatus union.
 I2cStatus xferEnqueueRead(uint8_t address, uint16_t size)
 {
-    I2cStatus status = DefaultI2cStatus;
+    I2cStatus status = i2c_getNoErrorI2cStatus();
     if (g_heap != NULL)
     {
         if ((size > 0) && (size <= UINT8_MAX))
@@ -1294,7 +1292,7 @@ I2cStatus xferEnqueueRead(uint8_t address, uint16_t size)
 ///         I2cStatus union.
 I2cStatus xferEnqueueWrite(uint8_t address, uint8_t const data[], uint16_t size)
 {
-    I2cStatus status = DefaultI2cStatus;
+    I2cStatus status = i2c_getNoErrorI2cStatus();
     if (g_heap != NULL)
     {
         if ((data != NULL) && (size > 0))
@@ -1361,7 +1359,7 @@ I2cStatus ack(uint8_t address, uint32_t timeoutMs)
     
     bool ackSent = false;
     bool done = false;
-    I2cStatus status = DefaultI2cStatus;
+    I2cStatus status = i2c_getNoErrorI2cStatus();
     while (!done)
     {
         if (alarm.armed && alarm_hasElapsed(&alarm))
@@ -1581,7 +1579,7 @@ I2cStatus i2c_read(uint8_t address, uint8_t data[], uint16_t size, uint32_t time
     
     bool sent = false;
     bool done = false;
-    I2cStatus status = DefaultI2cStatus;
+    I2cStatus status = i2c_getNoErrorI2cStatus();
     while (!done)
     {
         if (alarm.armed && alarm_hasElapsed(&alarm))
@@ -1621,7 +1619,7 @@ I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size, uint32
     
     bool sent = false;
     bool done = false;
-    I2cStatus status = DefaultI2cStatus;
+    I2cStatus status = i2c_getNoErrorI2cStatus();
     while (!done)
     {
         if (alarm.armed && alarm_hasElapsed(&alarm))
@@ -1654,7 +1652,13 @@ I2cStatus i2c_write(uint8_t address, uint8_t const data[], uint16_t size, uint32
 
 bool i2c_errorOccurred(I2cStatus const status)
 {
-    return (status.mask > 0u);
+    return (status.mask != G_NoErrorI2cStatus.mask);
+}
+
+
+I2cStatus i2c_getNoErrorI2cStatus(void)
+{
+    return G_NoErrorI2cStatus;
 }
 
 
@@ -1702,7 +1706,7 @@ I2cStatus i2cTouch_process(uint32_t timeoutMs)
     g_callsite.value = 0u;
     g_callsite.topCall = 1u;
     
-    I2cStatus status = DefaultI2cStatus;
+    I2cStatus status = i2c_getNoErrorI2cStatus();
     
 #if ENABLE_I2C_LOCKED_BUS_DETECTION
     if (isBusLocked())

@@ -69,12 +69,6 @@
     } BridgeStatus;
     
     
-    // === PUBLIC GLOBAL CONSTANTS =============================================
-    
-    /// The default value for the I2cStatus union.
-    extern BridgeStatus const DefaultBridgeStatus;
-    
-    
     // === FUNCTIONS ===========================================================
     
     /// Initialize the bridge state machine. This will also reset the bridge
@@ -98,6 +92,10 @@
     /// @param[in]  status  The BridgeStatus error flags.
     /// @return If an error occurred according to the BridgeStatus.
     bool bridgeFsm_errorOccurred(BridgeStatus const status);
+    
+    /// Accessor to get the BridgeStatus structure with no error flags set.
+    /// @return The BridgeStatus structure with no error flags set.
+    BridgeStatus bridgeFsm_getNoErrorBridgeStatus(void);
     
     
     #ifdef __cplusplus

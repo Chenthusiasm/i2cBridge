@@ -73,12 +73,6 @@
     } UpdateStatus;
     
     
-    // === PUBLIC GLOBAL CONSTANTS =============================================
-    
-    /// The default value for the UpdateStatus union.
-    extern UpdateStatus const DefaultUpdateStatus;
-    
-    
     // === FUNCTIONS ===========================================================
     
     /// Accessor to get the number of heap words required for global variables.
@@ -118,6 +112,10 @@
     /// @param[in]  status  The UpdateStatus error flags.
     /// @return If an error occurred according to the UpdateStatus.
     bool uartUpdate_errorOccurred(UpdateStatus const status);
+    
+    /// Accessor to get the UpdateStatus structure with no error flags set.
+    /// @return The UpdateStatus structure with no error flags set.
+    UpdateStatus uartUpdate_getNoErrorUpdateStatus(void);
     
     
     #ifdef __cplusplus
