@@ -116,7 +116,7 @@
     /// @param[in]  callsite        The callsite ID.
     /// @return The size of the data payload. If -1, the buffer size was too
     ///         small.
-    int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, SystemStatus systemStatus, uint16_t callsite);
+    int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, BridgeStatus systemStatus, uint16_t callsite);
     
     /// Generates the system error message.
     /// @param[out] buffer          The buffer to put the I2C error message.

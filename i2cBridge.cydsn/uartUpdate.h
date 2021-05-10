@@ -114,9 +114,9 @@
     /// @return If the pending UART transactions were executed successfully.
     bool uartUpdate_process(void);
     
-    /// Checks the SystemStatus and indicates if any error occurs.
+    /// Checks the UpdateStatus and indicates if any error occurs.
     /// @param[in]  status  The UpdateStatus error flags.
-    /// @return If an error occurred according to the SystemStatus.
+    /// @return If an error occurred according to the UpdateStatus.
     bool uartUpdate_errorOccurred(UpdateStatus const status);
     
     

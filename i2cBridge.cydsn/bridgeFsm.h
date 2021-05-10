@@ -27,9 +27,9 @@
     
     // === TYPE DEFINES ========================================================
     
-    /// Structure that holds the status of system; in this case, the bridge
+    /// Structure that holds the status of the bridge; in this case, the bridge
     /// state machine.
-    typedef union SystemStatus
+    typedef union BridgeStatus
     {
         /// 8-bit representation of the status. Used to get the bit mask created
         /// by the following anonymous struct of 1-bit flags.
@@ -66,7 +66,13 @@
             
         };
         
-    } SystemStatus;
+    } BridgeStatus;
+    
+    
+    // === PUBLIC GLOBAL CONSTANTS =============================================
+    
+    /// The default value for the I2cStatus union.
+    extern BridgeStatus const DefaultBridgeStatus;
     
     
     // === FUNCTIONS ===========================================================
@@ -88,8 +94,10 @@
     /// Prep the bridge to prepare for a system reset.
     void bridgeFsm_requestReset(void);
     
-    
-    bool bridgeFsm_errorOccurred(SystemStatus const status);
+    /// Checks the BridgeStatus and indicates if any error occurs.
+    /// @param[in]  status  The BridgeStatus error flags.
+    /// @return If an error occurred according to the BridgeStatus.
+    bool bridgeFsm_errorOccurred(BridgeStatus const status);
     
     
     #ifdef __cplusplus

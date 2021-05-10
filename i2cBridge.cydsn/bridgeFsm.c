@@ -136,6 +136,11 @@ typedef struct Heap
 } Heap;
 
 
+// === PUBLIC GLOBAL CONSTANTS =================================================
+
+BridgeStatus const DefaultBridgeStatus = { 0u };
+
+
 // === PRIVATE GLOBAL CONSTANTS ================================================
 
 /// The default period between writing of error messages to the host UART bus
@@ -174,15 +179,6 @@ static Heap g_heap;
 
 // === PRIVATE FUNCTIONS =======================================================
 
-/// Checks the SystemStatus and indicates if any error occurs.
-/// @param[in]  status  The SystemStatus error flags.
-/// @return If an error occurred according to the SystemStatus.
-static bool errorOccurred(SystemStatus const status)
-{
-    return (status.mask > 0u);
-}
-
-
 /// Checks if the slave is resetting.
 /// Note, the slave reset is configured as an open drain drives low GPIO. The
 /// slave device's XRES line has an internal pull-up and is an active low reset.
@@ -212,9 +208,9 @@ static uint16_t getFreeHeapWordSize(void)
 
 
 /// Processes any system errors that may have occurred.
-static void processError(SystemStatus status)
+static void processError(BridgeStatus status)
 {
-    if (errorOccurred(status))
+    if (bridgeFsm_errorOccurred(status))
         error_tally(ErrorType_System);
 }
 
@@ -229,10 +225,10 @@ static void rearmErrorMessageAlarm(void)
 /// Resets the heap to the default value. Additionally deactivates/deallocates
 /// the heaps used by the host and slave communications.
 /// @return Status indicating if an error occured. See the definition of the
-///         SystemStatus union.
-static SystemStatus resetHeap(void)
+///         BridgeStatus union.
+static BridgeStatus resetHeap(void)
 {
-    SystemStatus status = { false };
+    BridgeStatus status = { false };
     
     // Deactivate/deallocate the communication sub systems if they're activated.
     uint16_t deactivationSize = 0;
@@ -253,10 +249,10 @@ static SystemStatus resetHeap(void)
 
 /// Initializes the host comm in translate mode.
 /// @return Status indicating if an error occured. See the definition of the
-///         SystemStatus union.
-static SystemStatus initHostComm(void)
+///         BridgeStatus union.
+static BridgeStatus initHostComm(void)
 {
-    SystemStatus status = { false };
+    BridgeStatus status = { false };
     uint16_t size = uartTranslate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
     if (size > 0)
         g_heap.freeOffset += size;
@@ -277,9 +273,9 @@ static SystemStatus initHostComm(void)
 static bool processInitHostComm(void)
 {
     resetHeap();
-    SystemStatus status = initHostComm();
+    BridgeStatus status = initHostComm();
     processError(status);
-    return !errorOccurred(status);
+    return !bridgeFsm_errorOccurred(status);
 }
 
 
@@ -287,7 +283,7 @@ static bool processInitHostComm(void)
 /// @return If the slave reset was initialized successfully.
 static bool processInitSlaveReset(void)
 {
-    SystemStatus status = { false };
+    BridgeStatus status = { false };
     if (!isSlaveResetting())
     {
         static uint32_t const DefaultResetTimeoutMs = 100u;
@@ -296,7 +292,7 @@ static bool processInitSlaveReset(void)
     }
     else
         status.slaveResetFailed = true;
-    return !errorOccurred(status);
+    return !bridgeFsm_errorOccurred(status);
 }
 
 
@@ -305,7 +301,7 @@ static bool processInitSlaveReset(void)
 static bool processSlaveResetComplete(void)
 {
     bool complete = false;
-    SystemStatus status = { false };
+    BridgeStatus status = { false };
     if (!g_resetAlarm.armed || alarm_hasElapsed(&g_resetAlarm))
     {
         resetSlave(false);
@@ -330,14 +326,14 @@ static bool processSlaveResetComplete(void)
 /// @return If the initialization was successful.
 static bool processInitSlaveTranslate(void)
 {
-    SystemStatus status = { false };
+    BridgeStatus status = { false };
     if (!(uartTranslate_isActivated() && i2cTouch_isActivated()))
     {
         status = resetHeap();
-        if (!errorOccurred(status))
+        if (!bridgeFsm_errorOccurred(status))
         {
             status = initHostComm();
-            if (!errorOccurred(status))
+            if (!bridgeFsm_errorOccurred(status))
             {
                 uint16_t size = i2cTouch_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
                 if (size > 0)
@@ -355,7 +351,7 @@ static bool processInitSlaveTranslate(void)
         }
     }
     processError(status);
-    return !errorOccurred(status);
+    return !bridgeFsm_errorOccurred(status);
 }
 
 
@@ -379,11 +375,11 @@ static bool processSlaveTranslate(void)
 /// @return If the initialization was successful.
 static bool processInitSlaveUpdate(void)
 {
-    SystemStatus status = { false };
+    BridgeStatus status = { false };
     if (!(uartUpdate_isActivated() && i2cUpdate_isActivated()))
     {
         status = resetHeap();
-        if (!errorOccurred(status))
+        if (!bridgeFsm_errorOccurred(status))
         {
             uint16_t size = uartUpdate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
             if (size > 0)
@@ -413,7 +409,7 @@ static bool processInitSlaveUpdate(void)
         }
     }
     processError(status);
-    return !errorOccurred(status);
+    return !bridgeFsm_errorOccurred(status);
 }
 
 
@@ -639,6 +635,12 @@ void bridgeFsm_requestReset(void)
 {
     g_modeChange.pending = false;
     g_modeChange.resetPending = true;
+}
+
+
+bool bridgeFsm_errorOccurred(BridgeStatus const status)
+{
+    return (status.mask > DefaultBridgeStatus.mask);
 }
 
 

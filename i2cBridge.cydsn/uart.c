@@ -1913,7 +1913,7 @@ bool uartUpdate_process(void)
 
 bool uartUpdate_errorOccurred(UpdateStatus const status)
 {
-    return (status.mask != DefaultUpdateStatus);
+    return (status.mask != DefaultUpdateStatus.mask);
 }
 
 

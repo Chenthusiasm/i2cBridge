@@ -252,7 +252,7 @@ void error_tally(ErrorType type)
 }
 
 
-int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, SystemStatus systemStatus, uint16_t callsite)
+int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, BridgeStatus systemStatus, uint16_t callsite)
 {
     int dataSize = -1;
     if (g_mode == ErrorMode_Global)
