@@ -941,7 +941,7 @@ static bool __attribute__((unused)) txEnqueueUartError(uint16_t callsite)
 
 
 /// Enqueue the I2C-specific error response.
-/// @param[in]  status
+/// @param[in]  status      The I2cStatus indicating if an error occurred.
 /// @param[in]  callsite    Unique callsite ID to distinguish different
 ///                         functions that triggered the error.
 /// @return If the error response was successfully enqueued.
@@ -965,14 +965,14 @@ static bool txEnqueueI2cError(I2cStatus status, uint16_t callsite)
 }
 
 
-/// Processes errors from the I2C gen 2 module, specifically prep an error
-/// message to send to the host.
+/// Processes errors from the I2C module, specifically prep an error message to
+/// to the host.
 /// @param[in]  status      Status indicating if an error occured during the I2c
 ///                         transaction. See the definition of the
 ///                         I2cStatus union.
 /// @param[in]  callsite    Unique callsite ID to distinguish different
 ///                         functions that triggered the error.
-static void processI2cErrors(I2cStatus status, uint16_t callsite)
+static void processI2cErrors(I2cStatus status, callsite_t callsite)
 {
     
     if (error_getMode() == ErrorMode_Global)
@@ -995,6 +995,45 @@ static void processI2cErrors(I2cStatus status, uint16_t callsite)
             ;
     }
     error_tally(ErrorType_I2c);
+}
+
+
+/// Enqueue the update-specific error response.
+/// @param[in]  status      The UpdateStatus indicating if an error occurred.
+/// @param[in]  callsite    Unique callsite ID to distinguish different
+///                         functions that triggered the error.
+/// @return If the error response was successfully enqueued.
+static bool txEnqueueUpdateError(UpdateStatus status, uint16_t callsite)
+{
+    bool result = false;
+    if (!queue_isFull(&g_heap->txQueue))
+    {
+        uint8_t scratch[G_ScratchSize];
+        int size = error_makeUpdateErrorMessage(scratch, sizeof(scratch), status, callsite);
+        if (size > 0)
+        {
+            g_pendingTxEnqueue.command = BridgeCommand_Error;
+            g_pendingTxEnqueue.commandFlag = true;
+            g_pendingTxEnqueue.dataFlag = true;
+            queue_enqueue(&g_heap->txQueue, scratch, size);
+            result = true;
+        }
+    }
+    return result;
+}
+
+
+/// Processes errors from UART update module, specifically prep an error
+/// message to send to the host.
+/// @param[in]  status      Status indicating if an error occured during the
+///                         update. See the definition of the
+///                         UpdateStatus union.
+/// @param[in]  callsite    Unique callsite ID to distinguish different
+///                         functions that triggered the error.
+static void processUpdateErrors(UpdateStatus status, callsite_t callsite)
+{
+    if (error_getMode() == ErrorMode_Global)
+        txEnqueueUpdateError(status, callsite);
 }
 
 
@@ -1904,6 +1943,8 @@ bool uartUpdate_process(void)
     }
     else
         status.deactivated = true;
+    if (uartUpdate_errorOccurred(status))
+        processUpdateErrors(status, 0u);
     
     return processed;
 }

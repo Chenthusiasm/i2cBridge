@@ -252,7 +252,7 @@ void error_tally(ErrorType type)
 }
 
 
-int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, BridgeStatus systemStatus, uint16_t callsite)
+int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, BridgeStatus status, callsite_t callsite)
 {
     int dataSize = -1;
     if (g_mode == ErrorMode_Global)
@@ -262,7 +262,7 @@ int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, BridgeStatus s
             SystemError error =
             {
                 ErrorType_System,
-                systemStatus.mask,
+                status.mask,
                 {
                     HI_BYTE_16_BIT(callsite),
                     LO_BYTE_16_BIT(callsite),
@@ -280,7 +280,7 @@ int error_makeSystemErrorMessage(uint8_t buffer[], uint16_t size, BridgeStatus s
 }
 
 
-int error_makeUpdateErrorMessage(uint8_t buffer[], uint16_t size, uint8_t updateStatus, uint16_t callsite)
+int error_makeUpdateErrorMessage(uint8_t buffer[], uint16_t size, UpdateStatus status, callsite_t callsite)
 {
     int dataSize = -1;
     if (g_mode == ErrorMode_Global)
@@ -290,7 +290,7 @@ int error_makeUpdateErrorMessage(uint8_t buffer[], uint16_t size, uint8_t update
             UpdateError error =
             {
                 ErrorType_Update,
-                updateStatus,
+                status.mask,
                 {
                     HI_BYTE_16_BIT(callsite),
                     LO_BYTE_16_BIT(callsite),
@@ -308,7 +308,7 @@ int error_makeUpdateErrorMessage(uint8_t buffer[], uint16_t size, uint8_t update
 }
 
 
-int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cStatus i2cStatus, uint16_t callsite)
+int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cStatus status, callsite_t callsite)
 {
     int dataSize = -1;
     
@@ -321,7 +321,7 @@ int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cStatus i2cStat
             I2cError error =
             {
                 ErrorType_I2c,
-                i2cStatus.mask,
+                status.mask,
                 {
                     HI_BYTE_16_BIT(callsite),
                     LO_BYTE_16_BIT(callsite),
@@ -347,7 +347,7 @@ int error_makeI2cErrorMessage(uint8_t buffer[], uint16_t size, I2cStatus i2cStat
 }
 
 
-int error_makeUartErrorMessage(uint8_t buffer[], uint16_t size, uint8_t uartStatus, uint16_t callsite)
+int error_makeUartErrorMessage(uint8_t buffer[], uint16_t size, uint8_t uartStatus, callsite_t callsite)
 {
     int dataSize = -1;
     if (g_mode == ErrorMode_Global)
