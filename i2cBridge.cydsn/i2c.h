@@ -166,10 +166,6 @@
     /// @return If an error occurred according to the I2cStatus.
     bool i2c_errorOccurred(I2cStatus const status);
     
-    /// Accessor to get the I2cStatus structure with no error flags set.
-    /// @return The I2cStatus structure with no error flags set.
-    I2cStatus i2c_getNoErrorI2cStatus(void);
-    
     
     #ifdef __cplusplus
         }

@@ -113,10 +113,6 @@
     /// @return If an error occurred according to the UpdateStatus.
     bool uartUpdate_errorOccurred(UpdateStatus const status);
     
-    /// Accessor to get the UpdateStatus structure with no error flags set.
-    /// @return The UpdateStatus structure with no error flags set.
-    UpdateStatus uartUpdate_getNoErrorUpdateStatus(void);
-    
     
     #ifdef __cplusplus
         } // extern "C"

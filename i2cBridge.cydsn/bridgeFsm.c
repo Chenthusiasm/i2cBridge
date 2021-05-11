@@ -226,7 +226,7 @@ static void rearmErrorMessageAlarm(void)
 ///         BridgeStatus union.
 static BridgeStatus resetHeap(void)
 {
-    BridgeStatus status = bridgeFsm_getNoErrorBridgeStatus();
+    BridgeStatus status = G_NoErrorBridgeStatus;
     
     // Deactivate/deallocate the communication sub systems if they're activated.
     uint16_t deactivationSize = 0;
@@ -250,7 +250,7 @@ static BridgeStatus resetHeap(void)
 ///         BridgeStatus union.
 static BridgeStatus initHostComm(void)
 {
-    BridgeStatus status = bridgeFsm_getNoErrorBridgeStatus();
+    BridgeStatus status = G_NoErrorBridgeStatus;
     uint16_t size = uartTranslate_activate(&g_heap.data[g_heap.freeOffset], getFreeHeapWordSize());
     if (size > 0)
         g_heap.freeOffset += size;
@@ -281,7 +281,7 @@ static bool processInitHostComm(void)
 /// @return If the slave reset was initialized successfully.
 static bool processInitSlaveReset(void)
 {
-    BridgeStatus status = bridgeFsm_getNoErrorBridgeStatus();
+    BridgeStatus status = G_NoErrorBridgeStatus;
     if (!isSlaveResetting())
     {
         static uint32_t const DefaultResetTimeoutMs = 100u;
@@ -299,7 +299,7 @@ static bool processInitSlaveReset(void)
 static bool processSlaveResetComplete(void)
 {
     bool complete = false;
-    BridgeStatus status = bridgeFsm_getNoErrorBridgeStatus();
+    BridgeStatus status = G_NoErrorBridgeStatus;
     if (!g_resetAlarm.armed || alarm_hasElapsed(&g_resetAlarm))
     {
         resetSlave(false);
@@ -324,7 +324,7 @@ static bool processSlaveResetComplete(void)
 /// @return If the initialization was successful.
 static bool processInitSlaveTranslate(void)
 {
-    BridgeStatus status = bridgeFsm_getNoErrorBridgeStatus();
+    BridgeStatus status = G_NoErrorBridgeStatus;
     if (!(uartTranslate_isActivated() && i2cTouch_isActivated()))
     {
         status = resetHeap();
@@ -373,7 +373,7 @@ static bool processSlaveTranslate(void)
 /// @return If the initialization was successful.
 static bool processInitSlaveUpdate(void)
 {
-    BridgeStatus status = bridgeFsm_getNoErrorBridgeStatus();
+    BridgeStatus status = G_NoErrorBridgeStatus;
     if (!(uartUpdate_isActivated() && i2cUpdate_isActivated()))
     {
         status = resetHeap();
@@ -638,13 +638,7 @@ void bridgeFsm_requestReset(void)
 
 bool bridgeFsm_errorOccurred(BridgeStatus const status)
 {
-    return (status.mask > G_NoErrorBridgeStatus.mask);
-}
-
-
-BridgeStatus bridgeFsm_getNoErrorBridgeStatus(void)
-{
-    return G_NoErrorBridgeStatus;
+    return (status.mask != G_NoErrorBridgeStatus.mask);
 }
 
 

@@ -1865,7 +1865,7 @@ bool uartUpdate_process(void)
     static uint32_t const TimeoutMs = 30u;
     
     bool processed = false;
-    UpdateStatus status = uartUpdate_getNoErrorUpdateStatus();
+    UpdateStatus status = G_NoErrorUpdateStatus;
     if (uartUpdate_isActivated())
     {
         
@@ -1912,12 +1912,6 @@ bool uartUpdate_process(void)
 bool uartUpdate_errorOccurred(UpdateStatus const status)
 {
     return (status.mask != G_NoErrorUpdateStatus.mask);
-}
-
-
-UpdateStatus uartUpdate_getNoErrorUpdateStatus(void)
-{
-    return G_NoErrorUpdateStatus;
 }
 
 

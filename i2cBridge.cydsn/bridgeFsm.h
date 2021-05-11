@@ -93,10 +93,6 @@
     /// @return If an error occurred according to the BridgeStatus.
     bool bridgeFsm_errorOccurred(BridgeStatus const status);
     
-    /// Accessor to get the BridgeStatus structure with no error flags set.
-    /// @return The BridgeStatus structure with no error flags set.
-    BridgeStatus bridgeFsm_getNoErrorBridgeStatus(void);
-    
     
     #ifdef __cplusplus
         } // extern "C"
