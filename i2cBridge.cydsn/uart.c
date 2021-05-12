@@ -651,6 +651,10 @@ static UartRxOutOfFrameCallback g_rxOutOfFrameCallback = NULL;
 /// buffer is not large enough to store it so the data overflowed.
 static UartRxFrameOverflowCallback g_rxFrameOverflowCallback = NULL;
 
+/// The current callsite for the UART function; the callsite is a unique ID used
+/// to help identify where an error may have occurred.
+static Callsite g_uartCallsite = { 0u };
+
 
 // === PRIVATE FUNCTIONS =======================================================
 
@@ -1919,16 +1923,21 @@ bool uartUpdate_process(void)
             uint16_t size = queue_dequeue(&g_heap->decodedRxQueue, &data);
             if (size > 0)
             {
+                Callsite callsite = { 0u };
+                callsite.topCall += 1u;
                 if (validateUpdateSubchunk(data, size))
                 {
                     uint8_t const ReadDataSize = 2u;
                     uint8_t readData[ReadDataSize];
                     I2cStatus i2cStatus = i2cUpdate_bootloaderWrite(data, size, 0u);
+                    callsite.topCall += 2u;
                     if (i2cStatus.mask == 0u)
                     {
                         i2cStatus = i2cUpdate_bootloaderRead(readData, sizeof(readData), 0u);
+                        callsite.topCall += 4u;
                         if (i2cStatus.mask == 0u)
                         {
+                            callsite.topCall += 8u;
                             if (processBootloaderStatus(data[BootloaderRxOffset_Status], &status))
                             {
                             }
