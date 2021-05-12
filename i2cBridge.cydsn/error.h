@@ -96,6 +96,37 @@
     } ErrorType;
     
     
+    /// General data structure that defines how the callsite variable used for
+    /// error tracking is organized. This is a generalized version that assumes
+    /// the calliste has two distinct parts of the call: the top level and the
+    /// lower sub level.
+    ///
+    /// [0:7]:  subCall
+    /// [8:15]: topCall
+    ///
+    /// [0:15]: value;
+    typedef union Callsite
+    {
+        /// 16-bit value of the callsite as defined by callsite_t in the error
+        /// module.
+        callsite_t value;
+        
+        /// Anonymous struct that collects the 2 main parts of the callsite: the
+        /// sub call and the top call.
+        struct
+        {
+            /// Next level call below the top-level call. Used to help identify
+            /// where specifically the error occurred.
+            uint8_t subCall;
+            
+            /// The public function that serves as the top-level invocation in
+            /// the call chain within the module.
+            uint8_t topCall;
+        };
+        
+    } Callsite;
+    
+    
     // === FUNCTIONS ===========================================================
     
     /// Accessor to get the current error mode.

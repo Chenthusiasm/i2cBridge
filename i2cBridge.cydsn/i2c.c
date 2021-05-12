@@ -455,14 +455,14 @@ typedef struct UpdateHeap
 /// [8:15]: topCall
 ///
 /// [0:15]: value;
-typedef union Callsite
+typedef union I2cCallsite
 {
     /// 16-bit value of the callsite as defined by callsite_t in the error
     /// module.
     callsite_t value;
     
     /// Anonymous struct that collects the 2 main parts of the callsite: the
-    /// main site and sub value. 
+    /// main site and sub value.
     struct
     {
         /// Anonymous union that provides an alias for the sub value's members.
@@ -497,7 +497,7 @@ typedef union Callsite
         
     };
     
-} Callsite;
+} I2cCallsite;
 
 
 // === PRIVATE GLOBAL CONSTANTS ================================================
@@ -539,7 +539,7 @@ static uint32_t const G_DefaultLockedBusRecoveryPeriodMs = 50u;
 static uint8_t const G_MaxRecoveryAttempts = 10u;
 
 /// The default I2cStatus with no error flags set.
-I2cStatus const G_NoErrorI2cStatus = { 0u };
+static I2cStatus const G_NoErrorI2cStatus = { 0u };
 
 
 // === PRIVATE GLOBALS =========================================================
@@ -592,7 +592,7 @@ static mreturn_t g_lastDriverReturnValue = 0u;
 
 /// The current callsite; the callsite is a unique ID used to help identify
 /// where an error may have occurred.
-static Callsite g_callsite = { 0u };
+static I2cCallsite g_callsite = { 0u };
 
 
 // === PRIVATE FUNCTIONS =======================================================
