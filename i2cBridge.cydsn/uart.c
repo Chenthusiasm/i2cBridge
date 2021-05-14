@@ -392,9 +392,6 @@ typedef enum BootloaderStatus
     /// Last transaction had an invalid key.
     BootloaderStatus_InvalidKey         = 0x40,
     
-    /// Last transaction had a command that was not recognized.
-    BootloaderStatus_InvalidCommand     = 0x80,
-    
 } BootloaderStatus;
 
 
@@ -1589,12 +1586,6 @@ static bool processBootloaderStatus(uint8_t bootloaderStatus, UpdateStatus* upda
             break;
         }
         
-        case BootloaderStatus_InvalidCommand:
-        {
-            updateStatus->invalidCommand = true;
-            break;
-        }
-        
         default:
         {
             updateStatus->specificError = true;
@@ -1905,13 +1896,13 @@ bool uartUpdate_isActivated(void)
 
 bool uartUpdate_process(void)
 {
-    static uint32_t const TimeoutMs = 30u;
+    static uint32_t const TimeoutMs = 50u;
     
+    Callsite callsite = { 0u };
     bool processed = false;
     UpdateStatus status = G_NoErrorUpdateStatus;
     if (uartUpdate_isActivated())
     {
-        
         Alarm alarm;
         alarm_arm(&alarm, TimeoutMs, AlarmType_ContinuousNotification);
         while (!queue_isEmpty(&g_heap->decodedRxQueue))
@@ -1920,32 +1911,52 @@ bool uartUpdate_process(void)
                 break;
             
             uint8_t* data;
+            callsite.value = 0u;
+            callsite.topCall += 1;
             uint16_t size = queue_dequeue(&g_heap->decodedRxQueue, &data);
             if (size > 0)
             {
-                Callsite callsite = { 0u };
-                callsite.topCall += 1u;
+                callsite.topCall += 2u;
                 if (validateUpdateSubchunk(data, size))
                 {
                     uint8_t const ReadDataSize = 2u;
                     uint8_t readData[ReadDataSize];
                     I2cStatus i2cStatus = i2cUpdate_bootloaderWrite(data, size, 0u);
-                    callsite.topCall += 2u;
-                    if (i2cStatus.mask == 0u)
+                    callsite.subCall += 1u;
+                    if (!i2c_errorOccurred(i2cStatus))
                     {
-                        i2cStatus = i2cUpdate_bootloaderRead(readData, sizeof(readData), 0u);
-                        callsite.topCall += 4u;
-                        if (i2cStatus.mask == 0u)
+                        static uint32_t const ReadTimeoutMs = 30u;
+                        i2cStatus = i2cUpdate_bootloaderRead(readData, sizeof(readData), ReadTimeoutMs);
+                        callsite.subCall += 2u;
+                        if (!i2c_errorOccurred(i2cStatus))
                         {
-                            callsite.topCall += 8u;
+                            callsite.topCall += 4u;
                             if (processBootloaderStatus(data[BootloaderRxOffset_Status], &status))
                             {
                             }
                         }
+                        else
+                        {
+                            status.i2cCommError = true;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        status.i2cCommError = true;
+                        break;
                     }
                 }
                 else
+                {
                     status.invalidInputParameters = true;
+                    break;
+                }
+            }
+            else
+            {
+                status.invalidInputParameters = true;
+                break;
             }
         }
         processed = true;
@@ -1953,7 +1964,7 @@ bool uartUpdate_process(void)
     else
         status.deactivated = true;
     if (uartUpdate_errorOccurred(status))
-        processUpdateErrors(status, 0u);
+        processUpdateErrors(status, callsite.value);
     
     return processed;
 }
