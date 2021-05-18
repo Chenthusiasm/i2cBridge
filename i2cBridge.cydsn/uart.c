@@ -79,7 +79,8 @@
 
 // === TYPE DEFINES ============================================================
 
-/// Defines the different states of the protocol state machine.
+/// Defines the different states of the frame protocol receive finite state
+/// machine.
 typedef enum RxState
 {
     /// Outside of a valid data frame, do not process this data.
@@ -393,6 +394,30 @@ typedef enum BootloaderStatus
     BootloaderStatus_InvalidKey         = 0x40,
     
 } BootloaderStatus;
+
+
+/// Defines the different states of the update finite state machine.
+typedef enum UpdateState
+{
+    /// Wait state, don't perform any action.
+    UpdateState_Wait,
+    
+    /// Dequeue from the decoded receive queue.
+    UpdateState_RxDequeue,
+    
+    /// Verify the decoded receive packet.
+    UpdateState_VerifyRx,
+    
+    /// Write to the bootloader.
+    UpdateState_BootloaderWrite,
+    
+    /// Read response from the bootloader.
+    UpdateState_BootloaderReadResponse,
+    
+    /// An error occurred.
+    UpdateState_Error,
+    
+} UpdateState;
 
 
 /// Settings pertaining to the transmit enqueue.
