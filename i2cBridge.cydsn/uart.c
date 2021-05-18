@@ -400,7 +400,7 @@ typedef enum BootloaderStatus
 typedef enum UpdateState
 {
     /// Wait state, don't perform any action.
-    UpdateState_Wait,
+    UpdateState_Waiting,
     
     /// Dequeue from the decoded receive queue.
     UpdateState_RxDequeue,
@@ -494,6 +494,22 @@ typedef struct UpdateChunk
 } UpdateChunk;
 
 
+/// Structure to hold variables associated with the update finite state machine
+/// (FSM).
+typedef struct UpdateFsm
+{
+    /// Timeout alarm used to determine if the update processing has timed out.
+    Alarm timeoutAlarm;
+    
+    /// The current state.
+    UpdateState state;
+    
+    /// The last received bootloader response status value.
+    uint8_t lastBootloaderResponseStatus;
+    
+} UpdateFsm;
+
+
 /// Settings pertaining to the slave update. Note that these parameters are
 /// determined at runtime via the BridgeCommand_SlaveUpdate bridge command.
 /// File:       The entire data contents of the slave firmware update.
@@ -515,6 +531,9 @@ typedef struct UpdateFile
     /// chunk int he update process; if NULL, then the module is not in update
     /// mode.
     UpdateChunk* updateChunk;
+    
+    /// Pointer to the
+    UpdateFsm* updateFsm;
     
     /// The total size of the update file (raw data only) in bytes (unused).
     uint16_t totalSize;
@@ -580,6 +599,9 @@ typedef struct UpdateHeapData
 {
     /// Current status of the update chunk.
     UpdateChunk updateChunk;
+    
+    /// The update finite state machine (FSM).
+    UpdateFsm updateFsm;
     
     /// Array of decoded receive queue elements for the receive queue; these
     /// elements have been received but are pending processing.
@@ -653,7 +675,7 @@ UpdateStatus const G_NoErrorUpdateStatus = { 0u };
 static Heap* g_heap = NULL;
 
 /// Settings pertaining to the update file.
-static UpdateFile g_updateFile = { NULL, 0, 0, 0, 0, 0, 0 };
+static UpdateFile g_updateFile = { NULL, NULL, 0, 0, 0, 0, 0, 0 };
 
 /// The current state in the protocol state machine for receive processing.
 /// frame.
@@ -1400,6 +1422,26 @@ static bool processRxByte(uint8_t data)
 }
 
 
+/// Update finite state machine (FSM) to process any received decoded packets
+/// related to the update process.
+/// @param[in]  timeoutMs   The amount of time the process can occur before it
+///                         times out and must finish. If 0, then there's no
+///                         timeout and the function blocks until all pending
+///                         actions are completed.
+/// @return Status indicating if an error occured. See the definition of the
+///         UpdateStatus union.
+static UpdateStatus processUpdateFsm(uint32_t timeoutMs)
+{
+    UpdateStatus status = G_NoErrorUpdateStatus;
+    if (timeoutMs > 0)
+        alarm_arm(&g_updateFile.updateFsm->timeoutAlarm, timeoutMs, AlarmType_ContinuousNotification);
+    else
+        alarm_disarm(&g_updateFile.updateFsm->timeoutAlarm);
+        
+    return status;
+}
+
+
 /// Processes the receive buffer with the intent of parsing out valid frames of
 /// data.
 /// @param[in]  source          The buffer to process and parse to find full
@@ -1505,6 +1547,7 @@ static void initUpdateTxQueue(UpdateHeap* heap)
 static void initUpdatePacket(UpdateHeap* heap)
 {
     g_updateFile.updateChunk = &heap->heapData.updateChunk;
+    g_updateFile.updateFsm = &heap->heapData.updateFsm;
 }
 
 
@@ -1530,6 +1573,7 @@ static bool deactivate(void)
     }
     resetUpdateFile();
     g_updateFile.updateChunk = NULL;
+    g_updateFile.updateFsm = NULL;
     return deactivate;
 }
 
@@ -1794,6 +1838,7 @@ uint16_t uartTranslate_activate(heapWord_t memory[], uint16_t size)
         initTranslateDecodedRxQueue(heap);
         initTranslateTxQueue(heap);
         g_updateFile.updateChunk = NULL;
+        g_updateFile.updateFsm = NULL;
         initRx();
         registerI2cCallbacks();
         allocatedSize = requiredSize;
