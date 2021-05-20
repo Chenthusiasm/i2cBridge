@@ -1432,11 +1432,29 @@ static bool processRxByte(uint8_t data)
 ///         UpdateStatus union.
 static UpdateStatus processUpdateFsm(uint32_t timeoutMs)
 {
+    Alarm* alarm = &g_updateFile.updateFsm->timeoutAlarm;
+    UpdateState* state = &g_updateFile.updateFsm->state;
+    
     UpdateStatus status = G_NoErrorUpdateStatus;
     if (timeoutMs > 0)
-        alarm_arm(&g_updateFile.updateFsm->timeoutAlarm, timeoutMs, AlarmType_ContinuousNotification);
+        alarm_arm(alarm, timeoutMs, AlarmType_ContinuousNotification);
     else
-        alarm_disarm(&g_updateFile.updateFsm->timeoutAlarm);
+        alarm_disarm(alarm);
+        
+    if (*state == UpdateState_Waiting)
+    {
+        // @TODO: add some logic here to determine what should be the next state
+        // when in the waiting state.
+    }
+        
+    while (*state != UpdateState_Waiting)
+    {
+        if (alarm->armed && alarm_hasElapsed(alarm))
+        {
+            // @TODO: do we need to change state here.
+            break;
+        }
+    }
         
     return status;
 }
