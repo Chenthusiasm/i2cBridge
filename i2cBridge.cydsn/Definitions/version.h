@@ -50,7 +50,7 @@
     #define FEATURE_NUMBER              (3u)
     
     /// UICO revision number. Show as hex value.
-    #define REVISION_NUMBER             (0xa0)
+    #define REVISION_NUMBER             (0x00)
     
     
     #ifdef __cplusplus
